@@ -117,31 +117,14 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
       
       let videoPath = "";
       if (formData.videoFile) {
-        // Since we switched back to standard upload for 404 compatibility, 
-        // we'll simulate progress steps since standard upload doesn't provide a native browser progress hook easily
-        const progressInterval = setInterval(() => {
-          setUploadProgress(prev => {
-            if (prev >= 90) {
-              clearInterval(progressInterval);
-              return 90;
-            }
-            return prev + 5;
-          });
-        }, 2000);
-
-        try {
-          videoPath = await storageService.uploadVideoResumable(
-            formData.videoFile, 
-            newGame.id
-          );
-          clearInterval(progressInterval);
-          setUploadProgress(100);
-        } catch (uploadErr) {
-          clearInterval(progressInterval);
-          throw uploadErr;
-        }
+        // High-performance R2 upload with progress tracking
+        videoPath = await storageService.uploadVideo(
+          formData.videoFile, 
+          newGame.id,
+          (progress) => setUploadProgress(progress)
+        );
         
-        // Update game with storage path
+        // Update game with R2 storage key
         await supabase
           .from('games')
           .update({ video_path: videoPath })

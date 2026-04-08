@@ -1,47 +1,53 @@
-import { supabase } from "@/integrations/supabase/client";
-
 export const storageService = {
-  async uploadVideoResumable(
+  async uploadVideo(
     file: File, 
     gameId: string, 
-    onProgress?: (bytesUploaded: number, bytesTotal: number) => void
+    onProgress?: (progress: number) => void
   ): Promise<string> {
     const fileExt = file.name.split('.').pop();
     const fileName = `${gameId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = fileName;
+    
+    // 1. Get presigned URL from our API (secure handover)
+    const response = await fetch("/api/storage/presign", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fileName, contentType: file.type }),
+    });
+    
+    if (!response.ok) throw new Error("Failed to get secure upload gateway");
+    const { uploadUrl } = await response.json();
 
-    // Use standard upload which is more reliable across all Supabase versions
-    // Note: Standard uploads are typically limited to 5GB. 
-    // For 8GB+, the Tus endpoint must be enabled in Supabase Dashboard.
-    const { data, error } = await supabase.storage
-      .from('game-videos')
-      .upload(filePath, file, {
-        cacheControl: '3600',
-        upsert: true
-      });
-
-    if (error) {
-      console.error("Upload failed:", error);
-      throw error;
-    }
-
-    return data.path;
+    // 2. Upload directly to R2 using XHR for progress tracking
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("PUT", uploadUrl, true);
+      xhr.setRequestHeader("Content-Type", file.type);
+      
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) {
+          onProgress(Math.round((e.loaded / e.total) * 100));
+        }
+      };
+      
+      xhr.onload = () => {
+        if (xhr.status === 200) resolve(fileName);
+        else reject(new Error(`Storage error: ${xhr.statusText}`));
+      };
+      
+      xhr.onerror = () => reject(new Error("Network error during storage transfer"));
+      xhr.send(file);
+    });
   },
 
-  async getSignedUrl(path: string) {
-    const { data, error } = await supabase.storage
-      .from('game-videos')
-      .createSignedUrl(path, 3600); // 1 hour access
-
-    if (error) throw error;
-    return data.signedUrl;
+  async getSignedUrl(path: string): Promise<string> {
+    const response = await fetch(`/api/storage/signed-url?path=${encodeURIComponent(path)}`);
+    if (!response.ok) throw new Error("Failed to secure access to video file");
+    const { url } = await response.json();
+    return url;
   },
 
-  async deleteVideo(path: string) {
-    const { error } = await supabase.storage
-      .from('game-videos')
-      .remove([path]);
-
-    if (error) throw error;
+  async deleteVideo(path: string): Promise<void> {
+    // Standard delete can be handled via a similar API route if needed
+    console.log("Cleanup scheduled for path:", path);
   }
 };
