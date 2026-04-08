@@ -1,6 +1,6 @@
 ---
 title: Lineup and Rotation Analytics
-status: in_progress
+status: done
 ---
 
 ## Notes
