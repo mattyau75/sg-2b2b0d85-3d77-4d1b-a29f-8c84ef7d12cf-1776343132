@@ -49,9 +49,15 @@ export default async function handler(
       body: JSON.stringify({ 
         url: youtubeUrl,
         ...config,
-        team_metadata: {
-          home: { id: config.home_team_id, color: config.home_team_color },
-          away: { id: config.away_team_id, color: config.away_team_color }
+        metadata: {
+          camera: config.camera_type, // "panning" or "fixed"
+          optimization: "high_accuracy_indoor",
+          rim_detection: true,
+          jersey_detection: "small_object_optimized",
+          team_metadata: {
+            home: { id: config.home_team_id, color: config.home_team_color },
+            away: { id: config.away_team_id, color: config.away_team_color }
+          }
         }
       })
     });

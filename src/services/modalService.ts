@@ -15,6 +15,7 @@ export const modalService = {
     agnostic_nms?: boolean;
     rim_detection?: boolean;
     shot_logic?: boolean;
+    camera_type?: "panning" | "fixed";
     home_team_id?: string;
     away_team_id?: string;
     home_team_color?: string;
@@ -29,13 +30,14 @@ export const modalService = {
         youtubeUrl,
         config: {
           ...config,
-          imgsz: config?.imgsz || 1280,
+          imgsz: config?.imgsz || 1280, // Optimized for jersey numbers
           conf: config?.conf || 0.25,
           iou: config?.iou || 0.45,
-          tracking: config?.tracking ?? true,
+          tracking: config?.tracking ?? true, // Player ID persistence
           agnostic_nms: config?.agnostic_nms ?? true,
           rim_detection: config?.rim_detection ?? true,
           shot_logic: config?.shot_logic ?? true,
+          camera_type: config?.camera_type || "panning", // Default to panning for broadcast
         }
       }),
     });
