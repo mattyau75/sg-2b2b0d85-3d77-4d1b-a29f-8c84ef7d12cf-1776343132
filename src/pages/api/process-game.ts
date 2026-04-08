@@ -109,7 +109,14 @@ export default async function handler(
     });
 
   } catch (error: any) {
-    console.error("Modal processing error:", error);
-    return res.status(500).json({ message: "Failed to communicate with Modal.com" });
+    console.error("Modal processing error details:", {
+      message: error.message,
+      stack: error.stack,
+      cause: error.cause
+    });
+    return res.status(500).json({ 
+      message: "Failed to communicate with Modal.com",
+      details: error.message 
+    });
   }
 }
