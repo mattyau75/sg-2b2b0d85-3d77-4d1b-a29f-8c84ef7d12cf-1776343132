@@ -30,28 +30,62 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function TeamRoster() {
   const router = useRouter();
   const { id } = router.query;
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [newPlayer, setNewPlayer] = useState({ name: "", number: "", position: "" });
+  const { toast } = useToast();
+
+  const loadTeam = async () => {
+    if (!id) return;
+    try {
+      const data = await rosterService.getTeam(id as string);
+      setTeam(data);
+    } catch (error) {
+      console.error("Failed to load team:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!id) return;
-
-    async function loadTeam() {
-      try {
-        const data = await rosterService.getTeam(id as string);
-        setTeam(data);
-      } catch (error) {
-        console.error("Failed to load team:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadTeam();
   }, [id]);
+
+  const handleAddPlayer = async () => {
+    if (!newPlayer.name || !id) return;
+    try {
+      await rosterService.createPlayer({
+        name: newPlayer.name,
+        number: parseInt(newPlayer.number) || 0,
+        position: newPlayer.position,
+        team_id: id as string,
+        active: true
+      });
+      toast({ title: "Player Added", description: `${newPlayer.name} is now on the roster.` });
+      setIsAddPlayerOpen(false);
+      setNewPlayer({ name: "", number: "", position: "" });
+      loadTeam();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add player.", variant: "destructive" });
+    }
+  };
 
   if (loading) {
     return (
@@ -120,10 +154,56 @@ export default function TeamRoster() {
                 </div>
               </div>
             </div>
-            <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
-              <UserPlus className="mr-2 h-4 w-4" />
-              Add Player
-            </Button>
+            <Dialog open={isAddPlayerOpen} onOpenChange={setIsAddPlayerOpen}>
+              <DialogTrigger asChild>
+                <Button className="bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20">
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Add Player
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="bg-card border-border">
+                <DialogHeader>
+                  <DialogTitle>Add New Player</DialogTitle>
+                  <DialogDescription>Register a new athlete to the {team.name} active roster.</DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="pname">Full Name</Label>
+                    <Input 
+                      id="pname" 
+                      placeholder="e.g. Steph Curry" 
+                      value={newPlayer.name}
+                      onChange={(e) => setNewPlayer({ ...newPlayer, name: e.target.value })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="num">Jersey #</Label>
+                      <Input 
+                        id="num" 
+                        type="number" 
+                        placeholder="30" 
+                        value={newPlayer.number}
+                        onChange={(e) => setNewPlayer({ ...newPlayer, number: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="pos">Position</Label>
+                      <Input 
+                        id="pos" 
+                        placeholder="G, F, C" 
+                        value={newPlayer.position}
+                        onChange={(e) => setNewPlayer({ ...newPlayer, position: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsAddPlayerOpen(false)}>Cancel</Button>
+                  <Button onClick={handleAddPlayer}>Add to Roster</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 

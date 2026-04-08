@@ -8,25 +8,53 @@ import Link from "next/link";
 import { rosterService } from "@/services/rosterService";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
 
 export default function RosterDirectory() {
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
+  const [newTeam, setNewTeam] = useState({ name: "", city: "", primary_color: "#FF6B00" });
+  const { toast } = useToast();
+
+  const loadTeams = async () => {
+    try {
+      const data = await rosterService.getTeams();
+      setTeams(data);
+    } catch (error) {
+      console.error("Failed to load teams:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadTeams() {
-      try {
-        const data = await rosterService.getTeams();
-        setTeams(data);
-      } catch (error) {
-        console.error("Failed to load teams:", error);
-      } finally {
-        setLoading(false);
-      }
-    }
     loadTeams();
   }, []);
+
+  const handleAddTeam = async () => {
+    if (!newTeam.name) return;
+    try {
+      await rosterService.createTeam(newTeam);
+      toast({ title: "Team Created", description: `${newTeam.name} has been added to the registry.` });
+      setIsAddTeamOpen(false);
+      setNewTeam({ name: "", city: "", primary_color: "#FF6B00" });
+      loadTeams();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to create team.", variant: "destructive" });
+    }
+  };
 
   const filteredTeams = teams.filter(team => 
     team.name.toLowerCase().includes(search.toLowerCase()) || 
@@ -41,10 +69,44 @@ export default function RosterDirectory() {
             <h1 className="text-3xl font-bold tracking-tight">Team Directory</h1>
             <p className="text-muted-foreground">Manage organizational rosters and player performance profiles.</p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
-            <Plus className="mr-2 h-4 w-4" />
-            Add Team
-          </Button>
+          <Dialog open={isAddTeamOpen} onOpenChange={setIsAddTeamOpen}>
+            <DialogTrigger asChild>
+              <Button className="bg-primary hover:bg-primary/90">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Team
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-card border-border">
+              <DialogHeader>
+                <DialogTitle>Create New Team</DialogTitle>
+                <DialogDescription>Add a new organization to the CourtVision registry.</DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Team Name</Label>
+                  <Input 
+                    id="name" 
+                    placeholder="e.g. Golden State Warriors" 
+                    value={newTeam.name}
+                    onChange={(e) => setNewTeam({ ...newTeam, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="city">City</Label>
+                  <Input 
+                    id="city" 
+                    placeholder="e.g. San Francisco" 
+                    value={newTeam.city}
+                    onChange={(e) => setNewTeam({ ...newTeam, city: e.target.value })}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddTeamOpen(false)}>Cancel</Button>
+                <Button onClick={handleAddTeam}>Save Team</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
 
         <div className="relative">

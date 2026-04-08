@@ -1,6 +1,6 @@
 ---
 title: Team & Player Roster Management
-status: in_progress
+status: done
 priority: medium
 type: feature
 tags: ["roster", "teams", "players"]
@@ -17,5 +17,5 @@ Create a centralized hub for managing and viewing teams and their player rosters
 - [x] Add "Roster" navigation link to Layout.tsx
 - [x] Create /roster/index.tsx: Team directory with high-contrast cards
 - [x] Create /roster/[id].tsx: Detailed team view with player list table
-- [ ] Implement "Add Team" and "Add Player" modals (Admin/Scout level)
-- [ ] Add player performance badges (Position, Height, Number)
+- [x] Implement "Add Team" and "Add Player" modals (Admin/Scout level)
+- [x] Add player performance badges (Position, Height, Number)
