@@ -37,14 +37,26 @@ export const rosterService = {
     return data;
   },
 
-  createTeam: async (team: Database["public"]["Tables"]["teams"]["Insert"]) => {
+  createTeam: async (team: { name: string; city?: string; logo_url?: string; primary_color?: string }) => {
     const { data, error } = await supabase.from("teams").insert(team).select().single();
     if (error) throw error;
     return data;
   },
 
-  createPlayer: async (player: Database["public"]["Tables"]["players"]["Insert"]) => {
+  updateTeam: async (id: string, updates: { name?: string; city?: string; logo_url?: string; primary_color?: string }) => {
+    const { data, error } = await supabase.from("teams").update(updates).eq("id", id).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  createPlayer: async (player: { team_id: string; name: string; number?: string; position?: string; avatar_url?: string }) => {
     const { data, error } = await supabase.from("players").insert(player).select().single();
+    if (error) throw error;
+    return data;
+  },
+
+  updatePlayer: async (id: string, updates: { name?: string; number?: string; position?: string; avatar_url?: string }) => {
+    const { data, error } = await supabase.from("players").update(updates).eq("id", id).select().single();
     if (error) throw error;
     return data;
   }
