@@ -30,6 +30,15 @@ import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
 import { supabase } from "@/integrations/supabase/client";
 
+const STATUS_PROGRESS: Record<string, number> = {
+  'queued': 15,
+  'processing': 35,
+  'analyzing': 65,
+  'finalizing': 90,
+  'completed': 100,
+  'error': 0
+};
+
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
@@ -54,10 +63,22 @@ export default function Home() {
             home_team:teams!games_home_team_id_fkey(name),
             away_team:teams!games_away_team_id_fkey(name)
           `)
-          .order("created_at", { ascending: false })
-          .limit(3);
+          .order("created_at", { ascending: false });
         
-        if (!gamesError && games) setRecentGames(games);
+        if (!gamesError && games) {
+          setRecentGames(games.filter(g => g.status === 'completed').slice(0, 3));
+          
+          // Identify active processing jobs from the database
+          const active = games
+            .filter(g => g.status !== 'completed' && g.status !== 'scheduled')
+            .map(g => ({
+              id: g.id,
+              name: `${g.home_team?.name || 'Home'} vs ${g.away_team?.name || 'Away'}`,
+              status: g.status,
+              progress: STATUS_PROGRESS[g.status as string] || 10
+            }));
+          setActiveJobs(active);
+        }
 
         // Fetch total video clips (Play-by-Play events with video URLs)
         const { count, error: countError } = await supabase
@@ -79,10 +100,50 @@ export default function Home() {
     };
 
     fetchDashboardData();
+
+    // Subscribe to Realtime Game Status Updates
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'games' },
+        (payload) => {
+          const updatedGame = payload.new as any;
+          
+          if (updatedGame.status === 'completed') {
+            setActiveJobs(prev => prev.filter(j => j.id !== updatedGame.id));
+            fetchDashboardData(); // Refresh recent games list
+          } else if (updatedGame.status !== 'scheduled') {
+            setActiveJobs(prev => {
+              const existing = prev.find(j => j.id === updatedGame.id);
+              if (existing) {
+                return prev.map(j => j.id === updatedGame.id ? {
+                  ...j,
+                  status: updatedGame.status,
+                  progress: STATUS_PROGRESS[updatedGame.status] || j.progress
+                } : j);
+              } else {
+                return [{
+                  id: updatedGame.id,
+                  name: "Analysis in Progress",
+                  status: updatedGame.status,
+                  progress: STATUS_PROGRESS[updatedGame.status] || 10
+                }, ...prev];
+              }
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleNewJob = (jobId: string) => {
-    setActiveJobs([{ name: "New Analysis Job", progress: 5, status: "Initiated", id: jobId }, ...activeJobs]);
+    // Note: The realtime subscription will now handle the status updates automatically
+    // once the database record is created/updated by the Modal bridge.
   };
 
   return (
@@ -251,23 +312,36 @@ export default function Home() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {activeJobs.map((job, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex justify-between text-[10px] font-mono">
-                      <span className="text-muted-foreground uppercase truncate w-32">{job.name}</span>
-                      <span className={job.status === "Completed" ? "text-accent" : "text-primary"}>{job.status}</span>
+                {activeJobs.length > 0 ? (
+                  activeJobs.map((job, i) => (
+                    <div key={i} className="space-y-2 group">
+                      <div className="flex justify-between text-[10px] font-mono">
+                        <span className="text-muted-foreground uppercase truncate w-32 group-hover:text-foreground transition-colors">{job.name}</span>
+                        <span className={cn(
+                          "uppercase tracking-tighter font-bold",
+                          job.status === "error" ? "text-destructive" : 
+                          job.status === "finalizing" ? "text-accent" : "text-primary"
+                        )}>
+                          {job.status}
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
+                        <div 
+                          className={cn(
+                            "h-full transition-all duration-1000",
+                            job.status === "error" ? "bg-destructive" :
+                            job.status === "finalizing" ? "bg-accent" : "bg-primary"
+                          )}
+                          style={{ width: `${job.progress}%` }} 
+                        />
+                      </div>
                     </div>
-                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div 
-                        className={cn(
-                          "h-full transition-all duration-1000",
-                          job.status === "Completed" ? "bg-accent" : "bg-primary"
-                        )}
-                        style={{ width: `${job.progress}%` }} 
-                      />
-                    </div>
+                  ))
+                ) : (
+                  <div className="py-4 text-center">
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">No active processing</p>
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </div>
