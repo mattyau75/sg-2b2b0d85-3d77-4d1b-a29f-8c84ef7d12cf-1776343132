@@ -25,7 +25,12 @@ export default function RosterDirectory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
-  const [newTeam, setNewTeam] = useState({ name: "", city: "", primary_color: "#FF6B00" });
+  const [newTeam, setNewTeam] = useState({ 
+    name: "", 
+    city: "", 
+    primary_color: "#FF6B00",
+    secondary_color: "#FFFFFF" 
+  });
   const { toast } = useToast();
 
   const loadTeams = async () => {
@@ -49,7 +54,7 @@ export default function RosterDirectory() {
       await rosterService.createTeam(newTeam);
       toast({ title: "Team Created", description: `${newTeam.name} has been added to the registry.` });
       setIsAddTeamOpen(false);
-      setNewTeam({ name: "", city: "", primary_color: "#FF6B00" });
+      setNewTeam({ name: "", city: "", primary_color: "#FF6B00", secondary_color: "#FFFFFF" });
       loadTeams();
     } catch (error) {
       toast({ title: "Error", description: "Failed to create team.", variant: "destructive" });
@@ -100,20 +105,38 @@ export default function RosterDirectory() {
                     onChange={(e) => setNewTeam({ ...newTeam, city: e.target.value })}
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="color">Primary Team Color</Label>
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="h-10 w-10 rounded-lg border border-border shadow-inner"
-                      style={{ backgroundColor: newTeam.primary_color }}
-                    />
-                    <input 
-                      id="color"
-                      type="color" 
-                      value={newTeam.primary_color}
-                      onChange={(e) => setNewTeam({ ...newTeam, primary_color: e.target.value })}
-                      className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
-                    />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="color">Primary Color</Label>
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="h-10 w-10 rounded-lg border border-border shadow-inner flex-shrink-0"
+                        style={{ backgroundColor: newTeam.primary_color }}
+                      />
+                      <input 
+                        id="color"
+                        type="color" 
+                        value={newTeam.primary_color}
+                        onChange={(e) => setNewTeam({ ...newTeam, primary_color: e.target.value })}
+                        className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="scolor">Secondary Color</Label>
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="h-10 w-10 rounded-lg border border-border shadow-inner flex-shrink-0"
+                        style={{ backgroundColor: newTeam.secondary_color }}
+                      />
+                      <input 
+                        id="scolor"
+                        type="color" 
+                        value={newTeam.secondary_color}
+                        onChange={(e) => setNewTeam({ ...newTeam, secondary_color: e.target.value })}
+                        className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
