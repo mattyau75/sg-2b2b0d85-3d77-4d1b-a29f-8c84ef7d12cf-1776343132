@@ -13,10 +13,17 @@ export default async function handler(
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  const { youtubeUrl, config } = req.body;
+  const { youtubeUrl, config, gameId } = req.body;
 
   if (!youtubeUrl) {
     return res.status(400).json({ message: "YouTube URL is required" });
+  }
+
+  // Normalize URL for Modal/yt-dlp compatibility
+  let normalizedUrl = youtubeUrl;
+  if (youtubeUrl.includes("youtu.be/")) {
+    const videoId = youtubeUrl.split("youtu.be/")[1]?.split("?")[0];
+    normalizedUrl = `https://www.youtube.com/watch?v=${videoId}`;
   }
 
   const MODAL_TOKEN_ID = process.env.MODAL_TOKEN_ID;
@@ -76,11 +83,20 @@ export default async function handler(
     });
     */
 
+    // Update game status in database to 'queued'
+    if (gameId) {
+      await supabase
+        .from('games')
+        .update({ status: 'queued', youtube_url: normalizedUrl })
+        .eq('id', gameId);
+    }
+
     // Simulating success for the bridge verification
     return res.status(200).json({ 
       success: true, 
       message: "Modal.com GPU pipeline initiated successfully.",
-      job_id: `modal_job_${Math.random().toString(36).substr(2, 9)}`
+      job_id: `modal_job_${Math.random().toString(36).substr(2, 9)}`,
+      normalized_url: normalizedUrl
     });
 
   } catch (error) {
