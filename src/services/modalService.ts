@@ -22,6 +22,7 @@ export const modalService = {
     away_team_color?: string;
     gameId?: string;
   }) => {
+    console.log("Service: Initiating GPU process request for", youtubeUrl);
     const response = await fetch("/api/process-game", {
       method: "POST",
       headers: {
@@ -47,6 +48,7 @@ export const modalService = {
     const data = await response.json();
 
     if (!response.ok) {
+      console.error("Service: GPU Request Failed:", data);
       throw new Error(data.message || "Failed to process game");
     }
 

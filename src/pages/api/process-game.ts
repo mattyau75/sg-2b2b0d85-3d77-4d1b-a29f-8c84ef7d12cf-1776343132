@@ -9,6 +9,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  console.log("Server: Incoming GPU Handshake Request:", { method: req.method, body: req.body });
+  
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
