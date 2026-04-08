@@ -69,6 +69,8 @@ export default function Home() {
     iou: 0.45,
     tracking: true,
     agnosticNms: true,
+    rimDetection: true,
+    shotLogic: true,
   });
   const { toast } = useToast();
 
@@ -99,6 +101,8 @@ export default function Home() {
         iou: config.iou,
         tracking: config.tracking,
         agnostic_nms: config.agnosticNms,
+        rim_detection: config.rimDetection,
+        shot_logic: config.shotLogic,
       });
       toast({
         title: "Processing Started",
@@ -208,6 +212,35 @@ export default function Home() {
                           checked={config.agnosticNms}
                           onCheckedChange={(val) => setConfig({ ...config, agnosticNms: val })}
                         />
+                      </div>
+
+                      <div className="pt-4 border-t border-border space-y-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <Target className="h-4 w-4 text-primary" />
+                          <h4 className="font-bold text-sm">Shot Intelligence</h4>
+                        </div>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Rim Detection</Label>
+                            <p className="text-[9px] text-muted-foreground">SOTA Roboflow v2 Rim model</p>
+                          </div>
+                          <Switch 
+                            checked={config.rimDetection}
+                            onCheckedChange={(val) => setConfig({ ...config, rimDetection: val })}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Shot Attribution</Label>
+                            <p className="text-[9px] text-muted-foreground">Auto-match to Team Roster</p>
+                          </div>
+                          <Switch 
+                            checked={config.shotLogic}
+                            onCheckedChange={(val) => setConfig({ ...config, shotLogic: val })}
+                          />
+                        </div>
                       </div>
                     </div>
                   </PopoverContent>

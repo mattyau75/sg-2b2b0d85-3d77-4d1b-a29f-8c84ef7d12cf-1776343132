@@ -1,6 +1,6 @@
 ---
 title: Rim Detection & Automated Shot Attribution
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: ["ai", "rim-detection", "shot-logic"]
@@ -14,7 +14,7 @@ Implement Rim/Ball detection logic for automated shot classification (made/misse
 
 ## Checklist:
 - [x] Research SOTA Rim detection datasets (Roboflow v2 recommended)
-- [ ] Add "Rim Detection" and "Shot Logic" toggles to Advanced Settings
-- [ ] Update modalService.ts to support dual-model inference (Player + Rim/Ball)
-- [ ] Update /api/process-game.ts to forward Rim/Ball config
-- [ ] Implement UI indicators for "Hoop Tracking" status
+- [x] Add "Rim Detection" and "Shot Logic" toggles to Advanced Settings
+- [x] Update modalService.ts to support dual-model inference (Player + Rim/Ball)
+- [x] Update /api/process-game.ts to forward Rim/Ball config
+- [x] Implement UI indicators for "Hoop Tracking" status
