@@ -1,6 +1,6 @@
 ---
 title: Boxscore & Play-by-Play Implementation
-status: todo
+status: done
 priority: high
 type: feature
 tags: [ui, data]
@@ -13,7 +13,7 @@ position: 3
 Traditional and advanced basketball metrics tables.
 
 ## Checklist:
-- [ ] Create Boxscore.tsx: High-density data table for PTS, REB, AST, STL, BLK, FG%, 3P%
-- [ ] Create PlayByPlay.tsx: Chronological list of events with icons
-- [ ] Add timestamp seeking logic for video integration
-- [ ] Implement team toggle (Home vs Away stats)
+- [x] Create Boxscore.tsx: High-density data table for PTS, REB, AST, STL, BLK, FG%, 3P%
+- [x] Create PlayByPlay.tsx: Chronological list of events with icons
+- [x] Add timestamp seeking logic for video integration
+- [x] Implement team toggle (Home vs Away stats)

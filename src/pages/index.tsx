@@ -3,7 +3,6 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ShotChart, Shot } from "@/components/Court"; // I'll fix the import in next iteration
 import { 
   Play, 
   Target, 
@@ -12,9 +11,19 @@ import {
   ChevronRight,
   TrendingUp,
   Cpu,
-  Download
+  Download,
+  ListTodo
 } from "lucide-react";
-import { ShotChart as ShotChartComponent } from "@/components/ShotChart";
+import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 const MOCK_SHOTS: Shot[] = [
   { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
@@ -22,6 +31,22 @@ const MOCK_SHOTS: Shot[] = [
   { id: "3", x: 400, y: 140, is_made: false, player_name: "Jordan Poole", shot_type: "3PT Jumper", timestamp: "Q1 05:30" },
   { id: "4", x: 250, y: 250, is_made: true, player_name: "Steph Curry", shot_type: "Midrange Jumper", timestamp: "Q1 04:15" },
   { id: "5", x: 50, y: 50, is_made: false, player_name: "Draymond Green", shot_type: "Hook Shot", timestamp: "Q1 02:10" },
+];
+
+const MOCK_STATS = [
+  { player: "Steph Curry", pos: "G", min: "34", pts: "32", reb: "5", ast: "8", stl: "2", blk: "0", fg: "11-18", tp: "6-10" },
+  { player: "Klay Thompson", pos: "G", min: "32", pts: "22", reb: "3", ast: "2", stl: "1", blk: "1", fg: "8-16", tp: "4-9" },
+  { player: "Andrew Wiggins", pos: "F", min: "30", pts: "18", reb: "7", ast: "1", stl: "2", blk: "2", fg: "7-12", tp: "2-4" },
+  { player: "Draymond Green", pos: "F", min: "28", pts: "8", reb: "12", ast: "10", stl: "1", blk: "1", fg: "3-5", tp: "0-1" },
+  { player: "Kevon Looney", pos: "C", min: "24", pts: "6", reb: "10", ast: "4", stl: "0", blk: "1", fg: "3-4", tp: "0-0" },
+];
+
+const MOCK_PBP = [
+  { time: "08:45", quarter: "Q1", event: "Steph Curry makes 2pt layup", score: "2-0", player: "Steph Curry" },
+  { time: "08:20", quarter: "Q1", event: "Jayson Tatum misses 3pt jumper", score: "2-0", player: "Jayson Tatum" },
+  { time: "07:55", quarter: "Q1", event: "Draymond Green defensive rebound", score: "2-0", player: "Draymond Green" },
+  { time: "07:32", quarter: "Q1", event: "Andrew Wiggins makes 2pt jumper", score: "4-0", player: "Andrew Wiggins" },
+  { time: "07:12", quarter: "Q1", event: "Klay Thompson makes 3pt jumper (Steph Curry assist)", score: "7-0", player: "Klay Thompson" },
 ];
 
 export default function Home() {
@@ -82,45 +107,149 @@ export default function Home() {
 
         {/* Main Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <Card className="lg:col-span-2 glass-card border-none">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5 text-primary" />
-                Latest Game Analysis
-              </CardTitle>
-              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground hover:text-foreground">
-                View Full Table <ChevronRight className="ml-1 h-3 w-3" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-video rounded-2xl bg-muted/30 border border-white/5 flex items-center justify-center group cursor-pointer relative overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                  <div className="space-y-1">
-                    <p className="font-bold">GSW vs BOS - Q3 Highlights</p>
-                    <p className="text-sm text-muted-foreground">Processed with YOLOv11m • 14 Clips detected</p>
+          <div className="lg:col-span-2 space-y-8">
+            <Card className="glass-card border-none">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5 text-primary" />
+                  Latest Game Analysis
+                </CardTitle>
+                <div className="flex gap-2">
+                  <Badge variant="secondary" className="font-mono text-[10px]">GSW 112</Badge>
+                  <Badge variant="outline" className="font-mono text-[10px]">BOS 108</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="aspect-video rounded-2xl bg-muted/30 border border-white/5 flex items-center justify-center group cursor-pointer relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
+                    <div className="space-y-1">
+                      <p className="font-bold">GSW vs BOS - Q3 Highlights</p>
+                      <p className="text-sm text-muted-foreground">Processed with YOLOv11m • 14 Clips detected</p>
+                    </div>
+                  </div>
+                  <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center shadow-2xl scale-90 group-hover:scale-100 transition-transform">
+                    <Play className="h-6 w-6 text-white fill-current translate-x-0.5" />
                   </div>
                 </div>
-                <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center shadow-2xl scale-90 group-hover:scale-100 transition-transform">
-                  <Play className="h-6 w-6 text-white fill-current translate-x-0.5" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
 
-          <Card className="glass-card border-none">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5 text-accent" />
-                Shot Chart
-              </CardTitle>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                <Download className="h-4 w-4" />
-              </Button>
-            </CardHeader>
-            <CardContent>
-              <ShotChartComponent shots={MOCK_SHOTS} />
-            </CardContent>
-          </Card>
+            <Tabs defaultValue="boxscore" className="w-full">
+              <TabsList className="bg-card/50 border border-white/5 p-1 rounded-xl mb-6">
+                <TabsTrigger value="boxscore" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
+                  Boxscore
+                </TabsTrigger>
+                <TabsTrigger value="pbp" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
+                  Play-by-Play
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="boxscore">
+                <Card className="glass-card border-none overflow-hidden">
+                  <Table>
+                    <TableHeader className="bg-white/5">
+                      <TableRow className="hover:bg-transparent border-white/5">
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider">Player</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Pos</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Min</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Pts</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Reb</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Ast</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">FG</TableHead>
+                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">3P</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {MOCK_STATS.map((row) => (
+                        <TableRow key={row.player} className="border-white/5 hover:bg-white/5 transition-colors">
+                          <TableCell className="font-medium py-3">{row.player}</TableCell>
+                          <TableCell className="text-center text-muted-foreground font-mono text-xs">{row.pos}</TableCell>
+                          <TableCell className="text-center font-mono text-xs">{row.min}</TableCell>
+                          <TableCell className="text-center font-mono font-bold text-accent">{row.pts}</TableCell>
+                          <TableCell className="text-center font-mono text-xs">{row.reb}</TableCell>
+                          <TableCell className="text-center font-mono text-xs">{row.ast}</TableCell>
+                          <TableCell className="text-center font-mono text-xs">{row.fg}</TableCell>
+                          <TableCell className="text-center font-mono text-xs">{row.tp}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="pbp">
+                <Card className="glass-card border-none p-2">
+                  <div className="space-y-1">
+                    {MOCK_PBP.map((event, i) => (
+                      <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer">
+                        <div className="text-[10px] font-mono text-muted-foreground w-12">{event.time}</div>
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
+                          <Target className="h-4 w-4" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">{event.event}</p>
+                          <p className="text-[10px] font-mono text-muted-foreground uppercase">{event.player}</p>
+                        </div>
+                        <div className="text-xs font-mono font-bold text-accent">{event.score}</div>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
+                          <Play className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          <div className="space-y-8">
+            <Card className="glass-card border-none">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5 text-accent" />
+                  Shot Chart
+                </CardTitle>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                  <Download className="h-4 w-4" />
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <ShotChartComponent shots={MOCK_SHOTS} />
+              </CardContent>
+            </Card>
+
+            <Card className="glass-card border-none">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm">
+                  <ListTodo className="h-4 w-4 text-primary" />
+                  Processing Queue
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {[
+                  { name: "LAL vs GSW - Full Game", progress: 100, status: "Completed" },
+                  { name: "MIL vs PHX - Highlights", progress: 65, status: "Processing" },
+                  { name: "BOS vs MIA - Q1", progress: 0, status: "Pending" },
+                ].map((job, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="flex justify-between text-[10px] font-mono">
+                      <span className="text-muted-foreground uppercase truncate w-32">{job.name}</span>
+                      <span className={job.status === "Completed" ? "text-accent" : "text-primary"}>{job.status}</span>
+                    </div>
+                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div 
+                        className={cn(
+                          "h-full transition-all duration-1000",
+                          job.status === "Completed" ? "bg-accent" : "bg-primary"
+                        )}
+                        style={{ width: `${job.progress}%` }} 
+                      />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </Layout>

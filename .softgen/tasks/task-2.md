@@ -1,6 +1,6 @@
 ---
 title: Interactive Court & Shot Chart Components
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [ui, components]
@@ -16,4 +16,4 @@ Visualizing where shots are taken on the court.
 - [x] Create Court.tsx: SVG basketball court with standard dimensions
 - [x] Create ShotChart.tsx: Overlay points on Court component with filtering
 - [x] Implement color coding for makes (green) vs misses (red)
-- [ ] Add player/team filter logic for the chart
+- [x] Add player/team filter logic for the chart
