@@ -13,6 +13,8 @@ export const modalService = {
     iou?: number;
     tracking?: boolean;
     agnostic_nms?: boolean;
+    rim_detection?: boolean;
+    shot_logic?: boolean;
   }) => {
     const response = await fetch("/api/process-game", {
       method: "POST",
@@ -22,11 +24,13 @@ export const modalService = {
       body: JSON.stringify({ 
         youtubeUrl,
         config: {
-          imgsz: config?.imgsz || 1280, // Default to 1280 for small numbers
+          imgsz: config?.imgsz || 1280,
           conf: config?.conf || 0.25,
           iou: config?.iou || 0.45,
           tracking: config?.tracking ?? true,
           agnostic_nms: config?.agnostic_nms ?? true,
+          rim_detection: config?.rim_detection ?? true,
+          shot_logic: config?.shot_logic ?? true,
         }
       }),
     });
