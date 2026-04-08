@@ -142,6 +142,28 @@ export default async function handler(
         const successData = await modalResponse.json().catch(() => null);
         console.log("Server: Modal handshake successful. Response data:", successData);
         
+        // Save the Modal response to the database so we can inspect it without console logs
+        // and bump the status to 'processing' (35%) so the UI moves forward.
+        if (gameId) {
+          let nextStatus = 'processing';
+          let progress = 35;
+          
+          // If Modal returned synchronous completion data, mark it completed
+          if (successData && (successData.status === 'completed' || successData.stats)) {
+            nextStatus = 'completed';
+            progress = 100;
+          }
+
+          await supabase
+            .from('games')
+            .update({ 
+              status: nextStatus,
+              progress_percentage: progress,
+              processing_metadata: successData || { note: "Received 200 OK from Modal, but no JSON body." }
+            })
+            .eq('id', gameId);
+        }
+        
         return res.status(200).json({ 
           success: true, 
           message: "Modal.com GPU pipeline initiated successfully.",
