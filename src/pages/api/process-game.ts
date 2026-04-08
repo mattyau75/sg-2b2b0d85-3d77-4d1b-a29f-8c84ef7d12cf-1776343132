@@ -138,6 +138,7 @@ export default async function handler(
         // Buffer for JSON-lines
         let buffer = "";
         let hasResponded = false;
+        let finalResultReceived = false;
 
         // Background loop to process the stream
         const processStream = async () => {
@@ -165,7 +166,8 @@ export default async function handler(
                       .from('games')
                       .update({ 
                         progress_percentage: progress,
-                        status: 'analyzing'
+                        status: 'analyzing',
+                        updated_at: new Date().toISOString()
                       })
                       .eq('id', gameId);
                   }
@@ -173,27 +175,40 @@ export default async function handler(
                   // Handle Final Result
                   if (data.__result && gameId) {
                     console.log(`Server: Game ${gameId} COMPLETED`);
-                    const resultString = JSON.stringify(data.__result);
+                    finalResultReceived = true;
                     await supabase
                       .from('games')
                       .update({ 
                         status: 'completed',
                         progress_percentage: 100,
-                        processing_metadata: resultString
+                        processing_metadata: data.__result, // Pass object directly for jsonb
+                        updated_at: new Date().toISOString()
                       })
                       .eq('id', gameId);
+                    
+                    // Trigger stats sync
+                    try {
+                      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/sync-game-stats`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ gameId })
+                      });
+                    } catch (syncErr) {
+                      console.error("Server: Failed to trigger stats sync:", syncErr);
+                    }
                   }
 
                   // Handle Errors from the Python Subprocess
                   if (data.__error && gameId) {
                     console.error(`Server: GPU Error for ${gameId}:`, data.__error);
-                    const errorString = JSON.stringify({ error: data.__error });
+                    finalResultReceived = true; // Mark as "handled"
                     await supabase
                       .from('games')
                       .update({ 
                         status: 'failed', 
                         last_error: data.__error,
-                        processing_metadata: errorString
+                        processing_metadata: { error: data.__error },
+                        updated_at: new Date().toISOString()
                       })
                       .eq('id', gameId);
                   }
@@ -202,11 +217,25 @@ export default async function handler(
                 }
               }
 
-              // Send initial response to client after the first chunk of data arrives
+              // In some environments, we must respond quickly. 
+              // We respond after the first progress line to let the UI know it's alive.
               if (!hasResponded) {
                 hasResponded = true;
                 res.status(200).json({ success: true, message: "Processing started on GPU cluster." });
               }
+            }
+
+            // Cleanup: If stream ended but no result was saved
+            if (!finalResultReceived && gameId) {
+              console.warn(`Server: Stream ended for ${gameId} without result or error.`);
+              await supabase
+                .from('games')
+                .update({ 
+                  status: 'failed', 
+                  last_error: "Video processing interrupted (Unexpected end of stream).",
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', gameId);
             }
           } catch (streamError) {
             console.error("Server: Stream processing interrupted:", streamError);
@@ -214,11 +243,13 @@ export default async function handler(
         };
 
         // Start processing the stream
+        // Note: In serverless, we might need to await this to keep the function alive
+        // but for now we follow the background pattern as the user sees progress.
         await processStream();
         
-        // Ensure we always respond if the stream finished immediately
+        // Ensure we always respond if the stream finished immediately or hasResponded was never set
         if (!hasResponded) {
-          res.status(200).json({ success: true, message: "Processing finished (short video or empty stream)." });
+          res.status(200).json({ success: true, message: "Handshake completed." });
         }
 
         return; 
