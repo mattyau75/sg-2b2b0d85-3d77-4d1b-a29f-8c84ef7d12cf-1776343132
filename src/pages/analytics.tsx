@@ -111,7 +111,7 @@ export default function AnalyticsPage() {
                   <div className={`p-2 rounded-lg bg-muted/50 ${metric.color}`}>
                     <metric.icon className="h-5 w-5" />
                   </div>
-                  <Badge variant="ghost" className={metric.trend.startsWith('+') ? "text-green-500" : "text-accent"}>
+                  <Badge variant="outline" className={metric.trend.startsWith('+') ? "text-green-500 border-green-500/20" : "text-accent border-accent/20"}>
                     {metric.trend.startsWith('+') ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
                     {metric.trend}
                   </Badge>
