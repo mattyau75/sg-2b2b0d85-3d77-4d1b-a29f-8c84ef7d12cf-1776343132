@@ -99,6 +99,24 @@ export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) 
     }
   };
 
+  const handleHomeTeamChange = (teamId: string) => {
+    const team = teams.find(t => t.id === teamId);
+    setFormData(prev => ({ 
+      ...prev, 
+      homeTeamId: teamId,
+      homeColor: team?.primary_color || prev.homeColor 
+    }));
+  };
+
+  const handleAwayTeamChange = (teamId: string) => {
+    const team = teams.find(t => t.id === teamId);
+    setFormData(prev => ({ 
+      ...prev, 
+      awayTeamId: teamId,
+      awayColor: team?.primary_color || prev.awayColor 
+    }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-card border-border p-0 overflow-hidden">
@@ -135,7 +153,7 @@ export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) 
                   <div className="h-2 w-2 rounded-full bg-accent" />
                   Home Team
                 </div>
-                <Select onValueChange={(val) => setFormData({ ...formData, homeTeamId: val })}>
+                <Select onValueChange={handleHomeTeamChange}>
                   <SelectTrigger className="bg-background border-border">
                     <SelectValue placeholder="Select team..." />
                   </SelectTrigger>
@@ -171,7 +189,7 @@ export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) 
                   <div className="h-2 w-2 rounded-full bg-muted-foreground" />
                   Away Team
                 </div>
-                <Select onValueChange={(val) => setFormData({ ...formData, awayTeamId: val })}>
+                <Select onValueChange={handleAwayTeamChange}>
                   <SelectTrigger className="bg-background border-border">
                     <SelectValue placeholder="Select team..." />
                   </SelectTrigger>

@@ -100,6 +100,22 @@ export default function RosterDirectory() {
                     onChange={(e) => setNewTeam({ ...newTeam, city: e.target.value })}
                   />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="color">Primary Team Color</Label>
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="h-10 w-10 rounded-lg border border-border shadow-inner"
+                      style={{ backgroundColor: newTeam.primary_color }}
+                    />
+                    <input 
+                      id="color"
+                      type="color" 
+                      value={newTeam.primary_color}
+                      onChange={(e) => setNewTeam({ ...newTeam, primary_color: e.target.value })}
+                      className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
+                    />
+                  </div>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddTeamOpen(false)}>Cancel</Button>
