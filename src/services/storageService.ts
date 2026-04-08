@@ -1,70 +1,69 @@
 import axios from "axios";
 
 /**
- * Service for handling R2 storage operations.
- * Optimized for high-performance 8GB+ video transfers.
+ * Service for handling R2 storage operations with 8GB+ Multipart Upload support.
  */
 export const storageService = {
   /**
-   * Uploads a video file directly to R2 using a presigned URL.
-   * Migrated to native Fetch for better stability with large binary payloads.
+   * Uploads a video file using Multipart Upload for stability and speed.
    */
   async uploadVideo(file: File, onProgress: (progress: number) => void): Promise<string> {
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for optimal performance
+    const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+
     try {
-      // 1. Get signed upload URL
-      const response = await axios.post("/api/storage/presign", {
+      // 1. Initialize Multipart Upload
+      const initResponse = await axios.post("/api/storage/multipart?action=create", {
         filename: file.name,
-        contentType: file.type || "application/octet-stream"
+        contentType: file.type
       });
+      const { uploadId, key } = initResponse.data;
 
-      const { uploadUrl, key } = response.data;
+      const uploadedParts: { etag: string; partNumber: number }[] = [];
+      let totalUploaded = 0;
 
-      if (!uploadUrl) {
-        throw new Error("Server failed to generate an upload URL.");
+      // 2. Upload parts sequentially (can be parallelized later)
+      for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+        const start = (partNumber - 1) * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+
+        // Get signed URL for this part
+        const signResponse = await axios.post("/api/storage/multipart?action=sign-part", {
+          uploadId,
+          key,
+          partNumber
+        });
+        const { url } = signResponse.data;
+
+        // Upload the chunk
+        const uploadResponse = await axios.put(url, chunk, {
+          headers: { "Content-Type": file.type }
+        });
+
+        const etag = uploadResponse.headers.etag;
+        if (!etag) throw new Error(`Failed to get ETag for part ${partNumber}`);
+
+        uploadedParts.push({ etag, partNumber });
+        
+        totalUploaded += chunk.size;
+        onProgress(Math.round((totalUploaded / file.size) * 100));
       }
 
-      // 2. Upload to R2 using native fetch (more stable for multi-GB files)
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        
-        xhr.upload.addEventListener("progress", (event) => {
-          if (event.lengthComputable) {
-            const percentComplete = Math.round((event.loaded / event.total) * 100);
-            onProgress(percentComplete);
-          }
-        });
-
-        xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve(key);
-          } else {
-            reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText}`));
-          }
-        });
-
-        xhr.addEventListener("error", () => {
-          reject(new Error("Network Error: The browser aborted the connection. Verify your R2 CORS policy."));
-        });
-
-        xhr.addEventListener("abort", () => {
-          reject(new Error("Upload aborted by the browser."));
-        });
-
-        xhr.open("PUT", uploadUrl);
-        // CRITICAL: Content-Type must match what was signed exactly
-        xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream");
-        xhr.send(file);
+      // 3. Complete Multipart Upload
+      await axios.post("/api/storage/multipart?action=complete", {
+        uploadId,
+        key,
+        parts: uploadedParts
       });
-      
+
+      return key;
     } catch (error: any) {
-      console.error("Storage Error:", error);
+      console.error("Multipart Upload Error:", error);
       throw error;
     }
   },
 
-  /**
-   * Generates a signed read URL for a private video file
-   */
   async getSignedUrl(path: string): Promise<string> {
     const { data } = await axios.get(`/api/storage/signed-url?path=${encodeURIComponent(path)}`);
     return data.url;
