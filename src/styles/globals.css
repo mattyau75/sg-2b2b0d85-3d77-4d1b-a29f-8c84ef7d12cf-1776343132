@@ -34,11 +34,12 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
+    font-family: var(--font-work-sans), system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
   code, pre, .font-mono {
-    @apply font-mono;
+    font-family: var(--font-geist-mono), monospace;
   }
 }
 
