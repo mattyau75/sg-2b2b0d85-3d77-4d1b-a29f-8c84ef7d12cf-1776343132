@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { r2Client, R2_BUCKET } from "@/lib/r2Client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { r2Client } from "@/lib/r2Client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { path } = req.query;
@@ -11,9 +11,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    const bucketName = process.env.R2_BUCKET_NAME || "dribbleai-softgen";
     const command = new GetObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: path,
+      Bucket: bucketName,
+      Key: path as string,
     });
 
     const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });

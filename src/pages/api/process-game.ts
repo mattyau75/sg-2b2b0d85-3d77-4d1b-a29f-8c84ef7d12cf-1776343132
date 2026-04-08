@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
-import { r2Client, R2_BUCKET } from "@/lib/r2Client";
+import { r2Client } from "@/lib/r2Client";
+import { storageService } from "@/services/storageService";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -19,12 +20,9 @@ export default async function handler(
   // R2 Storage Path Detection
   if (youtubeUrl && !youtubeUrl.startsWith("http") && !youtubeUrl.includes("youtube") && !youtubeUrl.includes("youtu.be")) {
     try {
-      const command = new GetObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: youtubeUrl,
-      });
-      // 2 hour secure link for GPU analysis
-      videoSourceUrl = await getSignedUrl(r2Client, command, { expiresIn: 7200 });
+      const bucketName = process.env.R2_BUCKET_NAME || "dribbleai-softgen";
+      const signedUrl = await storageService.getSignedUrl(youtubeUrl);
+      videoSourceUrl = signedUrl;
     } catch (err) {
       console.error("R2 Signing Error:", err);
       return res.status(500).json({ message: "Failed to secure access to R2 video file." });
