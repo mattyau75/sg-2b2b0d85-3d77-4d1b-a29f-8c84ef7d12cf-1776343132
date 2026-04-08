@@ -14,7 +14,9 @@ import {
   Download,
   ListTodo,
   Youtube,
-  Upload
+  Upload,
+  Settings2,
+  SlidersHorizontal
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,6 +31,10 @@ import {
 import { cn } from "@/lib/utils";
 import { modalService } from "@/services/modalService";
 import { useToast } from "@/hooks/use-toast";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
 const MOCK_SHOTS: Shot[] = [
   { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
@@ -57,6 +63,13 @@ const MOCK_PBP = [
 export default function Home() {
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
+  const [config, setConfig] = useState({
+    imgsz: 1280,
+    conf: 0.25,
+    iou: 0.45,
+    tracking: true,
+    agnosticNms: true,
+  });
   const { toast } = useToast();
 
   const handleProcessGame = async () => {
@@ -80,7 +93,13 @@ export default function Home() {
 
     setIsProcessing(true);
     try {
-      await modalService.processGame(youtubeUrl);
+      await modalService.processGame(youtubeUrl, {
+        imgsz: config.imgsz,
+        conf: config.conf,
+        iou: config.iou,
+        tracking: config.tracking,
+        agnostic_nms: config.agnosticNms,
+      });
       toast({
         title: "Processing Started",
         description: "Modal.com GPU (A100) has initiated the YOLOv11m pipeline.",
@@ -123,8 +142,77 @@ export default function Home() {
                 value={youtubeUrl}
                 onChange={(e) => setYoutubeUrl(e.target.value)}
                 placeholder="Paste unlisted YouTube URL..." 
-                className="w-full h-12 pl-11 pr-4 rounded-xl bg-card/50 border border-border focus:border-primary outline-none transition-all text-sm font-mono"
+                className="w-full h-12 pl-11 pr-12 rounded-xl bg-card/50 border border-border focus:border-primary outline-none transition-all text-sm font-mono"
               />
+              <div className="absolute right-2 top-1/2 -translate-y-1/2">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent">
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-80 bg-card/95 backdrop-blur-xl border-border shadow-2xl p-6" align="end">
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-2 mb-2">
+                        <SlidersHorizontal className="h-4 w-4 text-accent" />
+                        <h4 className="font-bold text-sm">Inference Configuration</h4>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Img Size (px)</Label>
+                          <span className="text-[10px] font-mono text-accent">{config.imgsz}</span>
+                        </div>
+                        <Slider 
+                          value={[config.imgsz]} 
+                          min={640} 
+                          max={1280} 
+                          step={320}
+                          onValueChange={([val]) => setConfig({ ...config, imgsz: val })}
+                          className="py-2"
+                        />
+                        <p className="text-[9px] text-muted-foreground">Use 1280px for small jersey numbers.</p>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</Label>
+                          <span className="text-[10px] font-mono text-accent">{config.conf}</span>
+                        </div>
+                        <Slider 
+                          value={[config.conf]} 
+                          min={0.1} 
+                          max={0.9} 
+                          step={0.05}
+                          onValueChange={([val]) => setConfig({ ...config, conf: val })}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">ByteTrack</Label>
+                          <p className="text-[9px] text-muted-foreground">ID persistence across pans</p>
+                        </div>
+                        <Switch 
+                          checked={config.tracking}
+                          onCheckedChange={(val) => setConfig({ ...config, tracking: val })}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Agnostic NMS</Label>
+                          <p className="text-[9px] text-muted-foreground">Better cluster detection</p>
+                        </div>
+                        <Switch 
+                          checked={config.agnosticNms}
+                          onCheckedChange={(val) => setConfig({ ...config, agnosticNms: val })}
+                        />
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
             </div>
             <Button 
               onClick={handleProcessGame}

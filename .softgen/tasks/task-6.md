@@ -1,6 +1,6 @@
 ---
 title: YOLO11m Inference Optimization
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: ["ai", "yolo11", "gpu"]
@@ -14,7 +14,7 @@ Implement optimized inference settings for small jersey number detection in broa
 
 ## Checklist:
 - [x] Research SOTA Roboflow datasets for jersey numbers (1280px recommended)
-- [ ] Add "Advanced Settings" popover to Dashboard URL input
-- [ ] Update modalService.ts to support dynamic inference parameters (imgsz, conf, iou)
-- [ ] Update /api/process-game.ts to forward config to Modal GPU bridge
-- [ ] Implement ByteTrack/Agnostic NMS toggles in UI
+- [x] Add "Advanced Settings" popover to Dashboard URL input
+- [x] Update modalService.ts to support dynamic inference parameters (imgsz, conf, iou)
+- [x] Update /api/process-game.ts to forward config to Modal GPU bridge
+- [x] Implement ByteTrack/Agnostic NMS toggles in UI
