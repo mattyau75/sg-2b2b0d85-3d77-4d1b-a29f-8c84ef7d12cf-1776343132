@@ -19,6 +19,7 @@ export type Database = {
         Row: {
           away_score: number | null
           away_team_id: string | null
+          camera_type: string | null
           created_at: string | null
           date: string | null
           home_score: number | null
@@ -34,6 +35,7 @@ export type Database = {
         Insert: {
           away_score?: number | null
           away_team_id?: string | null
+          camera_type?: string | null
           created_at?: string | null
           date?: string | null
           home_score?: number | null
@@ -49,6 +51,7 @@ export type Database = {
         Update: {
           away_score?: number | null
           away_team_id?: string | null
+          camera_type?: string | null
           created_at?: string | null
           date?: string | null
           home_score?: number | null

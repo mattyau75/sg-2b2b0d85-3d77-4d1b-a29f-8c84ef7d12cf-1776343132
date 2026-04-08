@@ -63,36 +63,9 @@ export default async function handler(
 
     /**
      * IMPLEMENTATION NOTE: 
-     * You would typically call your Modal Web Endpoint here.
-     * Modal Web Endpoints are URL-addressable functions.
-     * Documentation: https://modal.com/docs/guide/webhooks
+     * We now forward the camera_type to Modal to optimize the YOLOv11 tracking logic.
      */
     
-    // Forwarding team metadata to Modal to help with jersey/player identification
-    /*
-    const response = await fetch('https://your-modal-username--basketball-yolo-process.modal.run', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${MODAL_TOKEN_SECRET}`
-      },
-      body: JSON.stringify({ 
-        url: youtubeUrl,
-        ...config,
-        metadata: {
-          camera: config.camera_type, // "panning" or "fixed"
-          optimization: "high_accuracy_indoor",
-          rim_detection: true,
-          jersey_detection: "small_object_optimized",
-          team_metadata: {
-            home: { id: config.home_team_id, color: config.home_team_color },
-            away: { id: config.away_team_id, color: config.away_team_color }
-          }
-        }
-      })
-    });
-    */
-
     // Update game status in database to 'queued'
     if (gameId) {
       await supabase
@@ -100,6 +73,7 @@ export default async function handler(
         .update({ 
           status: 'queued', 
           youtube_url: normalizedUrl,
+          camera_type: config.camera_type,
           progress_percentage: 10
         })
         .eq('id', gameId);

@@ -35,15 +35,9 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     youtubeUrl: "",
     homeTeamId: "",
     awayTeamId: "",
-    homeColor: "#FF6B00",
-    awayColor: "#FFFFFF",
-    imgsz: 1280,
-    conf: 0.25,
-    iou: 0.45,
-    tracking: true,
-    agnosticNms: true,
-    rimDetection: true,
-    shotLogic: true,
+    cameraType: "panning",
+    homeColor: "#ff6b00",
+    awayColor: "#0066ff"
   });
 
   useEffect(() => {
