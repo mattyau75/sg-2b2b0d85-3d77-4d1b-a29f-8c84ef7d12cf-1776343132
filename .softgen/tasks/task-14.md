@@ -1,6 +1,6 @@
 ---
 title: Create Dedicated Analysis Queue Page
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: ["realtime", "ux", "gpu"]
@@ -13,8 +13,8 @@ position: 14
 Create a dedicated mission control page for tracking all active and pending GPU analysis jobs.
 
 ## Checklist:
-- [ ] Create src/pages/analysis-queue.tsx: Full-page dashboard for processing jobs
-- [ ] Implement Realtime subscriptions for status updates
-- [ ] Add "Retry" and "Cancel" actions for jobs
-- [ ] Update Layout.tsx: Add "Processing Queue" to sidebar navigation
-- [ ] Add empty state for when no jobs are active
+- [x] Create src/pages/analysis-queue.tsx: Full-page dashboard for processing jobs
+- [x] Implement Realtime subscriptions for status updates
+- [x] Add "Retry" and "Cancel" actions for jobs
+- [x] Update Layout.tsx: Add "Processing Queue" to sidebar navigation
+- [x] Add empty state for when no jobs are active

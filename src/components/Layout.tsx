@@ -1,7 +1,7 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, Users, LayoutDashboard, BarChart3, Video, Settings, ChevronRight, Menu, Bell, Activity } from "lucide-react";
+import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -34,7 +34,8 @@ export function Layout({ children, title, description }: LayoutProps) {
           <nav className="flex-1 space-y-2">
             {[
               { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-              { icon: Trophy, label: "Roster", href: "/roster" },
+              { icon: Activity, label: "Processing Queue", href: "/analysis-queue" },
+              { icon: Users, label: "Roster", href: "/roster" },
               { icon: History, label: "Games", href: "/games" },
               { icon: BarChart3, label: "Analytics", href: "/analytics" },
               { icon: PlayCircle, label: "Highlights", href: "/highlights" }
