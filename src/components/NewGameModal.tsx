@@ -18,6 +18,7 @@ import { Youtube, Target, Cpu, SlidersHorizontal, Settings2, Palette, Camera } f
 import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -76,6 +77,22 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
     setIsProcessing(true);
     try {
+      // 1. Create the game record in Supabase first to get an ID
+      const { data: newGame, error: dbError } = await supabase
+        .from('games')
+        .insert({
+          youtube_url: formData.youtubeUrl,
+          home_team_id: formData.homeTeamId,
+          away_team_id: formData.awayTeamId,
+          camera_type: formData.cameraType,
+          status: 'scheduled'
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
+
+      // 2. Trigger the GPU pipeline via Modal.com with the new game ID
       const result = await modalService.processGame(formData.youtubeUrl, {
         imgsz: formData.imgsz,
         conf: formData.conf,
@@ -89,9 +106,10 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
         home_team_color: formData.homeColor,
         away_team_color: formData.awayColor,
         camera_type: formData.cameraType,
+        gameId: newGame.id // Crucial: tell the AI which record to update
       });
       
-      toast({ title: "Analysis Started", description: "GPU Pipeline initiated on Modal.com" });
+      toast({ title: "Analysis Started", description: `GPU Pipeline initiated for Game ID: ${newGame.id.substring(0, 8)}` });
       onJobStarted(result.job_id);
       onClose();
     } catch (error: any) {

@@ -20,6 +20,7 @@ export const modalService = {
     away_team_id?: string;
     home_team_color?: string;
     away_team_color?: string;
+    gameId?: string;
   }) => {
     const response = await fetch("/api/process-game", {
       method: "POST",
@@ -28,6 +29,7 @@ export const modalService = {
       },
       body: JSON.stringify({ 
         youtubeUrl,
+        gameId: config?.gameId,
         config: {
           ...config,
           imgsz: config?.imgsz || 1280, // Optimized for jersey numbers
