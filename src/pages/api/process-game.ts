@@ -31,6 +31,18 @@ export default async function handler(
   try {
     console.log("Server: Initiating Modal.com GPU pipeline for", youtubeUrl);
 
+    /* 
+    Logic for Fuzzy Matching:
+    When the YOLOv11m model detects a number (e.g., '2'), we compare it against the team roster:
+    - If Player #2 exists, assign to Player #2.
+    - If not, check if Player #24, #21, #02 exist (partial match).
+    - If multiple partial matches, assign to 'Unknown' and flag for manual correction in UI.
+    */
+    
+    // Pass team roster info to Modal to enable this fuzzy matching on the edge
+    const { data: homePlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.home_team_id);
+    const { data: awayPlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.away_team_id);
+
     /**
      * IMPLEMENTATION NOTE: 
      * You would typically call your Modal Web Endpoint here.
