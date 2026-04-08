@@ -14,6 +14,6 @@ Initial infrastructure for CourtVision Elite. Setting up the data tables for bas
 
 ## Checklist:
 - [x] Execute SQL for teams, players, games, stats, pbp, and shots tables
-- [ ] Configure globals.css with CourtVision theme variables (Dark Mode)
-- [ ] Update tailwind.config.ts with custom colors and Geist Mono font
+- [x] Configure globals.css with CourtVision theme variables (Dark Mode)
+- [x] Update tailwind.config.ts with custom colors and Geist Mono font
 - [x] Create basic SEO and layout wrapper
