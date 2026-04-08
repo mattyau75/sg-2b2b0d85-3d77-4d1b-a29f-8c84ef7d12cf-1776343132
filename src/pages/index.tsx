@@ -11,7 +11,10 @@ import {
   Cpu,
   Download,
   ListTodo,
-  Video
+  Video,
+  History,
+  Trophy,
+  ChevronRight
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -121,29 +124,44 @@ export default function Home() {
 
         {/* Main Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-8">
-            <Card className="glass-card border-none">
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="bg-card/50 border-border">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Activity className="h-5 w-5 text-primary" />
-                  Latest Game Analysis
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <History className="h-5 w-5 text-primary" /> Recent Analysis
                 </CardTitle>
-                <div className="flex gap-2">
-                  <Badge variant="secondary" className="font-mono text-[10px]">GSW 112</Badge>
-                  <Badge variant="outline" className="font-mono text-[10px]">BOS 108</Badge>
-                </div>
+                <Button variant="ghost" className="text-xs text-muted-foreground hover:text-primary">View All</Button>
               </CardHeader>
               <CardContent>
-                <div className="aspect-video rounded-2xl bg-muted/30 border border-white/5 flex items-center justify-center group cursor-pointer relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-6">
-                    <div className="space-y-1">
-                      <p className="font-bold">GSW vs BOS - Q3 Highlights</p>
-                      <p className="text-sm text-muted-foreground">Processed with YOLOv11m • 14 Clips detected</p>
+                <div className="space-y-4">
+                  {[
+                    { id: "g1", teams: "Warriors vs Lakers", date: "2 Hours Ago", status: "Analysis Complete", score: "112 - 108" },
+                    { id: "g2", teams: "Celtics vs Heat", date: "Yesterday", status: "Ready to Review", score: "98 - 105" },
+                    { id: "g3", teams: "Suns vs Nuggets", date: "2 Days Ago", status: "Analysis Complete", score: "124 - 118" },
+                  ].map((game) => (
+                    <div 
+                      key={game.id} 
+                      onClick={() => window.location.href = `/games/${game.id}`}
+                      className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                          <Trophy className="h-5 w-5 text-primary" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold group-hover:text-primary transition-colors">{game.teams}</p>
+                          <p className="text-xs text-muted-foreground">{game.date}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        <div className="text-right hidden sm:block">
+                          <p className="text-sm font-mono font-bold">{game.score}</p>
+                          <p className="text-[10px] text-accent uppercase tracking-tighter">{game.status}</p>
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                      </div>
                     </div>
-                  </div>
-                  <div className="h-16 w-16 rounded-full bg-primary flex items-center justify-center shadow-2xl scale-90 group-hover:scale-100 transition-transform">
-                    <Play className="h-6 w-6 text-white fill-current translate-x-0.5" />
-                  </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>
