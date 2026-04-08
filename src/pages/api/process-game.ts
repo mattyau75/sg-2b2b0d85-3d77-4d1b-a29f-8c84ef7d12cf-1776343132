@@ -79,44 +79,55 @@ export default async function handler(
 
     if (MODAL_URL) {
       console.log("Server: Dispatching production payload to Modal URL:", MODAL_URL);
-      console.log("Server: Headers configured with Token ID:", MODAL_TOKEN_ID?.substring(0, 5) + "...");
       
+      // Optimize roster payload for the wire
       const payload = {
         youtube_url: normalizedUrl,
         game_id: gameId,
         config: config,
-        home_roster: homePlayers || [],
-        away_roster: awayPlayers || [],
+        home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
+        away_roster: (awayPlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
         supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
         supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       };
 
-      console.log("Server: Request Payload Structure:", JSON.stringify({ ...payload, youtube_url: "[HIDDEN]" }));
+      // THE REAL HANDSHAKE: Call the GPU cluster with a 30s timeout safety
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-      // THE REAL HANDSHAKE: Call the GPU cluster
-      const modalResponse = await fetch(MODAL_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Modal-Token-Id': MODAL_TOKEN_ID,
-          'X-Modal-Token-Secret': MODAL_TOKEN_SECRET
-        },
-        body: JSON.stringify(payload)
-      });
+      try {
+        const modalResponse = await fetch(MODAL_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Modal-Token-Id': MODAL_TOKEN_ID,
+            'X-Modal-Token-Secret': MODAL_TOKEN_SECRET
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
 
-      if (!modalResponse.ok) {
-        let errorInfo = "Modal GPU cluster rejected the request.";
-        try {
-          const errorData = await modalResponse.text();
-          console.error("Modal Response Error:", errorData);
-          errorInfo = `Modal Error (${modalResponse.status}): ${errorData.substring(0, 200)}`;
-        } catch (e) {
-          console.error("Could not parse Modal error text");
+        clearTimeout(timeoutId);
+
+        if (!modalResponse.ok) {
+          let errorInfo = "Modal GPU cluster rejected the request.";
+          try {
+            const errorData = await modalResponse.text();
+            console.error("Modal Response Error:", errorData);
+            errorInfo = `Modal Error (${modalResponse.status}): ${errorData.substring(0, 200)}`;
+          } catch (e) {
+            console.error("Could not parse Modal error text");
+          }
+          throw new Error(errorInfo);
         }
-        throw new Error(errorInfo);
+        
+        console.log("Server: Modal handshake successful.");
+      } catch (fetchError: any) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error("Connection to Modal.com timed out. The GPU might be warming up—please try again in 30 seconds.");
+        }
+        throw fetchError;
       }
-      
-      console.log("Server: Modal handshake successful.");
     }
 
     return res.status(200).json({ 
