@@ -96,6 +96,8 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     }
 
     setIsProcessing(true);
+    setUploadProgress(10); // Start progress
+
     try {
       // 1. Create the game record in Supabase
       const { data: newGame, error: dbError } = await supabase
@@ -111,16 +113,33 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
       if (dbError) throw dbError;
 
+      setUploadProgress(25);
+      
       let videoPath = "";
       if (formData.videoFile) {
-        videoPath = await storageService.uploadVideoResumable(
-          formData.videoFile, 
-          newGame.id,
-          (uploaded, total) => {
-            const progress = Math.round((uploaded / total) * 100);
-            setUploadProgress(progress);
-          }
-        );
+        // Since we switched back to standard upload for 404 compatibility, 
+        // we'll simulate progress steps since standard upload doesn't provide a native browser progress hook easily
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev >= 90) {
+              clearInterval(progressInterval);
+              return 90;
+            }
+            return prev + 5;
+          });
+        }, 2000);
+
+        try {
+          videoPath = await storageService.uploadVideoResumable(
+            formData.videoFile, 
+            newGame.id
+          );
+          clearInterval(progressInterval);
+          setUploadProgress(100);
+        } catch (uploadErr) {
+          clearInterval(progressInterval);
+          throw uploadErr;
+        }
         
         // Update game with storage path
         await supabase
