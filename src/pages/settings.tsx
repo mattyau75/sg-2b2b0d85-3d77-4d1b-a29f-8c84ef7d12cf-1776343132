@@ -126,36 +126,25 @@ export default function SettingsPage() {
             <Card className="bg-card/50 border-border border-destructive/20">
               <CardHeader>
                 <CardTitle className="text-lg text-destructive flex items-center gap-2">
-                  <Database className="h-5 w-5" /> Data Management
+                  <Trash2 className="h-5 w-5" /> Danger Zone
                 </CardTitle>
-                <CardDescription>Tools to manage your local state and sync with Supabase.</CardDescription>
+                <CardDescription>Permanently delete all data. This action cannot be undone.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label>Application Cache</Label>
-                    <p className="text-xs text-muted-foreground">If you see old data, force a refresh of the local state.</p>
+              <CardContent>
+                <div className="flex items-center justify-between p-4 rounded-xl bg-destructive/5 border border-destructive/20">
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-destructive">Factory Reset</p>
+                    <p className="text-xs text-muted-foreground">Delete all teams, players, and games from the database.</p>
                   </div>
                   <Button 
-                    variant="outline" 
+                    variant="destructive" 
                     size="sm" 
-                    onClick={handleClearCache}
-                    disabled={clearing}
+                    onClick={handleResetPlatform}
+                    disabled={isResetting}
                     className="gap-2"
                   >
-                    <RefreshCw className={`h-4 w-4 ${clearing ? 'animate-spin' : ''}`} />
-                    Refresh State
-                  </Button>
-                </div>
-                <Separator className="bg-border/50" />
-                <div className="flex items-center justify-between">
-                  <div className="space-y-0.5">
-                    <Label className="text-destructive">Factory Reset</Label>
-                    <p className="text-xs text-muted-foreground">Permanently delete all rosters and game stats from the database.</p>
-                  </div>
-                  <Button variant="destructive" size="sm" className="gap-2">
-                    <Trash2 className="h-4 w-4" />
-                    Reset Platform
+                    {isResetting ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                    {isResetting ? "Resetting..." : "Reset Platform"}
                   </Button>
                 </div>
               </CardContent>

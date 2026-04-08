@@ -7,11 +7,8 @@ import {
   Filter, 
   Search, 
   Video, 
-  Calendar,
-  User,
-  Zap,
-  ChevronRight,
-  MonitorPlay
+  MonitorPlay,
+  User
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,26 +23,13 @@ import {
 } from "@/components/ui/select";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Skeleton } from "@/components/ui/skeleton";
-import { VideoPlayer } from "@/components/VideoPlayer";
 import { supabase } from "@/integrations/supabase/client";
-
-interface Highlight {
-  id: string;
-  title: string;
-  player_name: string;
-  team_name: string;
-  action_type: "made_shot" | "missed_shot" | "block" | "steal";
-  video_url: string;
-  thumbnail_url: string;
-  timestamp: string;
-  game_date: string;
-}
 
 export default function HighlightsPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
+  const [activeHighlight, setActiveHighlight] = useState<any | null>(null);
   const [clips, setClips] = useState<any[]>([]);
 
   useEffect(() => {
@@ -73,14 +57,10 @@ export default function HighlightsPage() {
     fetchClips();
   }, []);
 
-  const filteredClips = filter === "all" 
-    ? clips 
-    : clips.filter(c => c.event_type?.toLowerCase().includes(filter.toLowerCase()));
-
-  const filteredHighlights = MOCK_HIGHLIGHTS.filter(h => {
-    const matchesFilter = filter === "all" || h.action_type === filter;
-    const matchesSearch = h.player_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          h.title.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredHighlights = clips.filter(h => {
+    const matchesFilter = filter === "all" || h.event_type?.toLowerCase().includes(filter.toLowerCase());
+    const matchesSearch = h.player_name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          h.event_description?.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesFilter && matchesSearch;
   });
 
@@ -132,24 +112,25 @@ export default function HighlightsPage() {
           </div>
         </div>
 
-        {/* Featured Clip / Active Player */}
+        {/* Featured Clip Area */}
         {activeHighlight && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="lg:col-span-2 space-y-4">
               <div className="rounded-2xl overflow-hidden border border-border bg-black shadow-2xl">
                 <AspectRatio ratio={16 / 9}>
                   <div className="w-full h-full flex items-center justify-center bg-zinc-900 text-muted-foreground group relative">
-                    {/* In a real app, this would be a VideoPlayer or iframe */}
-                    <img 
-                      src={activeHighlight.thumbnail_url} 
-                      alt={activeHighlight.title}
-                      className="w-full h-full object-cover opacity-40"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center backdrop-blur-sm border border-primary/50 group-hover:scale-110 transition-transform cursor-pointer">
-                        <Play className="h-8 w-8 text-primary fill-primary ml-1" />
+                    {activeHighlight.video_url ? (
+                      <video 
+                        src={activeHighlight.video_url} 
+                        controls 
+                        className="w-full h-full object-contain"
+                        autoPlay
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <p className="text-sm font-mono">Loading Video Stream...</p>
                       </div>
-                    </div>
+                    )}
                   </div>
                 </AspectRatio>
               </div>
@@ -159,11 +140,11 @@ export default function HighlightsPage() {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <Badge className="bg-primary/20 text-primary border-primary/30 uppercase text-[10px] tracking-widest">
-                      {activeHighlight.action_type.replace('_', ' ')}
+                      {activeHighlight.event_type?.replace('_', ' ')}
                     </Badge>
-                    <span className="text-[10px] font-mono text-muted-foreground">{activeHighlight.timestamp}</span>
+                    <span className="text-[10px] font-mono text-muted-foreground">{activeHighlight.game_time}</span>
                   </div>
-                  <CardTitle className="text-2xl mt-2">{activeHighlight.title}</CardTitle>
+                  <CardTitle className="text-2xl mt-2">{activeHighlight.event_description}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/50">
@@ -172,7 +153,9 @@ export default function HighlightsPage() {
                     </div>
                     <div>
                       <p className="text-sm font-bold">{activeHighlight.player_name}</p>
-                      <p className="text-xs text-muted-foreground">{activeHighlight.team_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {activeHighlight.games?.home_team?.name} vs {activeHighlight.games?.away_team?.name}
+                      </p>
                     </div>
                   </div>
 
@@ -192,8 +175,8 @@ export default function HighlightsPage() {
                       <span className="font-mono text-accent">YOLOv11m-BASKETBALL</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-muted-foreground">Source Game</span>
-                      <span className="text-foreground">{activeHighlight.game_date}</span>
+                      <span className="text-muted-foreground">Processed At</span>
+                      <span className="text-foreground">{new Date(activeHighlight.created_at).toLocaleDateString()}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -221,11 +204,9 @@ export default function HighlightsPage() {
               >
                 <div className="relative">
                   <AspectRatio ratio={16 / 9}>
-                    <img 
-                      src={highlight.thumbnail_url} 
-                      alt={highlight.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
+                    <div className="w-full h-full bg-zinc-900 flex items-center justify-center border-b border-white/5">
+                      <Video className="h-10 w-10 text-muted-foreground/30 group-hover:scale-110 transition-transform" />
+                    </div>
                   </AspectRatio>
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
@@ -234,7 +215,7 @@ export default function HighlightsPage() {
                   </div>
                   <div className="absolute bottom-2 right-2">
                     <Badge className="bg-black/60 backdrop-blur-md border-none text-[10px] py-0 px-2 font-mono">
-                      {highlight.timestamp}
+                      {highlight.game_time}
                     </Badge>
                   </div>
                 </div>
@@ -242,10 +223,10 @@ export default function HighlightsPage() {
                   <div className="flex justify-between items-start gap-2">
                     <p className="text-sm font-bold truncate">{highlight.player_name}</p>
                     <Badge variant="outline" className="text-[9px] uppercase tracking-tighter border-border bg-muted/50">
-                      {highlight.action_type === "made_shot" ? "2PT MADE" : highlight.action_type.toUpperCase()}
+                      {highlight.event_type?.toUpperCase().replace('_', ' ')}
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground truncate">{highlight.title}</p>
+                  <p className="text-xs text-muted-foreground truncate">{highlight.event_description}</p>
                 </CardContent>
               </Card>
             ))
@@ -264,63 +245,6 @@ export default function HighlightsPage() {
             </div>
           )}
         </div>
-
-        {/* Clips Grid */}
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="aspect-video rounded-2xl bg-muted/20 animate-pulse border border-border/50" />
-            ))}
-          </div>
-        ) : filteredClips.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredClips.map((clip) => (
-              <Card key={clip.id} className="border-border bg-card/40 hover:bg-card/60 transition-all cursor-pointer overflow-hidden">
-                <div className="relative">
-                  <AspectRatio ratio={16 / 9}>
-                    <img src={clip.thumbnail_url} alt={clip.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  </AspectRatio>
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
-                      <Play className="h-5 w-5 text-white fill-white ml-0.5" />
-                    </div>
-                  </div>
-                  <div className="absolute bottom-2 right-2">
-                    <Badge className="bg-black/60 backdrop-blur-md border-none text-[10px] py-0 px-2 font-mono">
-                      {clip.timestamp}
-                    </Badge>
-                  </div>
-                </div>
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <p className="text-sm font-bold truncate">{clip.player_name}</p>
-                    <Badge variant="outline" className="text-[9px] uppercase tracking-tighter border-border bg-muted/50">
-                      {clip.action_type === "made_shot" ? "2PT MADE" : clip.action_type.toUpperCase()}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-muted-foreground truncate">{clip.title}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <Card className="bg-card/30 border-dashed border-2 border-border p-24 text-center">
-            <div className="space-y-4 max-w-sm mx-auto">
-              <div className="h-20 w-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto border border-accent/20">
-                <Play className="h-10 w-10 text-accent" />
-              </div>
-              <div className="space-y-2">
-                <h3 className="text-xl font-bold">No Highlights Found</h3>
-                <p className="text-muted-foreground text-sm">
-                  Processed video clips will appear here once the AI pipeline finishes analyzing your game footage.
-                </p>
-              </div>
-              <Button variant="outline" onClick={() => window.location.href = '/'}>
-                Back to Dashboard
-              </Button>
-            </div>
-          </Card>
-        )}
       </div>
     </Layout>
   );
