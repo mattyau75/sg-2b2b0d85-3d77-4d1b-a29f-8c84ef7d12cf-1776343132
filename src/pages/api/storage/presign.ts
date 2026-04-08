@@ -22,8 +22,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
+    const key = `videos/${Date.now()}-${filename.replace(/\s+/g, "_")}`;
     const bucketName = process.env.R2_BUCKET_NAME || "dribbleai-softgen";
-    const key = `videos/${Date.now()}-${filename}`;
 
     const command = new PutObjectCommand({
       Bucket: bucketName,
@@ -31,8 +31,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ContentType: contentType,
     });
 
-    // URL expires in 1 hour (3600 seconds)
-    const uploadUrl = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    // Use a 1-hour expiration for large uploads
+    const uploadUrl = await getSignedUrl(r2Client, command, { 
+      expiresIn: 3600
+    });
 
     return res.status(200).json({ uploadUrl, key });
 

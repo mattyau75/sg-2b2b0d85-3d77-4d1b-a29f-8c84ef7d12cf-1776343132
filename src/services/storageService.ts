@@ -16,13 +16,15 @@ export const storageService = {
       }
 
       // 2. Upload to R2 with retry logic
-      let attempts = 0;
-      const maxAttempts = 3;
+      let attempt = 0;
+      const maxRetries = 3;
       
-      while (attempts < maxAttempts) {
+      while (attempt < maxRetries) {
         try {
           await axios.put(uploadUrl, file, {
-            headers: { "Content-Type": file.type },
+            headers: { 
+              "Content-Type": file.type
+            },
             onUploadProgress: (progressEvent) => {
               if (progressEvent.total) {
                 const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -32,10 +34,10 @@ export const storageService = {
           });
           return key; // Success
         } catch (uploadError) {
-          attempts++;
-          console.error(`Upload attempt ${attempts} failed:`, uploadError);
-          if (attempts === maxAttempts) throw uploadError;
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Backoff
+          attempt++;
+          console.error(`Upload attempt ${attempt} failed:`, uploadError);
+          if (attempt === maxRetries) throw uploadError;
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt)); // Backoff
         }
       }
       throw new Error("Upload failed after multiple attempts");
