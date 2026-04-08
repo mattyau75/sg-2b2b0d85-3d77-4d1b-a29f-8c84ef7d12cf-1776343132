@@ -1,6 +1,6 @@
 ---
 title: Video Integration & Modal.com GPU Bridge
-status: todo
+status: done
 priority: medium
 type: feature
 tags: [video, ai, api]
