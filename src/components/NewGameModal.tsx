@@ -25,17 +25,6 @@ interface NewGameModalProps {
   onSuccess: (jobId: string) => void;
 }
 
-const PRESET_COLORS = [
-  "#FF6B00", // Basketball Orange
-  "#FFFFFF", // White
-  "#000000", // Black
-  "#1D428A", // NBA Blue
-  "#C8102E", // NBA Red
-  "#007A33", // Celtics Green
-  "#FDB927", // Lakers Gold
-  "#552583", // Lakers Purple
-];
-
 export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) {
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -161,15 +150,17 @@ export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) 
                   <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <Palette className="h-3 w-3" /> Jersey Color
                   </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {PRESET_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setFormData({ ...formData, homeColor: c })}
-                        className={`h-6 w-6 rounded-full border-2 transition-all ${formData.homeColor === c ? 'border-primary scale-110 shadow-lg' : 'border-transparent'}`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="h-10 w-10 rounded-lg border border-border shadow-inner"
+                      style={{ backgroundColor: formData.homeColor }}
+                    />
+                    <input 
+                      type="color" 
+                      value={formData.homeColor}
+                      onChange={(e) => setFormData({ ...formData, homeColor: e.target.value })}
+                      className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
+                    />
                   </div>
                 </div>
               </div>
@@ -195,15 +186,17 @@ export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) 
                   <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <Palette className="h-3 w-3" /> Jersey Color
                   </Label>
-                  <div className="flex flex-wrap gap-2">
-                    {PRESET_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        onClick={() => setFormData({ ...formData, awayColor: c })}
-                        className={`h-6 w-6 rounded-full border-2 transition-all ${formData.awayColor === c ? 'border-primary scale-110 shadow-lg' : 'border-transparent'}`}
-                        style={{ backgroundColor: c }}
-                      />
-                    ))}
+                  <div className="flex items-center gap-3">
+                    <div 
+                      className="h-10 w-10 rounded-lg border border-border shadow-inner"
+                      style={{ backgroundColor: formData.awayColor }}
+                    />
+                    <input 
+                      type="color" 
+                      value={formData.awayColor}
+                      onChange={(e) => setFormData({ ...formData, awayColor: e.target.value })}
+                      className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
+                    />
                   </div>
                 </div>
               </div>
