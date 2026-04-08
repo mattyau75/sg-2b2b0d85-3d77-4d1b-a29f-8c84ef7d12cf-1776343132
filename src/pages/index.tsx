@@ -93,7 +93,7 @@ export default function Home() {
         <NewGameModal 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
-          onSuccess={handleNewJob}
+          onJobStarted={handleNewJob}
         />
 
         {/* Quick Stats Grid */}
