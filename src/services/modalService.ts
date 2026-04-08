@@ -22,7 +22,6 @@ export const modalService = {
     away_team_color?: string;
     gameId?: string;
   }) => {
-    console.log("Service: Initiating GPU process request for", youtubeUrl);
     try {
       // Use window.location.origin to ensure absolute pathing
       const apiEndpoint = `${window.location.origin}/api/process-game`;
@@ -52,7 +51,6 @@ export const modalService = {
       const data = await response.json().catch(() => ({ message: "Failed to parse error response" }));
 
       if (!response.ok) {
-        console.error("Service: GPU Request Failed (API Error):", data);
         // Prioritize the string 'message' over the 'details' object to avoid [object Object]
         const errorMessage = typeof data.message === "string" ? data.message : (typeof data.error === "string" ? data.error : "Failed to process game");
         throw new Error(errorMessage);
@@ -60,8 +58,6 @@ export const modalService = {
 
       return data;
     } catch (error: any) {
-      console.error("Service: GPU Request Failed (Network/Client Error):", error);
-      
       const displayMessage = error.message || "Unknown connection error";
       const userMessage = displayMessage.includes("timed out") 
         ? `Timeout: ${displayMessage}`

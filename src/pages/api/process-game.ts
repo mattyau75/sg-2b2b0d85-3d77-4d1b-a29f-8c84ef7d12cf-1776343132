@@ -18,17 +18,20 @@ export default async function handler(
 
   // R2 Storage Path Detection
   if (youtubeUrl && !youtubeUrl.startsWith('http') && !youtubeUrl.includes('youtube') && !youtubeUrl.includes('youtu.be')) {
-    console.log("Server: Detected R2 path, generating signed URL:", youtubeUrl);
-    try {
-      const command = new GetObjectCommand({
-        Bucket: R2_BUCKET,
-        Key: youtubeUrl,
-      });
-      // 2 hour secure link for GPU analysis
-      videoSourceUrl = await getSignedUrl(r2Client, command, { expiresIn: 7200 });
-    } catch (err: any) {
-      console.error("Server: Failed to generate R2 signed URL:", err);
-      return res.status(500).json({ message: "Failed to secure access to R2 video file." });
+    if (youtubeUrl?.startsWith("videos/")) {
+      const signedUrl = await storageService.getSignedUrl(youtubeUrl);
+      videoSourceUrl = signedUrl;
+    } else {
+      try {
+        const command = new GetObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: youtubeUrl,
+        });
+        // 2 hour secure link for GPU analysis
+        videoSourceUrl = await getSignedUrl(r2Client, command, { expiresIn: 7200 });
+      } catch (err: any) {
+        return res.status(500).json({ message: "Failed to secure access to R2 video file." });
+      }
     }
   }
 

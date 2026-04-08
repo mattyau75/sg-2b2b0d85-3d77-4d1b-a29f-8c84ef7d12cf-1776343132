@@ -14,8 +14,6 @@ export default async function handler(
   }
 
   try {
-    console.log("Server: Initiating full platform reset...");
-
     // 1. Delete dependent stats and logs first to respect foreign keys
     // Lineup stats reference games and teams
     const { error: lineupError } = await supabase.from("lineup_stats").delete().neq("id", "00000000-0000-0000-0000-000000000000");
