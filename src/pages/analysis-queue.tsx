@@ -78,6 +78,19 @@ export default function AnalysisQueuePage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this analysis? All associated stats and highlights will be lost.")) return;
+    
+    try {
+      const { error } = await supabase.from('games').delete().eq('id', id);
+      if (error) throw error;
+      toast({ title: "Job Deleted", description: "Analysis record has been removed." });
+      setJobs(prev => prev.filter(j => j.id !== id));
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
   const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'error');
   const finishedJobs = jobs.filter(j => j.status === 'completed' || j.status === 'error');
 
@@ -132,6 +145,14 @@ export default function AnalysisQueuePage() {
                              <Link href={`/games/${job.id}`}>
                                <ExternalLink className="h-4 w-4" />
                              </Link>
+                           </Button>
+                           <Button 
+                             variant="ghost" 
+                             size="sm" 
+                             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                             onClick={() => handleDelete(job.id)}
+                           >
+                             <Trash2 className="h-4 w-4" />
                            </Button>
                         </div>
                       </div>
@@ -189,6 +210,14 @@ export default function AnalysisQueuePage() {
                     <Link href={`/games/${job.id}`}>
                       {job.status === 'completed' ? 'View Results' : 'Check Logs'}
                     </Link>
+                  </Button>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    onClick={() => handleDelete(job.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
