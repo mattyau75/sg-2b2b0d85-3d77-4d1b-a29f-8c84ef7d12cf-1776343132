@@ -16,11 +16,11 @@ import {
   HardDrive
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function SettingsPage() {
   const { toast } = useToast();
   const [clearing, setClearing] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
 
   const handleClearCache = () => {
     setClearing(true);
@@ -34,6 +34,37 @@ export default function SettingsPage() {
       });
       setClearing(false);
     }, 1000);
+  };
+
+  const handleResetPlatform = async () => {
+    if (!confirm("🚨 WARNING: This will permanently delete ALL teams, players, and games. This cannot be undone. Proceed?")) {
+      return;
+    }
+
+    setIsResetting(true);
+    try {
+      const response = await fetch("/api/reset-platform", { method: "POST" });
+      const data = await response.json();
+
+      if (!response.ok) throw new Error(data.message || "Reset failed");
+
+      localStorage.clear();
+      toast({
+        title: "Platform Reset",
+        description: "All data has been purged successfully.",
+      });
+      
+      // Force reload to reflect empty state
+      setTimeout(() => window.location.href = "/", 1500);
+    } catch (error: any) {
+      toast({
+        title: "Reset Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsResetting(false);
+    }
   };
 
   return (

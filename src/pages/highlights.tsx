@@ -26,6 +26,8 @@ import {
 } from "@/components/ui/select";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { Skeleton } from "@/components/ui/skeleton";
+import { VideoPlayer } from "@/components/VideoPlayer";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Highlight {
   id: string;
@@ -39,47 +41,41 @@ interface Highlight {
   game_date: string;
 }
 
-const MOCK_HIGHLIGHTS: Highlight[] = [
-  {
-    id: "1",
-    title: "Clutch 3-Pointer",
-    player_name: "Stephen Curry",
-    team_name: "Warriors",
-    action_type: "made_shot",
-    video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    thumbnail_url: "https://images.unsplash.com/photo-1546519638-68e109498ffc?w=800&q=80",
-    timestamp: "Q4 0:45",
-    game_date: "2024-04-05"
-  },
-  {
-    id: "2",
-    title: "Transition Dunk",
-    player_name: "Anthony Edwards",
-    team_name: "Timberwolves",
-    action_type: "made_shot",
-    video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    thumbnail_url: "https://images.unsplash.com/photo-1519861531473-9200262188bf?w=800&q=80",
-    timestamp: "Q2 8:12",
-    game_date: "2024-04-05"
-  },
-  {
-    id: "3",
-    title: "Rim Protection Block",
-    player_name: "Victor Wembanyama",
-    team_name: "Spurs",
-    action_type: "block",
-    video_url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-    thumbnail_url: "https://images.unsplash.com/photo-1504450758481-7338eba7524a?w=800&q=80",
-    timestamp: "Q1 11:02",
-    game_date: "2024-04-04"
-  }
-];
-
 export default function HighlightsPage() {
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeHighlight, setActiveHighlight] = useState<Highlight | null>(null);
+  const [clips, setClips] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchClips = async () => {
+      setLoading(true);
+      // Currently, highlights are derived from play_by_play events that have video_url
+      const { data, error } = await supabase
+        .from("play_by_play")
+        .select(`
+          *,
+          games!inner(
+            home_team:teams!games_home_team_id_fkey(name),
+            away_team:teams!games_away_team_id_fkey(name)
+          )
+        `)
+        .not("video_url", "is", null)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        setClips(data);
+      }
+      setLoading(false);
+    };
+
+    fetchClips();
+  }, []);
+
+  const filteredClips = filter === "all" 
+    ? clips 
+    : clips.filter(c => c.event_type?.toLowerCase().includes(filter.toLowerCase()));
 
   const filteredHighlights = MOCK_HIGHLIGHTS.filter(h => {
     const matchesFilter = filter === "all" || h.action_type === filter;
@@ -268,6 +264,63 @@ export default function HighlightsPage() {
             </div>
           )}
         </div>
+
+        {/* Clips Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="aspect-video rounded-2xl bg-muted/20 animate-pulse border border-border/50" />
+            ))}
+          </div>
+        ) : filteredClips.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredClips.map((clip) => (
+              <Card key={clip.id} className="border-border bg-card/40 hover:bg-card/60 transition-all cursor-pointer overflow-hidden">
+                <div className="relative">
+                  <AspectRatio ratio={16 / 9}>
+                    <img src={clip.thumbnail_url} alt={clip.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                  </AspectRatio>
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <div className="h-10 w-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                      <Play className="h-5 w-5 text-white fill-white ml-0.5" />
+                    </div>
+                  </div>
+                  <div className="absolute bottom-2 right-2">
+                    <Badge className="bg-black/60 backdrop-blur-md border-none text-[10px] py-0 px-2 font-mono">
+                      {clip.timestamp}
+                    </Badge>
+                  </div>
+                </div>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex justify-between items-start gap-2">
+                    <p className="text-sm font-bold truncate">{clip.player_name}</p>
+                    <Badge variant="outline" className="text-[9px] uppercase tracking-tighter border-border bg-muted/50">
+                      {clip.action_type === "made_shot" ? "2PT MADE" : clip.action_type.toUpperCase()}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground truncate">{clip.title}</p>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <Card className="bg-card/30 border-dashed border-2 border-border p-24 text-center">
+            <div className="space-y-4 max-w-sm mx-auto">
+              <div className="h-20 w-20 bg-accent/10 rounded-full flex items-center justify-center mx-auto border border-accent/20">
+                <Play className="h-10 w-10 text-accent" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-xl font-bold">No Highlights Found</h3>
+                <p className="text-muted-foreground text-sm">
+                  Processed video clips will appear here once the AI pipeline finishes analyzing your game footage.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => window.location.href = '/'}>
+                Back to Dashboard
+              </Button>
+            </div>
+          </Card>
+        )}
       </div>
     </Layout>
   );
