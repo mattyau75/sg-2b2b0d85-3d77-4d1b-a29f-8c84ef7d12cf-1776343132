@@ -13,7 +13,7 @@ position: 4
 Handling YouTube highlights and connecting to the GPU processing service.
 
 ## Checklist:
-- [ ] Create VideoPlayer.tsx: YouTube embed with controlled playback
-- [ ] Create modalService.ts: Bridge for calling Modal.com GPU endpoints
+- [x] Create VideoPlayer.tsx: YouTube embed with controlled playback
+- [x] Create modalService.ts: Bridge for calling Modal.com GPU endpoints
 - [ ] Implement highlight segment selection
-- [ ] Add "Process Game" form for new YouTube URLs
+- [x] Add "Process Game" form for new YouTube URLs

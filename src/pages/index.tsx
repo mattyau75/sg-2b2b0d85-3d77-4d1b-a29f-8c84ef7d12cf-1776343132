@@ -12,7 +12,9 @@ import {
   TrendingUp,
   Cpu,
   Download,
-  ListTodo
+  ListTodo,
+  Youtube,
+  Upload
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -24,6 +26,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
 const MOCK_SHOTS: Shot[] = [
   { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
