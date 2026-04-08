@@ -84,7 +84,7 @@ export default function Home() {
         const { count, error: countError } = await supabase
           .from("play_by_play")
           .select('id', { count: 'exact', head: true })
-          .neq("video_url", null);
+          .not("video_url", "is", null);
 
         if (!countError) {
           setStatsSummary(prev => ({

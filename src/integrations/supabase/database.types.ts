@@ -153,6 +153,7 @@ export type Database = {
           player_id: string | null
           team_id: string | null
           timestamp_seconds: number | null
+          video_url: string | null
           x_coord: number | null
           y_coord: number | null
         }
@@ -167,6 +168,7 @@ export type Database = {
           player_id?: string | null
           team_id?: string | null
           timestamp_seconds?: number | null
+          video_url?: string | null
           x_coord?: number | null
           y_coord?: number | null
         }
@@ -181,6 +183,7 @@ export type Database = {
           player_id?: string | null
           team_id?: string | null
           timestamp_seconds?: number | null
+          video_url?: string | null
           x_coord?: number | null
           y_coord?: number | null
         }
