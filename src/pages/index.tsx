@@ -83,8 +83,8 @@ export default function Home() {
         // Fetch total video clips (Play-by-Play events with video URLs)
         const { count, error: countError } = await supabase
           .from("play_by_play")
-          .select('*', { count: 'exact', head: true })
-          .not("video_url", "is", null);
+          .select('id', { count: 'exact', head: true })
+          .neq("video_url", null);
 
         if (!countError) {
           setStatsSummary(prev => ({
