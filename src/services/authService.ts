@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
+import type { Session } from "@supabase/supabase-js";
 
 export interface AuthUser {
   id: string;

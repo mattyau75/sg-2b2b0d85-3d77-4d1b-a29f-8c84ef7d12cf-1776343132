@@ -1,10 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
-import type { Database } from "@/integrations/supabase/types";
-
-type Team = Database["public"]["Tables"]["teams"]["Row"];
-type Player = Database["public"]["Tables"]["players"]["Row"];
 
 export const rosterService = {
+  /**
+   * Fetches all teams with their player counts
+   */
   getTeams: async () => {
     const { data, error } = await supabase
       .from("teams")
