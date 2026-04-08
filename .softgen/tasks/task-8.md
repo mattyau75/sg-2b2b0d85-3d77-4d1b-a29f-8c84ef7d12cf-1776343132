@@ -1,19 +1,16 @@
-<![CDATA[
 ---
-title: Advanced Game Analysis Modal
+title: Enhance New Game Workflow with Team Metadata
 status: done
 priority: high
 type: feature
-tags: ["ai", "ui", "processing"]
-created_by: agent
-created_at: 2026-04-08
-position: 8
 ---
 
-## Notes:
+## Notes
+:
 Create a unified "New Game" modal that captures YouTube URL, Home/Away team selection, and jersey colors to improve AI attribution accuracy.
 
-## Checklist:
+## Checklist
+:
 - [x] Create NewGameModal.tsx: Comprehensive form for video processing
 - [x] Implement Team Select dropdowns (fetching from Supabase)
 - [x] Add Team Color Swatches (Jersey Identification)
