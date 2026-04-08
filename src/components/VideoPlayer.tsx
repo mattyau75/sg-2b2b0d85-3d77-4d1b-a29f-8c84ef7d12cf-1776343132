@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface VideoPlayerProps {
@@ -7,7 +7,15 @@ interface VideoPlayerProps {
 }
 
 export function VideoPlayer({ url, className }: VideoPlayerProps) {
-  if (!url) return null;
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return <div className={cn("w-full aspect-video bg-black/50 animate-pulse rounded-lg", className)} />;
+  }
 
   const isYoutube = url.includes("youtube.com") || url.includes("youtu.be");
   
