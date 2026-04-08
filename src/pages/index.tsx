@@ -27,6 +27,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { modalService } from "@/services/modalService";
+import { useToast } from "@/hooks/use-toast";
 
 const MOCK_SHOTS: Shot[] = [
   { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
@@ -53,6 +55,47 @@ const MOCK_PBP = [
 ];
 
 export default function Home() {
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+
+  const handleProcessGame = async () => {
+    if (!youtubeUrl) {
+      toast({
+        title: "Missing URL",
+        description: "Please paste a YouTube URL to begin processing.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!youtubeUrl.includes("youtube.com") && !youtubeUrl.includes("youtu.be")) {
+      toast({
+        title: "Invalid URL",
+        description: "Please provide a valid YouTube link.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      await modalService.processGame(youtubeUrl);
+      toast({
+        title: "Processing Started",
+        description: "Modal.com GPU (A100) has initiated the YOLOv11m pipeline.",
+      });
+    } catch (error) {
+      toast({
+        title: "Connection Error",
+        description: "Failed to connect to Modal.com. Check your credentials.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   return (
     <Layout title="Dashboard | CourtVision Elite">
       <div className="space-y-8">
@@ -72,14 +115,33 @@ export default function Home() {
               Advanced tactical scouting powered by computer vision. Upload a YouTube link to begin automated clip extraction and shot tracking.
             </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" className="h-12 px-6 rounded-xl border-border bg-card/50 hover:bg-secondary transition-all">
-              <History className="mr-2 h-4 w-4" />
-              Recent Games
-            </Button>
-            <Button className="h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all">
-              <Play className="mr-2 h-4 w-4 fill-current" />
-              New Session
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="flex-1 relative min-w-[300px]">
+              <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input 
+                type="text" 
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="Paste unlisted YouTube URL..." 
+                className="w-full h-12 pl-11 pr-4 rounded-xl bg-card/50 border border-border focus:border-primary outline-none transition-all text-sm font-mono"
+              />
+            </div>
+            <Button 
+              onClick={handleProcessGame}
+              disabled={isProcessing}
+              className="h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
+            >
+              {isProcessing ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  Processing...
+                </div>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Process Game
+                </>
+              )}
             </Button>
           </div>
         </div>
