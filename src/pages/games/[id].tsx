@@ -2,9 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { 
-  Trophy, Calendar, Clock, ChevronLeft, Play, Target, 
-  ListOrdered, Table as TableIcon, Download, Share2, 
-  Video, Users, Edit2, Save, X, RefreshCw, Trash2 
+  Trophy, ChevronLeft, RefreshCw, Edit2, Save, X, Trash2 
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -314,7 +312,7 @@ export default function GameDetailPage() {
 
           <TabsContent value="shotchart">
             <Card className="bg-card/30 border-border p-8 flex flex-col items-center">
-              <div className="w-full max-w-2xl">
+              <div className="w-full max-w-2xl min-h-[400px]">
                 <ShotChart shots={shotData || []} />
               </div>
             </Card>
