@@ -60,10 +60,25 @@ export const modalService = {
       return data;
     } catch (error: any) {
       console.error("Service: GPU Request Failed (Network/Client Error):", error);
-      // More descriptive error for the user
-      const userMessage = error.message.includes("timed out") 
-        ? `Timeout: ${error.message}`
-        : `Connection Error: ${error.message}`;
+      
+      // Extract the most useful message from the error object
+      let displayMessage = "Unknown connection error";
+      
+      if (typeof error === "string") {
+        displayMessage = error;
+      } else if (error.message) {
+        displayMessage = error.message;
+      } else if (typeof error === "object") {
+        try {
+          displayMessage = JSON.stringify(error);
+        } catch {
+          displayMessage = "Complex connection error";
+        }
+      }
+
+      const userMessage = displayMessage.includes("timed out") 
+        ? `Timeout: ${displayMessage}`
+        : `Connection Error: ${displayMessage}`;
       
       alert(userMessage);
       throw error;

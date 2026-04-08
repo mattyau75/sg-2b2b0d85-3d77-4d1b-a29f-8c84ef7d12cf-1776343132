@@ -125,8 +125,11 @@ export default async function handler(
             errorData = { message: errorText }; 
           }
           
+          // Ensure we return a structured error that the frontend can reliably parse
+          const finalMessage = errorData.message || errorData.error || errorText || "Internal GPU Error";
+          
           return res.status(modalResponse.status).json({
-            message: `Modal.com Cluster Error (${modalResponse.status}): ${errorData.message || "Internal Server Error"}`,
+            message: `Modal Error (${modalResponse.status}): ${finalMessage}`,
             details: errorData,
             status: modalResponse.status
           });
