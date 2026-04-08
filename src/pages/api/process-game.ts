@@ -94,17 +94,20 @@ export default async function handler(
       return res.status(modalResponse.status).json({ message: `Modal Error: ${errorText.slice(0, 100)}` });
     }
 
+    // START STREAMING HANDLER
     const reader = modalResponse.body?.getReader();
     const decoder = new TextDecoder();
     
-    if (!reader) throw new Error("Failed to open stream from Modal GPU");
+    if (!reader) {
+      throw new Error("Failed to open stream from Modal GPU");
+    }
 
-    // Important: Respond to the client so the UI doesn't hang waiting for the stream
-    res.status(200).json({ success: true, message: "Handshake successful. Analysis started." });
-
+    // Buffer for JSON-lines
     let buffer = "";
     let finalResultReceived = false;
+    let lastError: string | null = null;
 
+    // Process the ENTIRE stream before responding to the client
     try {
       while (true) {
         const { done, value } = await reader.read();
@@ -116,42 +119,64 @@ export default async function handler(
 
         for (const line of lines) {
           if (!line.trim()) continue;
+          console.log("Server: Received line from Modal:", line);
+          
           try {
             const data = JSON.parse(line);
             
+            // Handle Progress Updates
             if (data.__progress !== undefined && gameId) {
+              const progress = Math.min(Math.round(data.__progress), 95);
+              console.log(`Server: Game ${gameId} progress: ${progress}%`);
               await supabase
                 .from('games')
                 .update({ 
-                  progress_percentage: Math.min(Math.round(data.__progress), 95),
+                  progress_percentage: progress,
                   status: 'analyzing',
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', gameId);
             }
 
+            // Handle Final Result
             if (data.__result && gameId) {
+              console.log(`Server: Game ${gameId} COMPLETED - Saving result`);
               finalResultReceived = true;
-              await supabase
+              
+              const { error: updateError } = await supabase
                 .from('games')
                 .update({ 
                   status: 'completed',
                   progress_percentage: 100,
-                  processing_metadata: data.__result, // Directly as object for JSONB
+                  processing_metadata: data.__result,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', gameId);
               
-              // Trigger auto-sync
-              await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/sync-game-stats`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameId })
-              }).catch(e => console.error("Sync trigger failed", e));
+              if (updateError) {
+                console.error("Server: Failed to save result:", updateError);
+              } else {
+                console.log("Server: Result saved successfully");
+              }
+              
+              // Trigger stats sync
+              try {
+                await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/sync-game-stats`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ gameId })
+                });
+              } catch (syncErr) {
+                console.error("Server: Failed to trigger stats sync:", syncErr);
+              }
             }
 
+            // Handle Errors from the Python Subprocess
             if (data.__error && gameId) {
+              console.error(`Server: GPU Error for ${gameId}:`, data.__error);
               finalResultReceived = true;
+              lastError = data.__error;
+              
               await supabase
                 .from('games')
                 .update({ 
@@ -162,24 +187,56 @@ export default async function handler(
                 })
                 .eq('id', gameId);
             }
-          } catch (e) {
-            console.warn("Stream parse error", e);
+          } catch (parseError) {
+            console.warn("Server: Failed to parse JSON line:", line, parseError);
           }
         }
       }
 
+      // Cleanup: If stream ended but no result was saved
       if (!finalResultReceived && gameId) {
+        console.warn(`Server: Stream ended for ${gameId} without result or error.`);
         await supabase
           .from('games')
           .update({ 
             status: 'failed', 
-            last_error: "Stream ended without result payload.",
+            last_error: "Video processing interrupted (Stream ended without result).",
             updated_at: new Date().toISOString()
           })
           .eq('id', gameId);
+        
+        return res.status(500).json({ 
+          message: "Processing incomplete - stream ended unexpectedly." 
+        });
       }
+
+      // Success - Stream completed and result was saved
+      if (lastError) {
+        return res.status(500).json({ 
+          message: `Processing failed: ${lastError}` 
+        });
+      }
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Processing completed successfully.",
+        gameId 
+      });
+
     } catch (streamError) {
-      console.error("Stream processing loop error", streamError);
+      console.error("Server: Stream processing error:", streamError);
+      await supabase
+        .from('games')
+        .update({ 
+          status: 'failed', 
+          last_error: `Stream error: ${streamError}`,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', gameId);
+      
+      return res.status(500).json({ 
+        message: `Stream processing failed: ${streamError}` 
+      });
     }
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
