@@ -154,7 +154,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                 </div>
                 <Select 
                   value={formData.cameraType} 
-                  onValueChange={(val) => setFormData({...formData, cameraType: val})}
+                  onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
                 >
                   <SelectTrigger className="bg-background border-border">
                     <SelectValue placeholder="Type" />
