@@ -119,10 +119,14 @@ export default async function handler(
           console.error(`Server: Modal.com GPU Cluster Error (${modalResponse.status}):`, errorText);
           
           let errorData;
-          try { errorData = JSON.parse(errorText); } catch { errorData = { message: errorText }; }
+          try { 
+            errorData = JSON.parse(errorText); 
+          } catch { 
+            errorData = { message: errorText }; 
+          }
           
           return res.status(modalResponse.status).json({
-            message: `Modal.com Cluster Error (${modalResponse.status}): ${errorData.message || 'Check logs'}`,
+            message: `Modal.com Cluster Error (${modalResponse.status}): ${errorData.message || "Internal Server Error"}`,
             details: errorData,
             status: modalResponse.status
           });
