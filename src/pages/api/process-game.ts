@@ -17,21 +17,17 @@ export default async function handler(
   let videoSourceUrl = youtubeUrl;
 
   // R2 Storage Path Detection
-  if (youtubeUrl && !youtubeUrl.startsWith('http') && !youtubeUrl.includes('youtube') && !youtubeUrl.includes('youtu.be')) {
-    if (youtubeUrl?.startsWith("videos/")) {
-      const signedUrl = await storageService.getSignedUrl(youtubeUrl);
-      videoSourceUrl = signedUrl;
-    } else {
-      try {
-        const command = new GetObjectCommand({
-          Bucket: R2_BUCKET,
-          Key: youtubeUrl,
-        });
-        // 2 hour secure link for GPU analysis
-        videoSourceUrl = await getSignedUrl(r2Client, command, { expiresIn: 7200 });
-      } catch (err: any) {
-        return res.status(500).json({ message: "Failed to secure access to R2 video file." });
-      }
+  if (youtubeUrl && !youtubeUrl.startsWith("http") && !youtubeUrl.includes("youtube") && !youtubeUrl.includes("youtu.be")) {
+    try {
+      const command = new GetObjectCommand({
+        Bucket: R2_BUCKET,
+        Key: youtubeUrl,
+      });
+      // 2 hour secure link for GPU analysis
+      videoSourceUrl = await getSignedUrl(r2Client, command, { expiresIn: 7200 });
+    } catch (err) {
+      console.error("R2 Signing Error:", err);
+      return res.status(500).json({ message: "Failed to secure access to R2 video file." });
     }
   }
 
@@ -42,31 +38,31 @@ export default async function handler(
   if (!MODAL_TOKEN_ID || !MODAL_TOKEN_SECRET) {
     if (gameId) {
       await supabase
-        .from('games')
-        .update({ status: 'failed', last_error: "Modal credentials missing." })
-        .eq('id', gameId);
+        .from("games")
+        .update({ status: "failed", last_error: "Modal credentials missing." })
+        .eq("id", gameId);
     }
     return res.status(500).json({ message: "Server configuration error: Modal credentials missing." });
   }
 
   try {
-    const { data: homePlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.home_team_id);
-    const { data: awayPlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.away_team_id);
-    const { data: homeTeam } = await supabase.from('teams').select('name').eq('id', config.home_team_id).single();
-    const { data: awayTeam } = await supabase.from('teams').select('name').eq('id', config.away_team_id).single();
+    const { data: homePlayers } = await supabase.from("players").select("id, name, number").eq("team_id", config.home_team_id);
+    const { data: awayPlayers } = await supabase.from("players").select("id, name, number").eq("team_id", config.away_team_id);
+    const { data: homeTeam } = await supabase.from("teams").select("name").eq("id", config.home_team_id).single();
+    const { data: awayTeam } = await supabase.from("teams").select("name").eq("id", config.away_team_id).single();
 
     if (gameId) {
       await supabase
-        .from('games')
+        .from("games")
         .update({ 
-          status: 'queued', 
+          status: "queued", 
           youtube_url: null,
-          video_path: youtubeUrl, // Save the R2 key
+          video_path: youtubeUrl,
           camera_type: config.camera_type,
           progress_percentage: 15,
           last_error: null
         })
-        .eq('id', gameId);
+        .eq("id", gameId);
     }
 
     if (!MODAL_URL) {
