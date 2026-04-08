@@ -138,7 +138,18 @@ export default async function handler(
           });
         }
         
-        console.log("Server: Modal handshake successful.");
+        // Parse the successful response to see if Modal returned data synchronously
+        const successData = await modalResponse.json().catch(() => null);
+        console.log("Server: Modal handshake successful. Response data:", successData);
+        
+        return res.status(200).json({ 
+          success: true, 
+          message: "Modal.com GPU pipeline initiated successfully.",
+          job_id: successData?.job_id || `modal_job_${Math.random().toString(36).substr(2, 9)}`,
+          modal_data: successData,
+          normalized_url: normalizedUrl
+        });
+
       } catch (fetchError: any) {
         console.error("Server: Fetch failure to Modal:", {
           message: fetchError.message,
