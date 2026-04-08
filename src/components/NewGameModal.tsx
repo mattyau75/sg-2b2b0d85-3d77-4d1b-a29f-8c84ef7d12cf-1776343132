@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
+import { Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X, Trophy } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
 import { storageService } from "@/services/storageService";
