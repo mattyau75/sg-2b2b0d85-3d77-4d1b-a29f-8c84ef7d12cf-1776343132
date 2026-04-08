@@ -13,7 +13,7 @@ position: 18
 Ensure 8GB+ video uploads continue even if the user closes the modal or navigates away.
 
 ## Checklist:
-- [ ] Create UploadContext.tsx to manage global upload state and background tasks
-- [ ] Update Layout.tsx to include the UploadProvider
-- [ ] Refactor NewGameModal.tsx to delegate upload to the global context
-- [ ] Trigger immediate redirect to /analysis-queue upon upload start
+- [x] Create UploadContext.tsx to manage global upload state and background tasks
+- [x] Update Layout.tsx to include the UploadProvider
+- [x] Refactor NewGameModal.tsx to delegate upload to the global context
+- [x] Trigger immediate redirect to /analysis-queue upon upload start

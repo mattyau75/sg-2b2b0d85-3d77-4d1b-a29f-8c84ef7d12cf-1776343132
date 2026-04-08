@@ -178,7 +178,6 @@ export default function GamesPage() {
       <NewGameModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)} 
-        onJobStarted={fetchGames}
       />
     </Layout>
   );
