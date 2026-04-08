@@ -13,7 +13,7 @@ position: 19
 Allow users to terminate active 8GB+ uploads and GPU analysis jobs to save resources and time.
 
 ## Checklist:
-- [ ] Update storageService.ts to support AbortController for multipart uploads
-- [ ] Update UploadContext.tsx to expose a cancelUpload method
-- [ ] Add "Cancel Upload" button to analysis-queue.tsx
-- [ ] Implement GPU job termination in modalService.ts (if API supports it)
+- [x] Update storageService.ts to support AbortController for multipart uploads
+- [x] Update UploadContext.tsx to expose a cancelUpload method
+- [x] Add "Cancel Upload" button to analysis-queue.tsx
+- [x] Implement GPU job termination in modalService.ts (if API supports it)

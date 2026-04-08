@@ -7,7 +7,11 @@ export const storageService = {
   /**
    * Uploads a video file using Multipart Upload for stability and speed.
    */
-  async uploadVideo(file: File, onProgress: (progress: number) => void): Promise<string> {
+  async uploadVideo(
+    file: File, 
+    onProgress: (progress: number) => void,
+    abortSignal?: AbortSignal
+  ): Promise<string> {
     const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for optimal performance
     const totalParts = Math.ceil(file.size / CHUNK_SIZE);
 
@@ -16,14 +20,18 @@ export const storageService = {
       const initResponse = await axios.post("/api/storage/multipart?action=create", {
         filename: file.name,
         contentType: file.type
-      });
+      }, { signal: abortSignal });
+      
       const { uploadId, key } = initResponse.data;
 
       const uploadedParts: { etag: string; partNumber: number }[] = [];
       let totalUploaded = 0;
 
-      // 2. Upload parts sequentially (can be parallelized later)
+      // 2. Upload parts sequentially
       for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
+        // Check if aborted before starting a new part
+        if (abortSignal?.aborted) throw new Error("Upload cancelled by user");
+
         const start = (partNumber - 1) * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const chunk = file.slice(start, end);
@@ -33,12 +41,14 @@ export const storageService = {
           uploadId,
           key,
           partNumber
-        });
+        }, { signal: abortSignal });
+        
         const { url } = signResponse.data;
 
         // Upload the chunk
         const uploadResponse = await axios.put(url, chunk, {
-          headers: { "Content-Type": file.type }
+          headers: { "Content-Type": file.type },
+          signal: abortSignal
         });
 
         const etag = uploadResponse.headers.etag;
@@ -55,10 +65,14 @@ export const storageService = {
         uploadId,
         key,
         parts: uploadedParts
-      });
+      }, { signal: abortSignal });
 
       return key;
     } catch (error: any) {
+      if (axios.isCancel(error) || error.name === 'CanceledError' || abortSignal?.aborted) {
+        console.log("Upload aborted by user");
+        throw new Error("CANCELLED");
+      }
       console.error("Multipart Upload Error:", error);
       throw error;
     }

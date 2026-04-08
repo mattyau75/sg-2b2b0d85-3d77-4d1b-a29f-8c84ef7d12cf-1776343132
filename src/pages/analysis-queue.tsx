@@ -9,14 +9,17 @@ import {
   Play,
   CheckCircle2,
   ExternalLink,
-  Trash2
+  Trash2,
+  XCircle,
+  UploadCloud
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useUploads } from "@/contexts/UploadContext";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +35,7 @@ const STATUS_CONFIG: Record<string, { label: string, color: string, progress: nu
 export default function AnalysisQueuePage() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const { activeUploads, cancelUpload } = useUploads();
   const { toast } = useToast();
 
   const fetchJobs = async () => {
@@ -101,14 +105,64 @@ export default function AnalysisQueuePage() {
           <h1 className="text-4xl font-bold tracking-tight">Processing Queue</h1>
           <p className="text-muted-foreground flex items-center gap-2">
             <Activity className="h-4 w-4 text-primary animate-pulse" />
-            Monitoring {activeJobs.length} active GPU analysis jobs on A100 cluster
+            Monitoring {activeJobs.length + activeUploads.length} active GPU analysis jobs on A100 cluster
           </p>
         </div>
+
+        {/* Active Uploads Section */}
+        {activeUploads.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-primary">
+              <UploadCloud className="h-3 w-3" /> Live Video Uploads
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {activeUploads.map((upload) => (
+                <Card key={upload.id} className="bg-primary/5 border-primary/20 overflow-hidden relative group">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                  <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="space-y-2 flex-1">
+                        <div className="flex items-center gap-3">
+                          <h3 className="text-lg font-bold">{upload.fileName}</h3>
+                          <Badge variant="outline" className="capitalize font-mono text-[10px] text-primary border-primary/30">
+                            Uploading
+                          </Badge>
+                        </div>
+                        <p className="text-xs text-muted-foreground font-mono">
+                          Direct R2 Stream active...
+                        </p>
+                      </div>
+                      
+                      <div className="w-full md:w-64 space-y-2">
+                        <div className="flex justify-between text-[10px] font-mono">
+                          <span className="text-muted-foreground uppercase">Progress</span>
+                          <span className="font-bold text-primary">{upload.progress}%</span>
+                        </div>
+                        <Progress value={upload.progress} className="h-1.5 bg-primary/10" />
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                         <Button 
+                           variant="outline" 
+                           size="sm" 
+                           className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive h-10 px-4"
+                           onClick={() => cancelUpload(upload.id)}
+                         >
+                           <XCircle className="h-4 w-4 mr-2" /> Cancel
+                         </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Active Analysis Section */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
-            <Cpu className="h-3 w-3" /> Active Processing
+            <Cpu className="h-3 w-3" /> Active GPU Processing
           </div>
           
           {activeJobs.length > 0 ? (
@@ -117,7 +171,7 @@ export default function AnalysisQueuePage() {
                 const config = STATUS_CONFIG[job.status] || { label: job.status, color: 'text-primary', progress: 10 };
                 return (
                   <Card key={job.id} className="bg-card/30 border-border overflow-hidden relative group">
-                    <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                    <div className="absolute top-0 left-0 w-1 h-full bg-blue-500" />
                     <CardContent className="p-6">
                       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                         <div className="space-y-2 flex-1">
@@ -128,7 +182,7 @@ export default function AnalysisQueuePage() {
                             </Badge>
                           </div>
                           <p className="text-xs text-muted-foreground font-mono truncate max-w-md">
-                            Source: {job.youtube_url}
+                            Source: {job.youtube_url || job.video_path}
                           </p>
                         </div>
                         
@@ -141,7 +195,7 @@ export default function AnalysisQueuePage() {
                         </div>
 
                         <div className="flex items-center gap-2">
-                           <Button variant="ghost" size="sm" asChild>
+                           <Button variant="ghost" size="sm" asChild className="h-10 w-10">
                              <Link href={`/games/${job.id}`}>
                                <ExternalLink className="h-4 w-4" />
                              </Link>
@@ -149,7 +203,7 @@ export default function AnalysisQueuePage() {
                            <Button 
                              variant="ghost" 
                              size="sm" 
-                             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                             className="text-muted-foreground hover:text-destructive hover:bg-destructive/10 h-10 w-10"
                              onClick={() => handleDelete(job.id)}
                            >
                              <Trash2 className="h-4 w-4" />
@@ -162,13 +216,15 @@ export default function AnalysisQueuePage() {
               })}
             </div>
           ) : (
-            <Card className="bg-card/20 border-dashed border-border py-12 flex flex-col items-center justify-center text-center">
-              <Clock className="h-12 w-12 text-muted-foreground/30 mb-4" />
-              <h3 className="font-bold text-muted-foreground">No Active Jobs</h3>
-              <p className="text-xs text-muted-foreground/60 max-w-xs mt-2">
-                Initiate a new game analysis from the dashboard to see processing updates here.
-              </p>
-            </Card>
+            activeUploads.length === 0 && (
+              <Card className="bg-card/20 border-dashed border-border py-12 flex flex-col items-center justify-center text-center">
+                <Clock className="h-12 w-12 text-muted-foreground/30 mb-4" />
+                <h3 className="font-bold text-muted-foreground">No Active Jobs</h3>
+                <p className="text-xs text-muted-foreground/60 max-w-xs mt-2">
+                  Initiate a new game analysis from the dashboard to see processing updates here.
+                </p>
+              </Card>
+            )
           )}
         </div>
 
