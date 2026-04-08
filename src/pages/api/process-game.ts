@@ -87,6 +87,7 @@ export default async function handler(
       // Optimize roster payload for the wire
       const payload = {
         youtube_url: normalizedUrl,
+        video_url: normalizedUrl, // Added to fix the KeyError: 'video_url' in Python worker
         game_id: gameId,
         config: config,
         home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
