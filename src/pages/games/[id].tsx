@@ -17,7 +17,11 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { VideoPlayer } from "@/components/VideoPlayer";
 import { storageService } from "@/services/storageService";
+import { 
+  Trophy, ChevronLeft, RefreshCw, Video, List, LayoutGrid, Users, Target, Play 
+} from "lucide-react";
 
 export default function GameDetailPage() {
   const router = useRouter();
@@ -51,6 +55,20 @@ export default function GameDetailPage() {
 
       if (error) throw error;
       
+      setGameData(data);
+
+      // Resolve video URL
+      if (data.youtube_url) {
+        setVideoUrl(data.youtube_url);
+      } else if (data.video_path) {
+        try {
+          const signedUrl = await storageService.getSignedUrl(data.video_path);
+          setVideoUrl(signedUrl);
+        } catch (err) {
+          console.error("Failed to get signed URL:", err);
+        }
+      }
+
       if (data.play_by_play) {
         data.play_by_play.sort((a: any, b: any) => (a.timestamp_seconds || 0) - (b.timestamp_seconds || 0));
         const pMap: Record<string, string> = {};
@@ -59,7 +77,6 @@ export default function GameDetailPage() {
         });
         setPlayerMap(pMap);
       }
-      setGameData(data);
     } catch (err) {
       console.error("Error fetching game:", err);
     } finally {
