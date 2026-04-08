@@ -67,6 +67,10 @@ export default async function handler(
     const { data: homePlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.home_team_id);
     const { data: awayPlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.away_team_id);
 
+    // Fetch team names for better labeling in the Python script
+    const { data: homeTeam } = await supabase.from('teams').select('name').eq('id', config.home_team_id).single();
+    const { data: awayTeam } = await supabase.from('teams').select('name').eq('id', config.away_team_id).single();
+
     // Update game status in database to 'queued'
     if (gameId) {
       await supabase
@@ -86,12 +90,14 @@ export default async function handler(
       
       // Optimize roster payload for the wire
       const payload = {
+        video_url: normalizedUrl,
         youtube_url: normalizedUrl,
-        video_url: normalizedUrl, // Added to fix the KeyError: 'video_url' in Python worker
         game_id: gameId,
-        config: config,
+        home_team: homeTeam?.name || "Home Team",
+        away_team: awayTeam?.name || "Away Team",
         home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
         away_roster: (awayPlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
+        config: config,
         supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
         supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       };
