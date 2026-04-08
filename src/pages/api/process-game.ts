@@ -12,7 +12,7 @@ export default async function handler(
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  const { youtubeUrl } = req.body;
+  const { youtubeUrl, config } = req.body;
 
   if (!youtubeUrl) {
     return res.status(400).json({ message: "YouTube URL is required" });
@@ -38,7 +38,7 @@ export default async function handler(
      * Documentation: https://modal.com/docs/guide/webhooks
      */
     
-    // Example: Triggering a Modal webhook
+    // Example: Triggering a Modal webhook with optimized settings
     /*
     const response = await fetch('https://your-modal-username--basketball-yolo-process.modal.run', {
       method: 'POST',
@@ -46,9 +46,14 @@ export default async function handler(
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${MODAL_TOKEN_SECRET}`
       },
-      body: JSON.stringify({ url: youtubeUrl })
+      body: JSON.stringify({ 
+        url: youtubeUrl,
+        imgsz: config?.imgsz || 1280,
+        conf: config?.conf || 0.25,
+        tracking: config?.tracking,
+        agnostic_nms: config?.agnostic_nms
+      })
     });
-    const data = await response.json();
     */
 
     // Simulating success for the bridge verification
