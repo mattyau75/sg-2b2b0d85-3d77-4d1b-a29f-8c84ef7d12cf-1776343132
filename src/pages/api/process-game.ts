@@ -95,9 +95,9 @@ export default async function handler(
         supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       };
 
-      // THE REAL HANDSHAKE: Call the GPU cluster with a 60s timeout safety for cold starts
+      // THE REAL HANDSHAKE: Call the GPU cluster with a 90s timeout safety for cold starts
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000);
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
         console.log("Server: Attempting fetch to:", MODAL_URL);
@@ -128,9 +128,13 @@ export default async function handler(
         
         console.log("Server: Modal handshake successful.");
       } catch (fetchError: any) {
-        console.error("Server: Fetch failure to Modal:", fetchError.message);
+        console.error("Server: Fetch failure to Modal:", {
+          message: fetchError.message,
+          name: fetchError.name,
+          stack: fetchError.stack
+        });
         if (fetchError.name === 'AbortError') {
-          throw new Error("Connection to Modal.com timed out. The GPU might be warming up—please try again in 60 seconds.");
+          throw new Error("Connection to Modal.com timed out (90s). The GPU cluster might be experiencing a cold start or heavy load. Please try again in a moment.");
         }
         throw new Error(`Direct Connection Error: ${fetchError.message}`);
       }

@@ -53,14 +53,19 @@ export const modalService = {
 
       if (!response.ok) {
         console.error("Service: GPU Request Failed (API Error):", data);
-        throw new Error(data.message || "Failed to process game");
+        const errorMessage = data.details || data.message || "Failed to process game";
+        throw new Error(errorMessage);
       }
 
       return data;
     } catch (error: any) {
       console.error("Service: GPU Request Failed (Network/Client Error):", error);
-      // Give the user immediate visual feedback on the browser error
-      alert(`Connection Error: ${error.message}. Please check if the server is running and try again.`);
+      // More descriptive error for the user
+      const userMessage = error.message.includes("timed out") 
+        ? `Timeout: ${error.message}`
+        : `Connection Error: ${error.message}`;
+      
+      alert(userMessage);
       throw error;
     }
   },
