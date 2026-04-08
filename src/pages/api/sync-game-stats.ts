@@ -8,15 +8,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
+    // 1. Fetch game info to get home/away team IDs
+    const { data: game, error: gameError } = await supabase
+      .from("games")
+      .select("home_team_id, away_team_id")
+      .eq("id", gameId)
+      .single();
+
+    if (gameError) throw gameError;
+
+    // 2. Fetch all events and their associated player/team info
     const { data: events, error: eventsError } = await supabase
       .from("play_by_play")
-      .select("*")
+      .select("*, player:players(team_id)")
       .eq("game_id", gameId);
 
     if (eventsError) throw eventsError;
 
     const playerStats: Record<string, any> = {};
+    let homeScore = 0;
+    let awayScore = 0;
+
     events.forEach(event => {
+      const isHome = event.player?.team_id === game.home_team_id;
+      const pts = event.event_type === "made_2pt" ? 2 : event.event_type === "made_3pt" ? 3 : 0;
+      
+      if (isHome) homeScore += pts;
+      else awayScore += pts;
+
       if (!event.player_id) return;
       if (!playerStats[event.player_id]) {
         playerStats[event.player_id] = { 
@@ -46,16 +65,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (upsertError) throw upsertError;
     }
 
-    const homeScore = events.reduce((sum, e) => sum + (e.event_type === "made_2pt" ? 2 : e.event_type === "made_3pt" ? 3 : 0), 0);
-
     const { error: gameUpdateError } = await supabase
       .from("games")
-      .update({ home_score: homeScore } as any)
+      .update({ home_score: homeScore, away_score: awayScore } as any)
       .eq("id", gameId);
 
     if (gameUpdateError) throw gameUpdateError;
 
-    return res.status(200).json({ success: true, homeScore });
+    return res.status(200).json({ success: true, homeScore, awayScore });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }

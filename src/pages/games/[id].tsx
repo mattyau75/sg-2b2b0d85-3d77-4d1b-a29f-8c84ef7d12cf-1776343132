@@ -144,6 +144,16 @@ export default function GameDetailPage() {
     ...(gameData.player_game_stats?.map((s: any) => s.player) || [])
   ].filter((p, i, a) => p && a.findIndex(t => t?.id === p.id) === i);
 
+  const shotData = gameData.play_by_play
+    ?.filter((e: any) => e.event_type.includes("pt") && e.x_pos !== null && e.y_pos !== null)
+    .map((e: any) => ({
+      x: e.x_pos,
+      y: e.y_pos,
+      isMake: e.is_make,
+      type: e.event_type.includes("3") ? "3PT" : "2PT",
+      playerName: e.player?.name
+    }));
+
   return (
     <Layout title={`${gameData.home_team?.name} vs ${gameData.away_team?.name}`}>
       <div className="space-y-8 pb-10">
@@ -189,6 +199,7 @@ export default function GameDetailPage() {
           <TabsList className="bg-card/30 border border-border mb-6">
             <TabsTrigger value="boxscore">Boxscore</TabsTrigger>
             <TabsTrigger value="playbyplay">Play-by-Play</TabsTrigger>
+            <TabsTrigger value="shotchart">Shot Chart</TabsTrigger>
             <TabsTrigger value="lineups">Lineups</TabsTrigger>
           </TabsList>
 
@@ -299,6 +310,46 @@ export default function GameDetailPage() {
                 </div>
               ))}
             </div>
+          </TabsContent>
+
+          <TabsContent value="shotchart">
+            <Card className="bg-card/30 border-border p-8 flex flex-col items-center">
+              <div className="w-full max-w-2xl">
+                <ShotChart shots={shotData || []} />
+              </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="lineups">
+            <Card className="bg-card/30 border-border overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Lineup</TableHead>
+                    <TableHead className="text-center">MIN</TableHead>
+                    <TableHead className="text-center">PTS FOR</TableHead>
+                    <TableHead className="text-center">PTS AGN</TableHead>
+                    <TableHead className="text-right">NET</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gameData.lineup_stats?.map((lineup: any, idx: number) => (
+                    <TableRow key={idx}>
+                      <TableCell className="text-xs font-mono">
+                        {lineup.player_ids?.join(', ')}
+                      </TableCell>
+                      <TableCell className="text-center font-mono">{lineup.minutes_played}</TableCell>
+                      <TableCell className="text-center font-mono text-green-500">{lineup.points_for}</TableCell>
+                      <TableCell className="text-center font-mono text-destructive">{lineup.points_against}</TableCell>
+                      <TableCell className="text-right font-mono font-bold">
+                        {(lineup.points_for - lineup.points_against) >= 0 ? '+' : ''}
+                        {lineup.points_for - lineup.points_against}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
