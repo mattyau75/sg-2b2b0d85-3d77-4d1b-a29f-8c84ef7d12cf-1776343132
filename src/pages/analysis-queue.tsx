@@ -1,0 +1,201 @@
+import React, { useState, useEffect } from "react";
+import { Layout } from "@/components/Layout";
+import { 
+  Cpu, 
+  Activity, 
+  Clock, 
+  AlertCircle, 
+  RefreshCw, 
+  Play,
+  CheckCircle2,
+  ExternalLink,
+  Trash2
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import Link from "next/link";
+import { cn } from "@/lib/utils";
+
+const STATUS_CONFIG: Record<string, { label: string, color: string, progress: number }> = {
+  'queued': { label: 'In Queue', color: 'text-primary', progress: 15 },
+  'processing': { label: 'Detecting Players', color: 'text-blue-400', progress: 35 },
+  'analyzing': { label: 'Analyzing Plays', color: 'text-purple-400', progress: 65 },
+  'finalizing': { label: 'Finalizing Boxscore', color: 'text-accent', progress: 90 },
+  'completed': { label: 'Analysis Ready', color: 'text-emerald-400', progress: 100 },
+  'error': { label: 'System Error', color: 'text-destructive', progress: 0 }
+};
+
+export default function AnalysisQueuePage() {
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const fetchJobs = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('games')
+        .select(`
+          *,
+          home_team:teams!games_home_team_id_fkey(name),
+          away_team:teams!games_away_team_id_fkey(name)
+        `)
+        .neq('status', 'scheduled')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setJobs(data || []);
+    } catch (err) {
+      console.error("Fetch jobs error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchJobs();
+
+    const channel = supabase
+      .channel('queue-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
+        fetchJobs();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const handleRetry = async (id: string) => {
+    try {
+      const { error } = await supabase.from('games').update({ status: 'queued' }).eq('id', id);
+      if (error) throw error;
+      toast({ title: "Analysis Restarted", description: "The job has been re-added to the queue." });
+    } catch (err: any) {
+      toast({ title: "Retry Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const activeJobs = jobs.filter(j => j.status !== 'completed' && j.status !== 'error');
+  const finishedJobs = jobs.filter(j => j.status === 'completed' || j.status === 'error');
+
+  return (
+    <Layout title="Analysis Queue | CourtVision Elite">
+      <div className="space-y-8 pb-10">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-4xl font-bold tracking-tight">Processing Queue</h1>
+          <p className="text-muted-foreground flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary animate-pulse" />
+            Monitoring {activeJobs.length} active GPU analysis jobs on A100 cluster
+          </p>
+        </div>
+
+        {/* Active Analysis Section */}
+        <div className="space-y-4">
+          <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
+            <Cpu className="h-3 w-3" /> Active Processing
+          </div>
+          
+          {activeJobs.length > 0 ? (
+            <div className="grid grid-cols-1 gap-4">
+              {activeJobs.map((job) => {
+                const config = STATUS_CONFIG[job.status] || { label: job.status, color: 'text-primary', progress: 10 };
+                return (
+                  <Card key={job.id} className="bg-card/30 border-border overflow-hidden relative group">
+                    <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                    <CardContent className="p-6">
+                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                        <div className="space-y-2 flex-1">
+                          <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-bold">{job.home_team?.name} vs {job.away_team?.name}</h3>
+                            <Badge variant="outline" className={cn("capitalize font-mono text-[10px]", config.color)}>
+                              {config.label}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground font-mono truncate max-w-md">
+                            Source: {job.youtube_url}
+                          </p>
+                        </div>
+                        
+                        <div className="w-full md:w-64 space-y-2">
+                          <div className="flex justify-between text-[10px] font-mono">
+                            <span className="text-muted-foreground uppercase">Progress</span>
+                            <span className={cn("font-bold", config.color)}>{config.progress}%</span>
+                          </div>
+                          <Progress value={config.progress} className="h-1.5" />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                           <Button variant="ghost" size="sm" asChild>
+                             <Link href={`/games/${job.id}`}>
+                               <ExternalLink className="h-4 w-4" />
+                             </Link>
+                           </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          ) : (
+            <Card className="bg-card/20 border-dashed border-border py-12 flex flex-col items-center justify-center text-center">
+              <Clock className="h-12 w-12 text-muted-foreground/30 mb-4" />
+              <h3 className="font-bold text-muted-foreground">No Active Jobs</h3>
+              <p className="text-xs text-muted-foreground/60 max-w-xs mt-2">
+                Initiate a new game analysis from the dashboard to see processing updates here.
+              </p>
+            </Card>
+          )}
+        </div>
+
+        {/* History / Error Section */}
+        <div className="space-y-4">
+           <div className="flex items-center gap-2 text-xs font-mono uppercase tracking-widest text-muted-foreground">
+            <RefreshCw className="h-3 w-3" /> Recent History
+          </div>
+          
+          <div className="grid grid-cols-1 gap-2">
+            {finishedJobs.map((job) => (
+              <div key={job.id} className="flex items-center justify-between p-4 rounded-xl bg-card/20 border border-border/50 hover:bg-card/30 transition-colors">
+                <div className="flex items-center gap-4">
+                  {job.status === 'error' ? (
+                    <AlertCircle className="h-5 w-5 text-destructive" />
+                  ) : (
+                    <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  )}
+                  <div>
+                    <h4 className="text-sm font-bold">{job.home_team?.name} vs {job.away_team?.name}</h4>
+                    <p className="text-[10px] text-muted-foreground font-mono">
+                      {new Date(job.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  {job.status === 'error' && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="h-8 gap-2 text-xs"
+                      onClick={() => handleRetry(job.id)}
+                    >
+                      <RefreshCw className="h-3 w-3" /> Retry
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" asChild className="h-8">
+                    <Link href={`/games/${job.id}`}>
+                      {job.status === 'completed' ? 'View Results' : 'Check Logs'}
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+}

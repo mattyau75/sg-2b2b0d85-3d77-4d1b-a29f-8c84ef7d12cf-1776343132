@@ -1,7 +1,7 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, LayoutDashboard, PlayCircle, BarChart3, Settings, History } from "lucide-react";
+import { Trophy, Users, LayoutDashboard, BarChart3, Video, Settings, ChevronRight, Menu, Bell, Activity } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -10,6 +10,13 @@ interface LayoutProps {
 }
 
 export function Layout({ children, title, description }: LayoutProps) {
+  const navigation = [
+    { name: 'Dashboard', href: '/', icon: LayoutDashboard },
+    { name: 'Analysis Queue', href: '/analysis-queue', icon: Activity },
+    { name: 'Roster', href: '/roster', icon: Users },
+    { name: 'Games', href: '/games', icon: Trophy },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 selection:text-primary">
       <SEO title={title} description={description} />
