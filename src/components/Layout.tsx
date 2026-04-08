@@ -1,7 +1,7 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, LayoutDashboard, PlayCircle, BarChart3, Settings } from "lucide-react";
+import { Trophy, LayoutDashboard, PlayCircle, BarChart3, Settings, History } from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -28,6 +28,7 @@ export function Layout({ children, title, description }: LayoutProps) {
             {[
             { icon: LayoutDashboard, label: "Dashboard", href: "/" },
             { icon: Trophy, label: "Roster", href: "/roster" },
+            { icon: History, label: "Games", href: "/games" },
             { icon: BarChart3, label: "Analytics", href: "/analytics" },
             { icon: PlayCircle, label: "Highlights", href: "/highlights" }].
             map((item) =>
