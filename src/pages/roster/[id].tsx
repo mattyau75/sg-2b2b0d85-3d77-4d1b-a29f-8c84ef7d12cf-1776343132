@@ -76,7 +76,6 @@ export default function TeamRoster() {
         number: parseInt(newPlayer.number) || 0,
         position: newPlayer.position,
         team_id: id as string,
-        active: true
       });
       toast({ title: "Player Added", description: `${newPlayer.name} is now on the roster.` });
       setIsAddPlayerOpen(false);
