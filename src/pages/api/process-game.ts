@@ -76,6 +76,8 @@ export default async function handler(
     }
 
     if (MODAL_URL) {
+      console.log("Server: Dispatching production payload to Modal...");
+      
       // THE REAL HANDSHAKE: Call the GPU cluster
       const modalResponse = await fetch(MODAL_URL, {
         method: 'POST',
@@ -88,8 +90,8 @@ export default async function handler(
           youtube_url: normalizedUrl,
           game_id: gameId,
           config: config,
-          home_roster: homePlayers,
-          away_roster: awayPlayers,
+          home_roster: homePlayers || [],
+          away_roster: awayPlayers || [],
           supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
           supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
         })
@@ -99,13 +101,15 @@ export default async function handler(
         let errorInfo = "Modal GPU cluster rejected the request.";
         try {
           const errorData = await modalResponse.text();
-          console.error("Modal Raw Error:", errorData);
+          console.error("Modal Response Error:", errorData);
           errorInfo = `Modal Error (${modalResponse.status}): ${errorData.substring(0, 200)}`;
         } catch (e) {
           console.error("Could not parse Modal error text");
         }
         throw new Error(errorInfo);
       }
+      
+      console.log("Server: Modal handshake successful.");
     }
 
     return res.status(200).json({ 
