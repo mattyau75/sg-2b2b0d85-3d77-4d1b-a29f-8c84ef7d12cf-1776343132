@@ -35,7 +35,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     youtubeUrl: "",
     homeTeamId: "",
     awayTeamId: "",
-    cameraType: "panning",
+    cameraType: "panning" as "panning" | "fixed",
     homeColor: "#ff6b00",
     awayColor: "#0066ff",
     imgsz: 1280,
