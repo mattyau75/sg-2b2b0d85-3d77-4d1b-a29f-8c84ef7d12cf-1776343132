@@ -159,7 +159,7 @@ export default async function handler(
             .update({ 
               status: nextStatus,
               progress_percentage: progress,
-              processing_metadata: successData || { note: "Received 200 OK from Modal, but no JSON body." }
+              processing_metadata: JSON.stringify(successData || { note: "Received 200 OK from Modal, but no JSON body." })
             })
             .eq('id', gameId);
         }
