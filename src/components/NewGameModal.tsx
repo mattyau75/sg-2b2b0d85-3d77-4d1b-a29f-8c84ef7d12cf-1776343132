@@ -120,7 +120,6 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
         // High-performance R2 upload with progress tracking
         videoPath = await storageService.uploadVideo(
           formData.videoFile, 
-          newGame.id,
           (progress) => setUploadProgress(progress)
         );
         
