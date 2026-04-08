@@ -4,10 +4,16 @@ export const storageService = {
   async uploadVideo(file: File, onProgress: (progress: number) => void): Promise<string> {
     try {
       // 1. Get signed upload URL
-      const { data: { url, key } } = await axios.post("/api/storage/presign", {
+      const response = await axios.post("/api/storage/presign", {
         filename: file.name,
         contentType: file.type
       });
+
+      const { uploadUrl, key } = response.data;
+
+      if (!uploadUrl) {
+        throw new Error("Server failed to generate an upload URL. Check R2 Environment Variables.");
+      }
 
       // 2. Upload to R2 with retry logic
       let attempts = 0;
@@ -15,7 +21,7 @@ export const storageService = {
       
       while (attempts < maxAttempts) {
         try {
-          await axios.put(url, file, {
+          await axios.put(uploadUrl, file, {
             headers: { "Content-Type": file.type },
             onUploadProgress: (progressEvent) => {
               if (progressEvent.total) {
