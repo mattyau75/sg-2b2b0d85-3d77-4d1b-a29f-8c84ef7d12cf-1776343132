@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
 import { supabase } from "@/integrations/supabase/client";
+import { useRouter } from "next/router";
 
 const STATUS_PROGRESS: Record<string, number> = {
   'queued': 15,
@@ -40,6 +41,7 @@ const STATUS_PROGRESS: Record<string, number> = {
 };
 
 export default function Home() {
+  const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<any[]>([]);
@@ -212,7 +214,13 @@ export default function Home() {
                 <CardTitle className="text-xl flex items-center gap-2">
                   <History className="h-5 w-5 text-primary" /> Recent Analysis
                 </CardTitle>
-                <Button variant="ghost" className="text-xs text-muted-foreground hover:text-primary">View All</Button>
+                <Button 
+                  variant="ghost" 
+                  className="text-xs text-muted-foreground hover:text-primary"
+                  onClick={() => router.push('/games')}
+                >
+                  View All
+                </Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -220,7 +228,7 @@ export default function Home() {
                     recentGames.map((game) => (
                       <div 
                         key={game.id} 
-                        onClick={() => window.location.href = `/games/${game.id}`}
+                        onClick={() => router.push(`/games/${game.id}`)}
                         className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-all cursor-pointer group"
                       >
                         <div className="flex items-center gap-4">
