@@ -118,18 +118,20 @@ export default async function handler(
           const errorText = await modalResponse.text();
           console.error(`Server: Modal.com GPU Cluster Error (${modalResponse.status}):`, errorText);
           
-          let errorData;
+          let errorData: any;
           try { 
             errorData = JSON.parse(errorText); 
           } catch { 
             errorData = { message: errorText }; 
           }
           
-          // Ensure we return a structured error that the frontend can reliably parse
-          const finalMessage = errorData.message || errorData.error || errorText || "Internal GPU Error";
+          // Ensure we return a flat string for the message to avoid frontend parsing issues
+          const finalMessage = typeof errorData.message === 'string' 
+            ? errorData.message 
+            : (typeof errorData.error === 'string' ? errorData.error : errorText.slice(0, 100));
           
           return res.status(modalResponse.status).json({
-            message: `Modal Error (${modalResponse.status}): ${finalMessage}`,
+            message: `Modal Error (${modalResponse.status}): ${finalMessage || 'Internal GPU Error'}`,
             details: errorData,
             status: modalResponse.status
           });

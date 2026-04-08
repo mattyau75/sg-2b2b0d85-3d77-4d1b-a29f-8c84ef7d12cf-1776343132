@@ -49,11 +49,12 @@ export const modalService = {
         }),
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({ message: "Failed to parse error response" }));
 
       if (!response.ok) {
         console.error("Service: GPU Request Failed (API Error):", data);
-        const errorMessage = data.details || data.message || "Failed to process game";
+        // Prioritize the string 'message' over the 'details' object to avoid [object Object]
+        const errorMessage = typeof data.message === "string" ? data.message : (typeof data.error === "string" ? data.error : "Failed to process game");
         throw new Error(errorMessage);
       }
 
@@ -61,21 +62,7 @@ export const modalService = {
     } catch (error: any) {
       console.error("Service: GPU Request Failed (Network/Client Error):", error);
       
-      // Extract the most useful message from the error object
-      let displayMessage = "Unknown connection error";
-      
-      if (typeof error === "string") {
-        displayMessage = error;
-      } else if (error.message) {
-        displayMessage = error.message;
-      } else if (typeof error === "object") {
-        try {
-          displayMessage = JSON.stringify(error);
-        } catch {
-          displayMessage = "Complex connection error";
-        }
-      }
-
+      const displayMessage = error.message || "Unknown connection error";
       const userMessage = displayMessage.includes("timed out") 
         ? `Timeout: ${displayMessage}`
         : `Connection Error: ${displayMessage}`;
