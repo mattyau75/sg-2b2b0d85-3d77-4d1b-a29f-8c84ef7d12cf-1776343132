@@ -19,6 +19,7 @@ import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useRouter } from "next/router";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ interface NewGameModalProps {
 }
 
 export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProps) {
+  const router = useRouter();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -112,6 +114,9 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
       toast({ title: "Analysis Started", description: `GPU Pipeline initiated for Game ID: ${newGame.id.substring(0, 8)}` });
       onJobStarted(result.job_id);
       onClose();
+      
+      // Automatically navigate to the processing queue to monitor progress
+      router.push('/analysis-queue');
     } catch (error: any) {
       toast({ title: "Processing Failed", description: error.message, variant: "destructive" });
     } finally {
