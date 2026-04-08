@@ -15,6 +15,10 @@ export const modalService = {
     agnostic_nms?: boolean;
     rim_detection?: boolean;
     shot_logic?: boolean;
+    home_team_id?: string;
+    away_team_id?: string;
+    home_team_color?: string;
+    away_team_color?: string;
   }) => {
     const response = await fetch("/api/process-game", {
       method: "POST",
@@ -24,6 +28,7 @@ export const modalService = {
       body: JSON.stringify({ 
         youtubeUrl,
         config: {
+          ...config,
           imgsz: config?.imgsz || 1280,
           conf: config?.conf || 0.25,
           iou: config?.iou || 0.45,

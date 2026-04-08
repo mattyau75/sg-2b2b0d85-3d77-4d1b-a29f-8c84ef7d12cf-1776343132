@@ -38,7 +38,7 @@ export default async function handler(
      * Documentation: https://modal.com/docs/guide/webhooks
      */
     
-    // Example: Triggering a Modal webhook with optimized settings for Rim & Shot Detection
+    // Forwarding team metadata to Modal to help with jersey/player identification
     /*
     const response = await fetch('https://your-modal-username--basketball-yolo-process.modal.run', {
       method: 'POST',
@@ -48,13 +48,11 @@ export default async function handler(
       },
       body: JSON.stringify({ 
         url: youtubeUrl,
-        imgsz: config?.imgsz || 1280,
-        conf: config?.conf || 0.25,
-        tracking: config?.tracking,
-        agnostic_nms: config?.agnostic_nms,
-        enable_rim: config?.rim_detection,
-        enable_shot_logic: config?.shot_logic,
-        roster_sync: true // Flag to tell Modal to fetch roster for attribution
+        ...config,
+        team_metadata: {
+          home: { id: config.home_team_id, color: config.home_team_color },
+          away: { id: config.away_team_id, color: config.away_team_color }
+        }
       })
     });
     */
