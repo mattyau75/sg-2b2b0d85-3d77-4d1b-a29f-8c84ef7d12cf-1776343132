@@ -1,6 +1,7 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
-const accountId = process.env.R2_ACCOUNT_ID || "a7732b05eed44346d0b8d0e6edd40ad3";
+// Securely pull configuration from environment variables
+const accountId = process.env.R2_ACCOUNT_ID;
 
 export const r2Client = new S3Client({
   region: "auto",
