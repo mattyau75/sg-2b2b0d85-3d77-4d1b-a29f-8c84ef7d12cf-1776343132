@@ -1,32 +1,34 @@
 /**
- * Service bridge for Modal.com GPU A100 processing
- * Integrates YOLOv11m, Ultralytics and Roboflow models
+ * Service bridge for Modal.com GPU A100 processing.
+ * Updated to use the secure server-side API bridge.
  */
-
-const MODAL_TOKEN_ID = process.env.NEXT_PUBLIC_MODAL_TOKEN_ID;
-const MODAL_TOKEN_SECRET = process.env.MODAL_TOKEN_SECRET;
-
 export const modalService = {
   /**
-   * Triggers the Modal.com GPU pipeline for a YouTube URL
+   * Triggers the Modal.com GPU pipeline for a YouTube URL via secure API
    */
   processGame: async (youtubeUrl: string) => {
-    console.log("Initiating Modal.com GPU pipeline...", { youtubeUrl });
-    
-    if (!MODAL_TOKEN_ID || !MODAL_TOKEN_SECRET) {
-      console.warn("Modal credentials missing. Please set MODAL_TOKEN_ID and MODAL_TOKEN_SECRET in environment variables.");
+    const response = await fetch("/api/process-game", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ youtubeUrl }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Failed to process game");
     }
 
-    // This would typically be a call to a Modal Web Endpoint
-    // Example: fetch('https://your-modal-username--basketball-yolo-process.modal.run', { ... })
+    return data;
   },
 
   /**
-   * Fetches status of a running Modal processing job
+   * Simulated status check for a running job
    */
-  async getJobStatus(jobId: string) {
+  getJobStatus: async (jobId: string) => {
     return {
-      jobId,
       status: "processing",
       progress: 45,
       currentTask: "Detecting shot attempts via YOLOv11m"
