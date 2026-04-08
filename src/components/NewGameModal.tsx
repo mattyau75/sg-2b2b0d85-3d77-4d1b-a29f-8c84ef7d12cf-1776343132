@@ -118,6 +118,24 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
     }));
   };
 
+  const toggleHomeColor = () => {
+    if (!formData.homeTeamData) return;
+    const { primary_color, secondary_color } = formData.homeTeamData;
+    setFormData(prev => ({
+      ...prev,
+      homeColor: prev.homeColor === primary_color ? (secondary_color || primary_color) : primary_color
+    }));
+  };
+
+  const toggleAwayColor = () => {
+    if (!formData.awayTeamData) return;
+    const { primary_color, secondary_color } = formData.awayTeamData;
+    setFormData(prev => ({
+      ...prev,
+      awayColor: prev.awayColor === primary_color ? (secondary_color || primary_color) : primary_color
+    }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-3xl h-[95vh] bg-card border-border p-0 overflow-hidden flex flex-col">
@@ -193,11 +211,22 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
                 {formData.homeTeamData && (
                   <Button
                     variant="outline"
-                    className={cn("flex-1 h-12", formData.homeColor === formData.homeTeamData.primary_color && "border-primary bg-primary/10")}
-                    onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.primary_color })}
+                    className={cn(
+                      "flex-1 h-12 relative overflow-hidden transition-all duration-300", 
+                      "border-primary/20 hover:border-primary/50"
+                    )}
+                    onClick={toggleHomeColor}
                   >
-                    <div className="h-4 w-4 rounded-full mr-2" style={{ backgroundColor: formData.homeTeamData.primary_color }} />
-                    Home
+                    <div 
+                      className="absolute inset-0 opacity-10" 
+                      style={{ backgroundColor: formData.homeColor }} 
+                    />
+                    <div className="relative flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 rounded-full shadow-inner border border-white/20" style={{ backgroundColor: formData.homeColor }} />
+                      <span className="text-xs font-bold uppercase tracking-tighter">
+                        {formData.homeColor === formData.homeTeamData.primary_color ? "Primary Kit" : "Secondary Kit"}
+                      </span>
+                    </div>
                   </Button>
                 )}
               </div>
@@ -217,11 +246,22 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
                 {formData.awayTeamData && (
                   <Button
                     variant="outline"
-                    className={cn("flex-1 h-12", formData.awayColor === formData.awayTeamData.primary_color && "border-accent bg-accent/10")}
-                    onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.primary_color })}
+                    className={cn(
+                      "flex-1 h-12 relative overflow-hidden transition-all duration-300",
+                      "border-accent/20 hover:border-accent/50"
+                    )}
+                    onClick={toggleAwayColor}
                   >
-                    <div className="h-4 w-4 rounded-full mr-2" style={{ backgroundColor: formData.awayTeamData.primary_color }} />
-                    Away
+                    <div 
+                      className="absolute inset-0 opacity-10" 
+                      style={{ backgroundColor: formData.awayColor }} 
+                    />
+                    <div className="relative flex items-center justify-center gap-2">
+                      <div className="h-4 w-4 rounded-full shadow-inner border border-white/20" style={{ backgroundColor: formData.awayColor }} />
+                      <span className="text-xs font-bold uppercase tracking-tighter">
+                        {formData.awayColor === formData.awayTeamData.primary_color ? "Primary Kit" : "Secondary Kit"}
+                      </span>
+                    </div>
                   </Button>
                 )}
               </div>
