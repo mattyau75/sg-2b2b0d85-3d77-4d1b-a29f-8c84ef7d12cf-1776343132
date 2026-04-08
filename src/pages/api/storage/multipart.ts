@@ -46,20 +46,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (action === "complete") {
       const { uploadId, key, parts } = req.body;
       
+      console.log(`[Multipart] Completing upload: ${uploadId} for key: ${key}`);
+      console.log(`[Multipart] Received ${parts?.length} parts for reassembly`);
+
+      if (!parts || !Array.isArray(parts)) {
+        throw new Error("Invalid parts list provided for completion");
+      }
+
+      // Ensure ETags are correctly formatted and parts are sorted by part number
+      const sortedParts = parts
+        .sort((a, b) => a.partNumber - b.partNumber)
+        .map(p => ({
+          ETag: p.etag.startsWith('"') ? p.etag : `"${p.etag}"`,
+          PartNumber: p.partNumber
+        }));
+
       const command = new CompleteMultipartUploadCommand({
         Bucket: bucketName,
         Key: key,
         UploadId: uploadId,
         MultipartUpload: {
-          Parts: parts.map((p: any) => ({
-            ETag: p.etag,
-            PartNumber: p.partNumber,
-          })),
-        },
+          Parts: sortedParts
+        }
       });
 
-      await r2Client.send(command);
-      return res.status(200).json({ success: true, key });
+      const result = await r2Client.send(command);
+      console.log("[Multipart] Reassembly successful:", result.Location);
+      
+      return res.status(200).json({ success: true, location: result.Location });
     }
 
     return res.status(400).json({ message: "Invalid action" });

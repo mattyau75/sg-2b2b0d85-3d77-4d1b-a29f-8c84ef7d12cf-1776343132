@@ -61,11 +61,16 @@ export const storageService = {
       }
 
       // 3. Complete Multipart Upload
-      await axios.post("/api/storage/multipart?action=complete", {
+      console.log("Upload reached 100%. Finalizing 8GB+ file reassembly...");
+      const completeResponse = await axios.post("/api/storage/multipart?action=complete", {
         uploadId,
         key,
         parts: uploadedParts
       }, { signal: abortSignal });
+
+      if (completeResponse.status !== 200) {
+        throw new Error("Cloudflare R2 failed to reassemble the video parts.");
+      }
 
       return key;
     } catch (error: any) {
