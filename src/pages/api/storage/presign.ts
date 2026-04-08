@@ -6,12 +6,23 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
-  const { fileName, contentType } = req.body;
-
   try {
+    const { filename, contentType } = req.body;
+
+    // Validate environment variables before attempting to use the client
+    if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY || !process.env.R2_ACCOUNT_ID) {
+      console.error("Missing R2 Environment Variables");
+      return res.status(500).json({ 
+        error: "Configuration Error", 
+        details: "R2 Environment variables are missing in Settings > Environment" 
+      });
+    }
+
+    const key = `videos/${Date.now()}-${filename}`;
+
     const command = new PutObjectCommand({
       Bucket: R2_BUCKET,
-      Key: fileName,
+      Key: key,
       ContentType: contentType,
     });
 
