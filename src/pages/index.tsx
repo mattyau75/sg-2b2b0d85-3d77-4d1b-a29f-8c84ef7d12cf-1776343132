@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,37 +28,35 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
-
-const MOCK_SHOTS: Shot[] = [
-  { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
-  { id: "2", x: 100, y: 140, is_made: true, player_name: "Klay Thompson", shot_type: "3PT Jumper", timestamp: "Q1 07:12" },
-  { id: "3", x: 400, y: 140, is_made: false, player_name: "Jordan Poole", shot_type: "3PT Jumper", timestamp: "Q1 05:30" },
-  { id: "4", x: 250, y: 250, is_made: true, player_name: "Steph Curry", shot_type: "Midrange Jumper", timestamp: "Q1 04:15" },
-  { id: "5", x: 50, y: 50, is_made: false, player_name: "Draymond Green", shot_type: "Hook Shot", timestamp: "Q1 02:10" },
-];
-
-const MOCK_STATS = [
-  { player: "Steph Curry", pos: "G", min: "34", pts: "32", reb: "5", ast: "8", stl: "2", blk: "0", fg: "11-18", tp: "6-10" },
-  { player: "Klay Thompson", pos: "G", min: "32", pts: "22", reb: "3", ast: "2", stl: "1", blk: "1", fg: "8-16", tp: "4-9" },
-  { player: "Andrew Wiggins", pos: "F", min: "30", pts: "18", reb: "7", ast: "1", stl: "2", blk: "2", fg: "7-12", tp: "2-4" },
-  { player: "Draymond Green", pos: "F", min: "28", pts: "8", reb: "12", ast: "10", stl: "1", blk: "1", fg: "3-5", tp: "0-1" },
-  { player: "Kevon Looney", pos: "C", min: "24", pts: "6", reb: "10", ast: "4", stl: "0", blk: "1", fg: "3-4", tp: "0-0" },
-];
-
-const MOCK_PBP = [
-  { time: "08:45", quarter: "Q1", event: "Steph Curry makes 2pt layup", score: "2-0", player: "Steph Curry" },
-  { time: "08:20", quarter: "Q1", event: "Jayson Tatum misses 3pt jumper", score: "2-0", player: "Jayson Tatum" },
-  { time: "07:55", quarter: "Q1", event: "Draymond Green defensive rebound", score: "2-0", player: "Draymond Green" },
-  { time: "07:32", quarter: "Q1", event: "Andrew Wiggins makes 2pt jumper", score: "4-0", player: "Andrew Wiggins" },
-  { time: "07:12", quarter: "Q1", event: "Klay Thompson makes 3pt jumper (Steph Curry assist)", score: "7-0", player: "Klay Thompson" },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeJobs, setActiveJobs] = useState<any[]>([
-    { name: "MIL vs PHX - Highlights", progress: 65, status: "Processing" },
-    { name: "BOS vs MIA - Q1", progress: 0, status: "Pending" },
-  ]);
+  const [activeJobs, setActiveJobs] = useState<any[]>([]);
+  const [recentGames, setRecentGames] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRecentGames = async () => {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from("games")
+        .select(`
+          *,
+          home_team:teams!games_home_team_id_fkey(name),
+          away_team:teams!games_away_team_id_fkey(name)
+        `)
+        .order("created_at", { ascending: false })
+        .limit(3);
+      
+      if (!error && data) {
+        setRecentGames(data);
+      }
+      setLoading(false);
+    };
+
+    fetchRecentGames();
+  }, []);
 
   const handleNewJob = (jobId: string) => {
     setActiveJobs([{ name: "New Analysis Job", progress: 5, status: "Initiated", id: jobId }, ...activeJobs]);
@@ -134,34 +132,49 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {[
-                    { id: "g1", teams: "Warriors vs Lakers", date: "2 Hours Ago", status: "Analysis Complete", score: "112 - 108" },
-                    { id: "g2", teams: "Celtics vs Heat", date: "Yesterday", status: "Ready to Review", score: "98 - 105" },
-                    { id: "g3", teams: "Suns vs Nuggets", date: "2 Days Ago", status: "Analysis Complete", score: "124 - 118" },
-                  ].map((game) => (
-                    <div 
-                      key={game.id} 
-                      onClick={() => window.location.href = `/games/${game.id}`}
-                      className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-all cursor-pointer group"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-                          <Trophy className="h-5 w-5 text-primary" />
+                  {recentGames.length > 0 ? (
+                    recentGames.map((game) => (
+                      <div 
+                        key={game.id} 
+                        onClick={() => window.location.href = `/games/${game.id}`}
+                        className="flex items-center justify-between p-4 rounded-xl bg-muted/30 border border-border/50 hover:bg-muted/50 transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
+                            <Trophy className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-bold group-hover:text-primary transition-colors">
+                              {game.home_team?.name} vs {game.away_team?.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(game.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-bold group-hover:text-primary transition-colors">{game.teams}</p>
-                          <p className="text-xs text-muted-foreground">{game.date}</p>
+                        <div className="flex items-center gap-6">
+                          <div className="text-right hidden sm:block">
+                            <p className="text-sm font-mono font-bold">Live</p>
+                            <p className="text-[10px] text-accent uppercase tracking-tighter">{game.status}</p>
+                          </div>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                         </div>
                       </div>
-                      <div className="flex items-center gap-6">
-                        <div className="text-right hidden sm:block">
-                          <p className="text-sm font-mono font-bold">{game.score}</p>
-                          <p className="text-[10px] text-accent uppercase tracking-tighter">{game.status}</p>
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    ))
+                  ) : (
+                    <div className="py-12 text-center space-y-4">
+                      <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mx-auto">
+                        <History className="h-8 w-8 text-muted-foreground/50" />
                       </div>
+                      <div className="space-y-1">
+                        <p className="text-sm font-medium text-muted-foreground">No recent analysis found</p>
+                        <p className="text-xs text-muted-foreground/70">Start by analyzing a new game video</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+                        Analyze First Game
+                      </Button>
                     </div>
-                  ))}
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -177,58 +190,15 @@ export default function Home() {
               </TabsList>
               
               <TabsContent value="boxscore">
-                <Card className="glass-card border-none overflow-hidden">
-                  <Table>
-                    <TableHeader className="bg-white/5">
-                      <TableRow className="hover:bg-transparent border-white/5">
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider">Player</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Pos</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Min</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Pts</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Reb</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">Ast</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">FG</TableHead>
-                        <TableHead className="font-mono text-[10px] uppercase tracking-wider text-center">3P</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {MOCK_STATS.map((row) => (
-                        <TableRow key={row.player} className="border-white/5 hover:bg-white/5 transition-colors">
-                          <TableCell className="font-medium py-3">{row.player}</TableCell>
-                          <TableCell className="text-center text-muted-foreground font-mono text-xs">{row.pos}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.min}</TableCell>
-                          <TableCell className="text-center font-mono font-bold text-accent">{row.pts}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.reb}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.ast}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.fg}</TableCell>
-                          <TableCell className="text-center font-mono text-xs">{row.tp}</TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                <Card className="glass-card border-none overflow-hidden min-h-[200px] flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground font-mono">No game stats available. Please select or analyze a game.</p>
                 </Card>
               </TabsContent>
 
               <TabsContent value="pbp">
-                <Card className="glass-card border-none p-2">
-                  <div className="space-y-1">
-                    {MOCK_PBP.map((event, i) => (
-                      <div key={i} className="flex items-center gap-4 p-3 rounded-lg hover:bg-white/5 transition-colors group cursor-pointer">
-                        <div className="text-[10px] font-mono text-muted-foreground w-12">{event.time}</div>
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
-                          <Target className="h-4 w-4" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{event.event}</p>
-                          <p className="text-[10px] font-mono text-muted-foreground uppercase">{event.player}</p>
-                        </div>
-                        <div className="text-xs font-mono font-bold text-accent">{event.score}</div>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100">
-                          <Play className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
+                <Card className="glass-card border-none p-8 text-center space-y-4">
+                  <Target className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                  <p className="text-sm text-muted-foreground font-mono">Select a game to view chronological event logs.</p>
                 </Card>
               </TabsContent>
             </Tabs>
@@ -241,12 +211,12 @@ export default function Home() {
                   <Target className="h-5 w-5 text-accent" />
                   Shot Chart
                 </CardTitle>
-                <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
-                  <Download className="h-4 w-4" />
-                </Button>
               </CardHeader>
-              <CardContent>
-                <ShotChartComponent shots={MOCK_SHOTS} />
+              <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
+                 <div className="h-32 w-full border border-dashed border-border/50 rounded-lg flex items-center justify-center bg-muted/10">
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">No Shot Data</p>
+                 </div>
+                 <p className="text-xs text-muted-foreground max-w-[180px]">Visualization will appear here once game processing is complete.</p>
               </CardContent>
             </Card>
 

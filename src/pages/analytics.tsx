@@ -29,26 +29,14 @@ import {
 import { rosterService } from "@/services/rosterService";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
-const PERFORMANCE_DATA = [
-  { name: "Game 1", pts: 102, ast: 24, reb: 42 },
-  { name: "Game 2", pts: 115, ast: 28, reb: 38 },
-  { name: "Game 3", pts: 98, ast: 22, reb: 45 },
-  { name: "Game 4", pts: 122, ast: 31, reb: 40 },
-  { name: "Game 5", pts: 108, ast: 26, reb: 44 },
-];
-
-const SHOT_DISTRIBUTION = [
-  { name: "Paint", value: 35, color: "#FF6B00" },
-  { name: "Mid-Range", value: 25, color: "#180000" },
-  { name: "Left Corner 3", value: 12, color: "#00FFFF" },
-  { name: "Right Corner 3", value: 13, color: "#00D1D1" },
-  { name: "Above Break 3", value: 15, color: "#00A3A3" },
-];
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AnalyticsPage() {
   const [teams, setTeams] = useState<any[]>([]);
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -57,6 +45,18 @@ export default function AnalyticsPage() {
     };
     fetchTeams();
   }, []);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoading(true);
+      const { data, error } = await supabase.from("player_game_stats").select("*");
+      if (!error && data) setStats(data);
+      setLoading(false);
+    };
+    fetchStats();
+  }, []);
+
+  const hasData = stats.length > 0;
 
   return (
     <Layout title="Analytics | CourtVision Elite" description="Advanced basketball performance metrics and trends.">
@@ -100,10 +100,10 @@ export default function AnalyticsPage() {
         {/* High-Level Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
-            { label: "Offensive Rating", value: "114.2", trend: "+2.4", icon: Zap, color: "text-primary" },
-            { label: "Defensive Rating", value: "108.5", trend: "-1.1", icon: Target, color: "text-accent" },
-            { label: "True Shooting %", value: "58.4%", trend: "+0.8", icon: TrendingUp, color: "text-green-500" },
-            { label: "AST/TO Ratio", value: "2.14", trend: "+0.15", icon: Users, color: "text-blue-500" },
+            { label: "Offensive Rating", value: hasData ? "114.2" : "0.0", trend: hasData ? "+2.4" : "0.0", icon: Zap, color: "text-primary" },
+            { label: "Defensive Rating", value: hasData ? "108.5" : "0.0", trend: hasData ? "-1.1" : "0.0", icon: Target, color: "text-accent" },
+            { label: "True Shooting %", value: hasData ? "58.4%" : "0.0%", trend: hasData ? "+0.8" : "0.0", icon: TrendingUp, color: "text-green-500" },
+            { label: "AST/TO Ratio", value: hasData ? "2.14" : "0.0", trend: hasData ? "+0.15" : "0.0", icon: Users, color: "text-blue-500" },
           ].map((metric) => (
             <Card key={metric.label} className="bg-card/30 backdrop-blur-sm border-border hover:border-primary/20 transition-all">
               <CardContent className="pt-6">
@@ -144,7 +144,7 @@ export default function AnalyticsPage() {
                 </CardHeader>
                 <CardContent className="h-[400px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={PERFORMANCE_DATA}>
+                    <BarChart data={hasData ? stats : []}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                       <XAxis dataKey="name" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
                       <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
@@ -169,15 +169,15 @@ export default function AnalyticsPage() {
                   <ResponsiveContainer width="100%" height={250}>
                     <PieChart>
                       <Pie
-                        data={SHOT_DISTRIBUTION}
+                        data={hasData ? stats : []}
                         innerRadius={60}
                         outerRadius={80}
                         paddingAngle={5}
                         dataKey="value"
                       >
-                        {SHOT_DISTRIBUTION.map((entry, index) => (
+                        {hasData ? stats.map((entry: any, index: number) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
+                        )) : []}
                       </Pie>
                       <Tooltip 
                         contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: "8px" }}
@@ -185,7 +185,7 @@ export default function AnalyticsPage() {
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="w-full mt-6 space-y-2">
-                    {SHOT_DISTRIBUTION.map((item) => (
+                    {hasData ? stats.map((item: any) => (
                       <div key={item.name} className="flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
@@ -193,7 +193,7 @@ export default function AnalyticsPage() {
                         </div>
                         <span className="font-mono font-bold">{item.value}%</span>
                       </div>
-                    ))}
+                    )) : []}
                   </div>
                 </CardContent>
               </Card>
@@ -208,7 +208,7 @@ export default function AnalyticsPage() {
               </CardHeader>
               <CardContent className="h-[400px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={PERFORMANCE_DATA}>
+                  <LineChart data={hasData ? stats : []}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#333" />
                     <XAxis dataKey="name" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
                     <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />

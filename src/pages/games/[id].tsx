@@ -111,6 +111,36 @@ export default function GameDetailPage() {
     { qtr: 4, time: "3:30", event: "Klay Thompson makes 23-foot three point jumper (S. Curry assists)", score: "109-105", type: "shot", player: "K. Thompson" },
   ];
 
+  if (loading) {
+    return (
+      <Layout title="Loading Game | CourtVision Elite">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
+          <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground font-mono animate-pulse">Synchronizing Tactical Data...</p>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!gameData) {
+    return (
+      <Layout title="Game Not Found | CourtVision Elite">
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
+          <div className="h-20 w-20 bg-destructive/10 rounded-full flex items-center justify-center border border-destructive/20">
+            <Trophy className="h-10 w-10 text-destructive" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold">Analysis Not Found</h2>
+            <p className="text-muted-foreground max-w-xs mx-auto">
+              We couldn't find the data for this specific game. It may have been deleted or the analysis is still pending.
+            </p>
+          </div>
+          <Button onClick={() => window.location.href = "/"}>Back to Dashboard</Button>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout title={`${gameInfo.homeTeam} vs ${gameInfo.awayTeam} | CourtVision`}>
       <div className="space-y-8 pb-10">
