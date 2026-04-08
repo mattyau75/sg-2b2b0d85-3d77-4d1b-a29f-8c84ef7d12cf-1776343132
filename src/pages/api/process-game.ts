@@ -173,12 +173,13 @@ export default async function handler(
                   // Handle Final Result
                   if (data.__result && gameId) {
                     console.log(`Server: Game ${gameId} COMPLETED`);
+                    const resultString = JSON.stringify(data.__result);
                     await supabase
                       .from('games')
                       .update({ 
                         status: 'completed',
                         progress_percentage: 100,
-                        processing_metadata: JSON.stringify(data.__result)
+                        processing_metadata: resultString
                       })
                       .eq('id', gameId);
                   }
@@ -186,12 +187,13 @@ export default async function handler(
                   // Handle Errors from the Python Subprocess
                   if (data.__error && gameId) {
                     console.error(`Server: GPU Error for ${gameId}:`, data.__error);
+                    const errorString = JSON.stringify({ error: data.__error });
                     await supabase
                       .from('games')
                       .update({ 
                         status: 'failed', 
                         last_error: data.__error,
-                        processing_metadata: JSON.stringify({ error: data.__error }) 
+                        processing_metadata: errorString
                       })
                       .eq('id', gameId);
                   }
