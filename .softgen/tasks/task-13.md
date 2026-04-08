@@ -8,7 +8,7 @@ Implement tracking and visualization for 5-player lineups and player combination
 
 ## Checklist
 - [x] Create `lineup_stats` table in Supabase
-- [/] Implement Lineup detection logic in the play-by-play processor (Refining in sync-game-stats)
+- [x] Implement Lineup detection logic in the play-by-play processor (Refining in sync-game-stats)
 - [x] Add "Lineups" tab to src/pages/games/[id].tsx
 - [x] Add "Rotation Analysis" section to src/pages/analytics.tsx
 - [ ] Build a comparison tool for different lineup configurations
