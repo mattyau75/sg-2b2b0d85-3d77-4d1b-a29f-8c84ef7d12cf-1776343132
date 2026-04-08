@@ -14,8 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Youtube, Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
+import { Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
 import { storageService } from "@/services/storageService";
@@ -40,8 +39,6 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    sourceType: "upload" as "upload" | "youtube",
-    youtubeUrl: "",
     videoFile: null as File | null,
     homeTeamId: "",
     awayTeamId: "",
@@ -84,16 +81,12 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
         toast({ title: "File too large", description: "Please upload a video under 8GB.", variant: "destructive" });
         return;
       }
-      setFormData(prev => ({ ...prev, videoFile: file, sourceType: "upload" }));
+      setFormData(prev => ({ ...prev, videoFile: file }));
     }
   };
 
   const handleProcess = async () => {
-    if (formData.sourceType === "youtube" && !formData.youtubeUrl) {
-      toast({ title: "Missing URL", description: "Please provide a YouTube link.", variant: "destructive" });
-      return;
-    }
-    if (formData.sourceType === "upload" && !formData.videoFile) {
+    if (!formData.videoFile) {
       toast({ title: "Missing File", description: "Please upload a video file.", variant: "destructive" });
       return;
     }
@@ -108,7 +101,6 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
       const { data: newGame, error: dbError } = await supabase
         .from('games')
         .insert({
-          youtube_url: formData.sourceType === "youtube" ? formData.youtubeUrl : null,
           home_team_id: formData.homeTeamId,
           away_team_id: formData.awayTeamId,
           camera_type: formData.cameraType,
@@ -120,7 +112,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
       if (dbError) throw dbError;
 
       let videoPath = "";
-      if (formData.sourceType === "upload" && formData.videoFile) {
+      if (formData.videoFile) {
         videoPath = await storageService.uploadVideoResumable(
           formData.videoFile, 
           newGame.id,
@@ -139,7 +131,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
       // 2. Trigger the GPU pipeline via Modal.com
       const result = await modalService.processGame(
-        formData.sourceType === "youtube" ? formData.youtubeUrl : videoPath, 
+        videoPath, 
         {
           imgsz: formData.imgsz,
           conf: formData.conf,
@@ -191,346 +183,329 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl bg-card border-border p-0 overflow-hidden">
-        <div className="flex flex-col h-[85vh] md:h-auto">
-          <DialogHeader className="px-6 pt-6">
-            <DialogTitle>Process New Game</DialogTitle>
-            <DialogDescription>
-              Analyze high-performance basketball footage for scouting and advanced metrics.
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="max-w-3xl h-[95vh] bg-card border-border p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-8 pt-8 pb-4">
+          <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+            <Cpu className="h-6 w-6 text-primary" />
+            Process New Game
+          </DialogTitle>
+          <DialogDescription className="text-muted-foreground text-sm">
+            Analyze high-performance basketball footage for scouting and advanced metrics. Local video uploads ensure maximum precision.
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* Step 1: Video Source */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <Video className="h-4 w-4 text-accent" />
-                  Video Source
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-muted-foreground">
-                    <Camera className="h-3 w-3" /> Camera
-                  </div>
-                  <Select 
-                    value={formData.cameraType} 
-                    onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
-                  >
-                    <SelectTrigger className="w-[120px] bg-background border-border h-8 text-[11px]">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="panning">Panning</SelectItem>
-                      <SelectItem value="fixed">Fixed</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+        <div className="flex-1 overflow-y-auto px-8 py-4 space-y-10 custom-scrollbar">
+          {/* Step 1: Video Source */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-border/50 pb-2">
+              <div className="flex items-center gap-2 text-sm font-bold tracking-tight uppercase">
+                <Video className="h-4 w-4 text-primary" />
+                Video Footage
               </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                  <Camera className="h-3 w-3" /> Camera Calibration
+                </div>
+                <Select 
+                  value={formData.cameraType} 
+                  onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
+                >
+                  <SelectTrigger className="w-[140px] bg-background border-border h-8 text-[11px] font-mono">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="panning" className="text-xs">PANNING</SelectItem>
+                    <SelectItem value="fixed" className="text-xs">FIXED</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
 
-              <Tabs 
-                value={formData.sourceType} 
-                onValueChange={(val: any) => setFormData(prev => ({ ...prev, sourceType: val }))}
-                className="w-full"
-              >
-                <TabsList className="grid w-full grid-cols-2 bg-muted/20 border border-border/50">
-                  <TabsTrigger value="upload" className="gap-2 text-xs">
-                    <Upload className="h-3.5 w-3.5" /> Local Upload
-                  </TabsTrigger>
-                  <TabsTrigger value="youtube" className="gap-2 text-xs">
-                    <Youtube className="h-3.5 w-3.5 text-red-500" /> YouTube
-                  </TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="upload" className="pt-4 mt-0">
-                  <div 
-                    onClick={() => fileInputRef.current?.click()}
-                    className={cn(
-                      "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer",
-                      formData.videoFile ? "border-accent bg-accent/5" : "border-border hover:border-accent/50 hover:bg-muted/5"
-                    )}
-                  >
-                    <input 
-                      type="file" 
-                      ref={fileInputRef} 
-                      className="hidden" 
-                      accept="video/*" 
-                      onChange={handleFileSelect}
-                    />
-                    
-                    {formData.videoFile ? (
-                      <div className="flex flex-col items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
-                          <FileVideo className="h-6 w-6 text-accent" />
-                        </div>
-                        <div className="text-center">
-                          <p className="text-sm font-medium text-foreground">{formData.videoFile.name}</p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {(formData.videoFile.size / (1024 * 1024)).toFixed(1)} MB • Click to change
-                          </p>
-                        </div>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-7 text-[10px] hover:text-red-400"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setFormData(prev => ({ ...prev, videoFile: null }));
-                          }}
-                        >
-                          <X className="h-3 w-3 mr-1" /> Remove
-                        </Button>
-                      </div>
-                    ) : (
-                      <>
-                        <Upload className="h-8 w-8 text-muted-foreground mb-3 group-hover:text-accent group-hover:scale-110 transition-transform" />
-                        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Click to upload game footage</p>
-                        <p className="text-[10px] text-muted-foreground mt-1">MP4, MOV, or AVI up to 500MB</p>
-                      </>
-                    )}
-
-                    {isProcessing && uploadProgress > 0 && uploadProgress < 100 && (
-                      <div className="absolute inset-x-4 bottom-4">
-                        <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-accent transition-all duration-300" 
-                            style={{ width: `${uploadProgress}%` }}
-                          />
-                        </div>
-                        <p className="text-[9px] text-center mt-1 text-accent font-bold">Uploading to Storage... {uploadProgress}%</p>
-                      </div>
-                    )}
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer",
+                formData.videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/5"
+              )}
+            >
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="video/*" 
+                onChange={handleFileSelect}
+              />
+              
+              {formData.videoFile ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center animate-in fade-in zoom-in duration-300">
+                    <FileVideo className="h-8 w-8 text-primary" />
                   </div>
-                </TabsContent>
+                  <div className="text-center">
+                    <p className="text-lg font-semibold text-foreground">{formData.videoFile.name}</p>
+                    <p className="text-xs text-muted-foreground font-mono mt-1">
+                      {(formData.videoFile.size / (1024 * 1024)).toFixed(1)} MB • LOCAL STORAGE
+                    </p>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-8 text-xs hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFormData(prev => ({ ...prev, videoFile: null }));
+                    }}
+                  >
+                    <X className="h-3.5 w-3.5 mr-2" /> Replace Video
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="h-20 w-20 rounded-full bg-muted/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+                    <Upload className="h-10 w-10 text-muted-foreground group-hover:text-primary transition-colors" />
+                  </div>
+                  <p className="text-lg font-bold text-foreground group-hover:text-primary transition-colors">Drag & drop game footage</p>
+                  <p className="text-xs text-muted-foreground mt-2 font-medium">MP4, MOV, or AVI up to 8GB supported</p>
+                </>
+              )}
 
-                <TabsContent value="youtube" className="pt-4 mt-0">
-                  <div className="space-y-4">
-                    <Input 
-                      placeholder="Paste YouTube game URL..." 
-                      className="bg-background border-border font-mono text-sm h-12"
-                      value={formData.youtubeUrl}
-                      onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
+              {isProcessing && uploadProgress > 0 && uploadProgress < 100 && (
+                <div className="absolute inset-x-8 bottom-8 animate-in slide-in-from-bottom-4 duration-500">
+                  <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary transition-all duration-300 ease-out shadow-[0_0_10px_rgba(var(--primary),0.5)]" 
+                      style={{ width: `${uploadProgress}%` }}
                     />
-                    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 text-[11px] text-yellow-200/80 leading-relaxed">
-                      <span className="font-bold flex items-center gap-1.5 mb-1">
-                        <Settings2 className="h-3 w-3" /> Connection Note
-                      </span>
-                      YouTube processing requires valid authentication cookies in the GPU worker. Direct uploads are recommended for higher reliability.
+                  </div>
+                  <div className="flex justify-between mt-2">
+                    <p className="text-[10px] text-primary font-bold tracking-widest uppercase">Uploading to Storage</p>
+                    <p className="text-[10px] text-primary font-mono font-bold">{uploadProgress}%</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Step 2: Teams & Colors */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+                <div className="h-2 w-2 rounded-full bg-primary" />
+                Home Team Selection
+              </div>
+              <Select onValueChange={handleHomeTeamChange}>
+                <SelectTrigger className="bg-background border-border h-12 text-sm">
+                  <SelectValue placeholder="Select primary team..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id} className="text-sm">{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              <div className="space-y-4">
+                <Label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2 font-bold">
+                  <Palette className="h-3 w-3" /> Jersey Attribution
+                </Label>
+                <div className="flex items-center gap-3">
+                  {formData.homeTeamData ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "flex-1 h-16 gap-3 border-2 transition-all flex-col items-center justify-center rounded-xl",
+                          formData.homeColor === formData.homeTeamData.primary_color 
+                            ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary),0.15)]" 
+                            : "border-border opacity-50 grayscale hover:grayscale-0"
+                        )}
+                        onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.primary_color })}
+                      >
+                        <div className="h-5 w-5 rounded-full border-2 border-white/20 shadow-sm" style={{ backgroundColor: formData.homeTeamData.primary_color }} />
+                        <span className="text-[9px] uppercase font-black tracking-tighter">Primary Kit</span>
+                      </Button>
+                      {formData.homeTeamData.secondary_color && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "flex-1 h-16 gap-3 border-2 transition-all flex-col items-center justify-center rounded-xl",
+                            formData.homeColor === formData.homeTeamData.secondary_color 
+                              ? "border-primary bg-primary/10 shadow-[0_0_20px_rgba(var(--primary),0.15)]" 
+                              : "border-border opacity-50 grayscale hover:grayscale-0"
+                        )}
+                        onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.secondary_color })}
+                      >
+                        <div className="h-5 w-5 rounded-full border-2 border-white/20 shadow-sm" style={{ backgroundColor: formData.homeTeamData.secondary_color }} />
+                        <span className="text-[9px] uppercase font-black tracking-tighter">Away Kit</span>
+                      </Button>
+                      )}
+                    </>
+                  ) : (
+                    <div className="h-16 w-full rounded-xl border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground uppercase font-bold tracking-widest bg-muted/5">
+                      Pending home selection
                     </div>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-
-            {/* Step 2: Teams & Colors */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                  Home Team
-                </div>
-                <Select onValueChange={handleHomeTeamChange}>
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue placeholder="Select team..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {teams.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                <div className="space-y-3">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Palette className="h-3 w-3" /> Jersey Color
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    {formData.homeTeamData ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            "flex-1 h-12 gap-2 border-2 transition-all",
-                            formData.homeColor === formData.homeTeamData.primary_color 
-                              ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)]" 
-                              : "border-border opacity-50 grayscale hover:grayscale-0"
-                          )}
-                          onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.primary_color })}
-                        >
-                          <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.homeTeamData.primary_color }} />
-                          <span className="text-[10px] uppercase font-bold">Primary</span>
-                        </Button>
-                        {formData.homeTeamData.secondary_color && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn(
-                              "flex-1 h-12 gap-2 border-2 transition-all",
-                              formData.homeColor === formData.homeTeamData.secondary_color 
-                                ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)]" 
-                                : "border-border opacity-50 grayscale hover:grayscale-0"
-                          )}
-                          onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.secondary_color })}
-                        >
-                          <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.homeTeamData.secondary_color }} />
-                          <span className="text-[10px] uppercase font-bold">Secondary</span>
-                        </Button>
-                        )}
-                      </>
-                    ) : (
-                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground italic">
-                        Select home team first
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <div className="h-2 w-2 rounded-full bg-accent" />
-                  Away Team
-                </div>
-                <Select onValueChange={handleAwayTeamChange}>
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue placeholder="Select team..." />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    {teams.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                <div className="space-y-3">
-                  <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Palette className="h-3 w-3" /> Jersey Color
-                  </Label>
-                  <div className="flex items-center gap-2">
-                    {formData.awayTeamData ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            "flex-1 h-12 gap-2 border-2 transition-all",
-                            formData.awayColor === formData.awayTeamData.primary_color 
-                              ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(var(--accent),0.2)]" 
-                              : "border-border opacity-50 grayscale hover:grayscale-0"
-                          )}
-                          onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.primary_color })}
-                        >
-                          <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.awayTeamData.primary_color }} />
-                          <span className="text-[10px] uppercase font-bold">Primary</span>
-                        </Button>
-                        {formData.awayTeamData.secondary_color && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={cn(
-                              "flex-1 h-12 gap-2 border-2 transition-all",
-                              formData.awayColor === formData.awayTeamData.secondary_color 
-                                ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(var(--accent),0.2)]" 
-                                : "border-border opacity-50 grayscale hover:grayscale-0"
-                            )}
-                            onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.secondary_color })}
-                          >
-                            <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.awayTeamData.secondary_color }} />
-                            <span className="text-[10px] uppercase font-bold">Secondary</span>
-                          </Button>
-                        )}
-                      </>
-                    ) : (
-                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground italic">
-                        Select away team first
-                      </div>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* Step 3: Inference Settings */}
-            <div className="pt-6 border-t border-border space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <Settings2 className="h-4 w-4 text-accent" />
-                  Inference Optimization
-                </div>
-                <Badge variant="secondary" className="text-[9px] font-mono bg-accent/10 text-accent border-accent/20">YOLOv11m Optimized</Badge>
+            <div className="space-y-5">
+              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-wider">
+                <div className="h-2 w-2 rounded-full bg-accent" />
+                Opponent Selection
               </div>
+              <Select onValueChange={handleAwayTeamChange}>
+                <SelectTrigger className="bg-background border-border h-12 text-sm">
+                  <SelectValue placeholder="Select visiting team..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id} className="text-sm">{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Img Size (px)</Label>
-                    <span className="text-[10px] font-mono text-accent">{formData.imgsz}</span>
-                  </div>
-                  <Slider 
-                    value={[formData.imgsz]} 
-                    min={640} max={1280} step={320}
-                    onValueChange={([val]) => setFormData({ ...formData, imgsz: val })}
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex justify-between">
-                    <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</Label>
-                    <span className="text-[10px] font-mono text-accent">{formData.conf}</span>
-                  </div>
-                  <Slider 
-                    value={[formData.conf]} 
-                    min={0.1} max={0.9} step={0.05}
-                    onValueChange={([val]) => setFormData({ ...formData, conf: val })}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/5 border border-border/50">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] uppercase text-muted-foreground">ByteTrack</Label>
-                    <p className="text-[9px] text-muted-foreground">ID persistence across frames</p>
-                  </div>
-                  <Switch 
-                    checked={formData.tracking}
-                    onCheckedChange={(val) => setFormData({ ...formData, tracking: val })}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/5 border border-border/50">
-                  <div className="space-y-0.5">
-                    <Label className="text-[10px] uppercase text-muted-foreground">Shot Intel</Label>
-                    <p className="text-[9px] text-muted-foreground">Rim proximity & Ball arc logic</p>
-                  </div>
-                  <Switch 
-                    checked={formData.rimDetection}
-                    onCheckedChange={(val) => setFormData({ ...formData, rimDetection: val })}
-                  />
+              <div className="space-y-4">
+                <Label className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2 font-bold">
+                  <Palette className="h-3 w-3" /> Jersey Attribution
+                </Label>
+                <div className="flex items-center gap-3">
+                  {formData.awayTeamData ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "flex-1 h-16 gap-3 border-2 transition-all flex-col items-center justify-center rounded-xl",
+                          formData.awayColor === formData.awayTeamData.primary_color 
+                            ? "border-accent bg-accent/10 shadow-[0_0_20px_rgba(var(--accent),0.15)]" 
+                            : "border-border opacity-50 grayscale hover:grayscale-0"
+                        )}
+                        onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.primary_color })}
+                      >
+                        <div className="h-5 w-5 rounded-full border-2 border-white/20 shadow-sm" style={{ backgroundColor: formData.awayTeamData.primary_color }} />
+                        <span className="text-[9px] uppercase font-black tracking-tighter">Primary Kit</span>
+                      </Button>
+                      {formData.awayTeamData.secondary_color && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "flex-1 h-16 gap-3 border-2 transition-all flex-col items-center justify-center rounded-xl",
+                            formData.awayColor === formData.awayTeamData.secondary_color 
+                              ? "border-accent bg-accent/10 shadow-[0_0_20px_rgba(var(--accent),0.15)]" 
+                              : "border-border opacity-50 grayscale hover:grayscale-0"
+                          )}
+                          onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.secondary_color })}
+                        >
+                          <div className="h-5 w-5 rounded-full border-2 border-white/20 shadow-sm" style={{ backgroundColor: formData.awayTeamData.secondary_color }} />
+                          <span className="text-[9px] uppercase font-black tracking-tighter">Away Kit</span>
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    <div className="h-16 w-full rounded-xl border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground uppercase font-bold tracking-widest bg-muted/5">
+                      Pending opponent selection
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
 
-          <DialogFooter className="p-6 border-t border-border bg-muted/10 gap-2">
-            <Button variant="outline" onClick={onClose} disabled={isProcessing}>Cancel</Button>
-            <Button 
-              onClick={handleProcess} 
-              disabled={isProcessing}
-              className="bg-primary hover:bg-primary/90 text-white min-w-[160px] h-11"
-            >
-              {isProcessing ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {uploadProgress > 0 && uploadProgress < 100 ? "Uploading..." : "Initializing GPU..."}
+          {/* Step 3: Inference Settings */}
+          <div className="pt-10 border-t border-border space-y-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight">
+                <Settings2 className="h-4 w-4 text-primary" />
+                High-Performance Optimization
+              </div>
+              <Badge variant="secondary" className="text-[10px] font-mono bg-primary/10 text-primary border-primary/20 font-black px-3 py-1">YOLOv11-PRO ARCHITECTURE</Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Input Resolution</Label>
+                  <span className="text-[10px] font-mono font-black text-primary bg-primary/10 px-2 py-0.5 rounded">{formData.imgsz} PX</span>
                 </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <Cpu className="h-4 w-4" />
-                  Start Analysis
+                <Slider 
+                  value={[formData.imgsz]} 
+                  min={640} max={1280} step={320}
+                  onValueChange={([val]) => setFormData({ ...formData, imgsz: val })}
+                  className="py-4"
+                />
+                <p className="text-[9px] text-muted-foreground leading-relaxed italic">Higher resolution increases detection accuracy for distant players but requires more GPU memory.</p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Detection Threshold</Label>
+                  <span className="text-[10px] font-mono font-black text-primary bg-primary/10 px-2 py-0.5 rounded">{formData.conf}</span>
                 </div>
-              )}
-            </Button>
-          </DialogFooter>
+                <Slider 
+                  value={[formData.conf]} 
+                  min={0.1} max={0.9} step={0.05}
+                  onValueChange={([val]) => setFormData({ ...formData, conf: val })}
+                  className="py-4"
+                />
+                <p className="text-[9px] text-muted-foreground leading-relaxed italic">Lower confidence increases recall (detecting more objects) but may introduce false positives.</p>
+              </div>
+
+              <div className="flex items-center justify-between p-5 rounded-2xl bg-muted/5 border border-border/50 hover:border-primary/30 transition-colors group">
+                <div className="space-y-1">
+                  <Label className="text-[11px] uppercase font-bold text-foreground group-hover:text-primary transition-colors">ByteTrack Engine</Label>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Persistent player ID tracking across fast motion and occlusions.</p>
+                </div>
+                <Switch 
+                  checked={formData.tracking}
+                  onCheckedChange={(val) => setFormData({ ...formData, tracking: val })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between p-5 rounded-2xl bg-muted/5 border border-border/50 hover:border-primary/30 transition-colors group">
+                <div className="space-y-1">
+                  <Label className="text-[11px] uppercase font-bold text-foreground group-hover:text-primary transition-colors">Ball & Rim Intelligence</Label>
+                  <p className="text-[10px] text-muted-foreground leading-tight">Physics-based arc detection and rim proximity shot validation.</p>
+                </div>
+                <Switch 
+                  checked={formData.rimDetection}
+                  onCheckedChange={(val) => setFormData({ ...formData, rimDetection: val })}
+                />
+              </div>
+            </div>
+          </div>
         </div>
+
+        <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5 gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={onClose} 
+            disabled={isProcessing}
+            className="text-muted-foreground hover:text-foreground hover:bg-muted/10 px-8"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleProcess} 
+            disabled={isProcessing}
+            className="bg-primary hover:bg-primary/90 text-white min-w-[220px] h-14 rounded-xl text-sm font-bold shadow-lg shadow-primary/20 transition-all hover:scale-[1.02] active:scale-[0.98]"
+          >
+            {isProcessing ? (
+              <div className="flex items-center gap-3">
+                <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span className="uppercase tracking-widest">{uploadProgress > 0 && uploadProgress < 100 ? `Uploading (${uploadProgress}%)` : "Initializing GPU Swarm"}</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <Cpu className="h-5 w-5" />
+                <span className="uppercase tracking-widest">Deploy GPU Pipeline</span>
+              </div>
+            )}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
