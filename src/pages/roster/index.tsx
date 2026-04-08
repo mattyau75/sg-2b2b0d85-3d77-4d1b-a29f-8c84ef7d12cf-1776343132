@@ -168,12 +168,12 @@ export default function RosterDirectory() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTeams.map((team) => (
               <Link key={team.id} href={`/roster/${team.id}`}>
-                <Card className="glass-card border-none hover:ring-1 hover:ring-primary/50 transition-all group overflow-hidden">
+                <Card className="group hover:border-primary/50 transition-all cursor-pointer overflow-hidden bg-card/50 backdrop-blur-sm border-border">
                   <div 
-                    className="h-2 w-full" 
+                    className="h-1.5 w-full" 
                     style={{ backgroundColor: team.primary_color || 'var(--primary)' }} 
                   />
-                  <CardHeader className="flex flex-row items-center gap-4">
+                  <CardHeader className="flex flex-row items-center gap-4 space-y-0">
                     <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center border border-border overflow-hidden">
                       {team.logo_url ? (
                         <img src={team.logo_url} alt={team.name} className="h-full w-full object-contain" />
