@@ -14,7 +14,9 @@ import {
   Video,
   History,
   Trophy,
-  ChevronRight
+  ChevronRight,
+  Youtube,
+  FileVideo
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";

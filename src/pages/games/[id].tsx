@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { storageService } from "@/services/storageService";
 
 export default function GameDetailPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function GameDetailPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [editedEvent, setEditedEvent] = useState<any>(null);
   const [playerMap, setPlayerMap] = useState<Record<string, string>>({});
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   const fetchGameData = async () => {
     if (!id || typeof id !== "string") return;
