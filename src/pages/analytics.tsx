@@ -25,8 +25,8 @@ import {
   ArrowUpRight, 
   ArrowDownRight,
   Filter,
-  History,
-  TrendingDown
+  Columns,
+  Minus
 } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +40,7 @@ import {
   TableHeader, 
   TableRow 
 } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
 
 export default function AnalyticsPage() {
   const [teams, setTeams] = useState<any[]>([]);
@@ -48,6 +49,7 @@ export default function AnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
   const [lineupStats, setLineupStats] = useState<any[]>([]);
+  const [compareLineups, setCompareLineups] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -77,12 +79,21 @@ export default function AnalyticsPage() {
     fetchStats();
   }, []);
 
+  const addToCompare = (lineup: any) => {
+    if (compareLineups.length < 2 && !compareLineups.find(l => l.id === lineup.id)) {
+      setCompareLineups([...compareLineups, lineup]);
+    }
+  };
+
+  const removeFromCompare = (id: string) => {
+    setCompareLineups(compareLineups.filter(l => l.id !== id));
+  };
+
   const hasData = stats.length > 0;
 
   return (
     <Layout title="Analytics | CourtVision Elite" description="Advanced basketball performance metrics and trends.">
       <div className="space-y-8">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -118,7 +129,6 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        {/* High-Level Metric Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {[
             { label: "Offensive Rating", value: hasData ? "114.2" : "0.0", trend: hasData ? "+2.4" : "0.0", icon: Zap, color: "text-primary" },
@@ -144,9 +154,9 @@ export default function AnalyticsPage() {
           ))}
         </div>
 
-        <Tabs defaultValue="trends" className="w-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-muted/30 border border-border p-1 rounded-xl mb-6">
-            <TabsTrigger value="trends" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
+            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
               <BarChart3 className="h-4 w-4 mr-2" />
               Scoring Trends
             </TabsTrigger>
@@ -160,7 +170,7 @@ export default function AnalyticsPage() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="trends" className="space-y-6">
+          <TabsContent value="overview" className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <Card className="lg:col-span-2 bg-card/30 border-border">
                 <CardHeader>
@@ -248,10 +258,52 @@ export default function AnalyticsPage() {
           </TabsContent>
 
           <TabsContent value="rotations" className="space-y-6">
+            {compareLineups.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {compareLineups.map((lineup, idx) => (
+                  <Card key={idx} className="bg-primary/5 border-primary/20 relative">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="absolute top-2 right-2 h-6 w-6"
+                      onClick={() => removeFromCompare(lineup.id)}
+                    >
+                      <Minus className="h-3 w-3" />
+                    </Button>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-mono text-primary uppercase">Comparison Slot {idx + 1}</CardTitle>
+                      <CardDescription className="text-xs truncate">{lineup.player_ids.join(', ')}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase">Off Rtg</p>
+                        <p className="font-bold font-mono">{(lineup.points_for / (lineup.possessions || 1) * 100).toFixed(1)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase">Def Rtg</p>
+                        <p className="font-bold font-mono">{(lineup.points_against / (lineup.possessions || 1) * 100).toFixed(1)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase">Net</p>
+                        <p className={`font-bold font-mono ${lineup.points_for - lineup.points_against >= 0 ? 'text-green-500' : 'text-accent'}`}>
+                          {(lineup.points_for - lineup.points_against).toFixed(1)}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
             <Card className="bg-card/30 border-border">
-              <CardHeader>
-                <CardTitle className="text-lg">Top 5-Player Combinations</CardTitle>
-                <CardDescription>Lineups ranked by total minutes played and Net Rating</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Top 5-Player Combinations</CardTitle>
+                  <CardDescription>Lineups ranked by total minutes played and Net Rating</CardDescription>
+                </div>
+                <Badge variant="outline" className="font-mono text-[10px]">
+                  Select 2 to Compare
+                </Badge>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -263,6 +315,7 @@ export default function AnalyticsPage() {
                       <TableHead className="text-center text-xs uppercase font-mono">OFF RTG</TableHead>
                       <TableHead className="text-center text-xs uppercase font-mono">DEF RTG</TableHead>
                       <TableHead className="text-right text-xs uppercase font-mono">NET RTG</TableHead>
+                      <TableHead className="w-10"></TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -271,14 +324,15 @@ export default function AnalyticsPage() {
                         const offRtg = (lineup.points_for / (lineup.possessions || 1) * 100).toFixed(1);
                         const defRtg = (lineup.points_against / (lineup.possessions || 1) * 100).toFixed(1);
                         const netRtg = (Number(offRtg) - Number(defRtg)).toFixed(1);
+                        const isComparing = compareLineups.find(l => l.id === lineup.id);
                         
                         return (
                           <TableRow key={i} className="border-border hover:bg-muted/20">
                             <TableCell className="font-medium">{lineup.team?.name}</TableCell>
                             <TableCell>
-                              <div className="flex gap-1">
+                              <div className="flex gap-1 overflow-hidden max-w-[200px]">
                                 {lineup.player_ids.map((id: string, idx: number) => (
-                                  <Badge key={idx} variant="outline" className="text-[10px] bg-muted/30">
+                                  <Badge key={idx} variant="outline" className="text-[10px] bg-muted/30 whitespace-nowrap">
                                     {id.substring(0, 4)}
                                   </Badge>
                                 ))}
@@ -290,12 +344,23 @@ export default function AnalyticsPage() {
                             <TableCell className={`text-right font-mono font-bold ${Number(netRtg) >= 0 ? 'text-green-500' : 'text-accent'}`}>
                               {Number(netRtg) >= 0 ? '+' : ''}{netRtg}
                             </TableCell>
+                            <TableCell>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                disabled={compareLineups.length >= 2 && !isComparing}
+                                className={`h-8 w-8 ${isComparing ? 'text-primary' : 'text-muted-foreground'}`}
+                                onClick={() => isComparing ? removeFromCompare(lineup.id) : addToCompare(lineup)}
+                              >
+                                <Columns className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
                           </TableRow>
                         );
                       })
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground font-mono">
+                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground font-mono">
                           No rotation data available. Run game analysis to populate.
                         </TableCell>
                       </TableRow>
