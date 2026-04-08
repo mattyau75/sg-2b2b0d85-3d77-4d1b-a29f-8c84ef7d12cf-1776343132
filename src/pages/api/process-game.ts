@@ -97,7 +97,12 @@ export default async function handler(
         away_team: awayTeam?.name || "Away Team",
         home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
         away_roster: (awayPlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
-        config: config,
+        config: {
+          ...config,
+          game_id: gameId,
+          supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        },
         supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
         supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
       };
@@ -123,7 +128,6 @@ export default async function handler(
         }
 
         // START STREAMING HANDLER
-        // Since modal_worker.py uses StreamingResponse with JSON-lines
         const reader = modalResponse.body?.getReader();
         const decoder = new TextDecoder();
         
@@ -131,64 +135,91 @@ export default async function handler(
           throw new Error("Failed to open stream from Modal GPU");
         }
 
-        // We return the initial success to the frontend immediately so it knows the job started
-        res.status(200).json({ success: true, message: "Processing started on GPU cluster." });
-
-        // Continue processing the stream in the background (Edge Function / Serverless will stay alive)
+        // Buffer for JSON-lines
         let buffer = "";
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop() || ""; // Keep the last partial line in the buffer
+        let hasResponded = false;
 
-          for (const line of lines) {
-            if (!line.trim()) continue;
-            try {
-              const data = JSON.parse(line);
+        // Background loop to process the stream
+        const processStream = async () => {
+          try {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) break;
               
-              // Handle Progress Updates
-              if (data.__progress !== undefined && gameId) {
-                await supabase
-                  .from('games')
-                  .update({ 
-                    progress_percentage: Math.min(Math.round(data.__progress), 95),
-                    status: 'analyzing'
-                  })
-                  .eq('id', gameId);
-              }
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split("\n");
+              buffer = lines.pop() || ""; 
 
-              // Handle Final Result
-              if (data.__result && gameId) {
-                await supabase
-                  .from('games')
-                  .update({ 
-                    status: 'completed',
-                    progress_percentage: 100,
-                    processing_metadata: JSON.stringify(data.__result)
-                  })
-                  .eq('id', gameId);
+              for (const line of lines) {
+                if (!line.trim()) continue;
+                console.log("Server: Received line from Modal:", line);
                 
-                // If there's a sync utility or service for stats, call it here
-                // For now, we've saved the raw result to metadata
+                try {
+                  const data = JSON.parse(line);
+                  
+                  // Handle Progress Updates
+                  if (data.__progress !== undefined && gameId) {
+                    const progress = Math.min(Math.round(data.__progress), 95);
+                    console.log(`Server: Game ${gameId} progress: ${progress}%`);
+                    await supabase
+                      .from('games')
+                      .update({ 
+                        progress_percentage: progress,
+                        status: 'analyzing'
+                      })
+                      .eq('id', gameId);
+                  }
+
+                  // Handle Final Result
+                  if (data.__result && gameId) {
+                    console.log(`Server: Game ${gameId} COMPLETED`);
+                    await supabase
+                      .from('games')
+                      .update({ 
+                        status: 'completed',
+                        progress_percentage: 100,
+                        processing_metadata: JSON.stringify(data.__result)
+                      })
+                      .eq('id', gameId);
+                  }
+
+                  // Handle Errors from the Python Subprocess
+                  if (data.__error && gameId) {
+                    console.error(`Server: GPU Error for ${gameId}:`, data.__error);
+                    await supabase
+                      .from('games')
+                      .update({ 
+                        status: 'failed', 
+                        last_error: data.__error,
+                        processing_metadata: JSON.stringify({ error: data.__error }) 
+                      })
+                      .eq('id', gameId);
+                  }
+                } catch (e) {
+                  console.warn("Server: Failed to parse JSON line:", line);
+                }
               }
 
-              // Handle Errors from the Python Subprocess
-              if (data.__error && gameId) {
-                await supabase
-                  .from('games')
-                  .update({ status: 'failed', processing_metadata: JSON.stringify({ error: data.__error }) })
-                  .eq('id', gameId);
+              // Send initial response to client after the first chunk of data arrives
+              if (!hasResponded) {
+                hasResponded = true;
+                res.status(200).json({ success: true, message: "Processing started on GPU cluster." });
               }
-            } catch (e) {
-              console.warn("Server: Failed to parse JSON line from Modal stream:", line);
             }
+          } catch (streamError) {
+            console.error("Server: Stream processing interrupted:", streamError);
           }
+        };
+
+        // Start processing the stream
+        await processStream();
+        
+        // Ensure we always respond if the stream finished immediately
+        if (!hasResponded) {
+          res.status(200).json({ success: true, message: "Processing finished (short video or empty stream)." });
         }
 
-        return; // End of background streaming
+        return; 
 
       } catch (fetchError: any) {
         console.error("Server: Fetch failure to Modal:", {
