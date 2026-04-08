@@ -24,6 +24,9 @@ export type Database = {
           home_score: number | null
           home_team_id: string | null
           id: string
+          last_error: string | null
+          processing_metadata: Json | null
+          progress_percentage: number | null
           status: string | null
           venue: string | null
           youtube_url: string | null
@@ -36,6 +39,9 @@ export type Database = {
           home_score?: number | null
           home_team_id?: string | null
           id?: string
+          last_error?: string | null
+          processing_metadata?: Json | null
+          progress_percentage?: number | null
           status?: string | null
           venue?: string | null
           youtube_url?: string | null
@@ -48,6 +54,9 @@ export type Database = {
           home_score?: number | null
           home_team_id?: string | null
           id?: string
+          last_error?: string | null
+          processing_metadata?: Json | null
+          progress_percentage?: number | null
           status?: string | null
           venue?: string | null
           youtube_url?: string | null

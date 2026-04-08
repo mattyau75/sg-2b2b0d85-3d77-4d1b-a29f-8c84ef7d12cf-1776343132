@@ -31,6 +31,16 @@ export default async function handler(
 
   if (!MODAL_TOKEN_ID || !MODAL_TOKEN_SECRET) {
     console.error("Missing Modal credentials in server environment variables.");
+    // If gameId exists, mark as failed so user sees why in the UI
+    if (gameId) {
+      await supabase
+        .from('games')
+        .update({ 
+          status: 'failed', 
+          last_error: "Server configuration error: Modal credentials missing." 
+        })
+        .eq('id', gameId);
+    }
     return res.status(500).json({ 
       message: "Server configuration error: Modal credentials missing." 
     });
@@ -87,7 +97,11 @@ export default async function handler(
     if (gameId) {
       await supabase
         .from('games')
-        .update({ status: 'queued', youtube_url: normalizedUrl })
+        .update({ 
+          status: 'queued', 
+          youtube_url: normalizedUrl,
+          progress_percentage: 10
+        })
         .eq('id', gameId);
     }
 
