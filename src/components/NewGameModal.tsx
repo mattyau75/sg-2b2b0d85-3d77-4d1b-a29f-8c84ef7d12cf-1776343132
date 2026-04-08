@@ -20,6 +20,7 @@ import { modalService } from "@/services/modalService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
+import { cn } from "@/lib/utils";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     cameraType: "panning" as "panning" | "fixed",
     homeColor: "#ff6b00",
     awayColor: "#0066ff",
+    homeTeamData: null as any,
+    awayTeamData: null as any,
     imgsz: 1280,
     conf: 0.25,
     iou: 0.45,
@@ -129,7 +132,8 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     setFormData(prev => ({ 
       ...prev, 
       homeTeamId: teamId,
-      homeColor: team?.primary_color || prev.homeColor 
+      homeColor: team?.primary_color || "#ff6b00",
+      homeTeamData: team
     }));
   };
 
@@ -138,7 +142,8 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     setFormData(prev => ({ 
       ...prev, 
       awayTeamId: teamId,
-      awayColor: team?.primary_color || prev.awayColor 
+      awayColor: team?.primary_color || "#0066ff",
+      awayTeamData: team
     }));
   };
 
@@ -209,21 +214,50 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                   </SelectContent>
                 </Select>
                 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Palette className="h-3 w-3" /> Jersey Color
+                    <Palette className="h-3 w-3" /> Select Jersey Color
                   </Label>
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="h-10 w-10 rounded-lg border border-border shadow-inner"
-                      style={{ backgroundColor: formData.homeColor }}
-                    />
-                    <input 
-                      type="color" 
-                      value={formData.homeColor}
-                      onChange={(e) => setFormData({ ...formData, homeColor: e.target.value })}
-                      className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
-                    />
+                  <div className="flex items-center gap-2">
+                    {formData.homeTeamData && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "flex-1 h-12 gap-2 border-2 transition-all",
+                            formData.homeColor === formData.homeTeamData.primary_color 
+                              ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)]" 
+                              : "border-border opacity-50 grayscale hover:grayscale-0"
+                          )}
+                          onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.primary_color })}
+                        >
+                          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.homeTeamData.primary_color }} />
+                          <span className="text-[10px] uppercase font-bold">Primary</span>
+                        </Button>
+                        {formData.homeTeamData.secondary_color && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "flex-1 h-12 gap-2 border-2 transition-all",
+                              formData.homeColor === formData.homeTeamData.secondary_color 
+                                ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)]" 
+                                : "border-border opacity-50 grayscale hover:grayscale-0"
+                            )}
+                            onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.secondary_color })}
+                          >
+                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.homeTeamData.secondary_color }} />
+                            <span className="text-[10px] uppercase font-bold">Secondary</span>
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {!formData.homeTeamData && (
+                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
+                        Select home team first
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -245,21 +279,50 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                   </SelectContent>
                 </Select>
 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Palette className="h-3 w-3" /> Jersey Color
+                    <Palette className="h-3 w-3" /> Select Jersey Color
                   </Label>
-                  <div className="flex items-center gap-3">
-                    <div 
-                      className="h-10 w-10 rounded-lg border border-border shadow-inner"
-                      style={{ backgroundColor: formData.awayColor }}
-                    />
-                    <input 
-                      type="color" 
-                      value={formData.awayColor}
-                      onChange={(e) => setFormData({ ...formData, awayColor: e.target.value })}
-                      className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
-                    />
+                  <div className="flex items-center gap-2">
+                    {formData.awayTeamData && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={cn(
+                            "flex-1 h-12 gap-2 border-2 transition-all",
+                            formData.awayColor === formData.awayTeamData.primary_color 
+                              ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(var(--accent),0.2)]" 
+                              : "border-border opacity-50 grayscale hover:grayscale-0"
+                          )}
+                          onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.primary_color })}
+                        >
+                          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.awayTeamData.primary_color }} />
+                          <span className="text-[10px] uppercase font-bold">Primary</span>
+                        </Button>
+                        {formData.awayTeamData.secondary_color && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={cn(
+                              "flex-1 h-12 gap-2 border-2 transition-all",
+                              formData.awayColor === formData.awayTeamData.secondary_color 
+                                ? "border-accent bg-accent/10 shadow-[0_0_15px_rgba(var(--accent),0.2)]" 
+                                : "border-border opacity-50 grayscale hover:grayscale-0"
+                            )}
+                            onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.secondary_color })}
+                          >
+                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.awayTeamData.secondary_color }} />
+                            <span className="text-[10px] uppercase font-bold">Secondary</span>
+                          </Button>
+                        )}
+                      </>
+                    )}
+                    {!formData.awayTeamData && (
+                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
+                        Select away team first
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
