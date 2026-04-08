@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useState } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { ShotChart, Shot } from "@/components/Court"; // I'll fix the import in next iteration
 import { 
   Play, 
   Target, 
@@ -10,8 +11,18 @@ import {
   History, 
   ChevronRight,
   TrendingUp,
-  Cpu
+  Cpu,
+  Download
 } from "lucide-react";
+import { ShotChart as ShotChartComponent } from "@/components/ShotChart";
+
+const MOCK_SHOTS: Shot[] = [
+  { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
+  { id: "2", x: 100, y: 140, is_made: true, player_name: "Klay Thompson", shot_type: "3PT Jumper", timestamp: "Q1 07:12" },
+  { id: "3", x: 400, y: 140, is_made: false, player_name: "Jordan Poole", shot_type: "3PT Jumper", timestamp: "Q1 05:30" },
+  { id: "4", x: 250, y: 250, is_made: true, player_name: "Steph Curry", shot_type: "Midrange Jumper", timestamp: "Q1 04:15" },
+  { id: "5", x: 50, y: 50, is_made: false, player_name: "Draymond Green", shot_type: "Hook Shot", timestamp: "Q1 02:10" },
+];
 
 export default function Home() {
   return (
@@ -97,43 +108,17 @@ export default function Home() {
           </Card>
 
           <Card className="glass-card border-none">
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
                 <Target className="h-5 w-5 text-accent" />
-                Live Shot Trends
+                Shot Chart
               </CardTitle>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground">
+                <Download className="h-4 w-4" />
+              </Button>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="h-48 flex items-end justify-between px-2">
-                {[45, 78, 52, 91, 64, 82, 40].map((h, i) => (
-                  <div key={i} className="w-6 bg-accent/20 rounded-t-sm relative group cursor-help">
-                    <div 
-                      className="absolute bottom-0 w-full bg-accent rounded-t-sm transition-all duration-1000 group-hover:bg-primary" 
-                      style={{ height: `${h}%` }} 
-                    />
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-4">
-                {[
-                  { name: "3PT Accuracy", value: 38, goal: 40 },
-                  { name: "Paint Scoring", value: 62, goal: 55 },
-                  { name: "Fast Break Pts", value: 24, goal: 20 },
-                ].map((stat, i) => (
-                  <div key={i} className="space-y-1.5">
-                    <div className="flex justify-between text-xs font-mono">
-                      <span className="text-muted-foreground uppercase">{stat.name}</span>
-                      <span className="text-foreground">{stat.value}%</span>
-                    </div>
-                    <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary transition-all duration-1000" 
-                        style={{ width: `${(stat.value / stat.goal) * 100}%` }} 
-                      />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <CardContent>
+              <ShotChartComponent shots={MOCK_SHOTS} />
             </CardContent>
           </Card>
         </div>

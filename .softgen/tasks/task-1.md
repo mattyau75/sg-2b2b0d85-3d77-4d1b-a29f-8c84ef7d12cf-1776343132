@@ -1,6 +1,6 @@
 ---
 title: Database Schema & Design System Setup
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: [backend, styles, db]
