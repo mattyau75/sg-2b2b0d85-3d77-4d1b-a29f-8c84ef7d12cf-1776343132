@@ -38,7 +38,7 @@ export default function GameDetailPage() {
   const [gameData, setGameData] = useState<any>(null);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || typeof id !== "string") return;
     
     const fetchGameData = async () => {
       setLoading(true);
