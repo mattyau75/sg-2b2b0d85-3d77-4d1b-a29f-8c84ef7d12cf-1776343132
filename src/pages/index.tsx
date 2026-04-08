@@ -34,28 +34,51 @@ export default function Home() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<any[]>([]);
+  const [statsSummary, setStatsSummary] = useState({
+    totalClips: 0,
+    activeModels: 3, // YOLOv11m, Jersey Number, Rim Detection
+    accuracy: "98.4%",
+    speed: "0.4s/f"
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const fetchRecentGames = async () => {
+    const fetchDashboardData = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from("games")
-        .select(`
-          *,
-          home_team:teams!games_home_team_id_fkey(name),
-          away_team:teams!games_away_team_id_fkey(name)
-        `)
-        .order("created_at", { ascending: false })
-        .limit(3);
-      
-      if (!error && data) {
-        setRecentGames(data);
+      try {
+        // Fetch recent games
+        const { data: games, error: gamesError } = await supabase
+          .from("games")
+          .select(`
+            *,
+            home_team:teams!games_home_team_id_fkey(name),
+            away_team:teams!games_away_team_id_fkey(name)
+          `)
+          .order("created_at", { ascending: false })
+          .limit(3);
+        
+        if (!gamesError && games) setRecentGames(games);
+
+        // Fetch total video clips (Play-by-Play events with video URLs)
+        const { count, error: countError } = await supabase
+          .from("play_by_play")
+          .select('*', { count: 'exact', head: true })
+          .not("video_url", "is", null);
+
+        if (!countError) {
+          setStatsSummary(prev => ({
+            ...prev,
+            totalClips: count || 0
+          }));
+        }
+      } catch (err) {
+        console.error("Dashboard fetch error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
-    fetchRecentGames();
+    fetchDashboardData();
   }, []);
 
   const handleNewJob = (jobId: string) => {
@@ -99,10 +122,10 @@ export default function Home() {
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Active Models", value: "3", icon: Cpu, color: "text-accent" },
-            { label: "Total Clips", value: "1,248", icon: Play, color: "text-primary" },
-            { label: "Tracking Accuracy", value: "98.4%", icon: Target, color: "text-emerald-400" },
-            { label: "Processing Speed", value: "0.4s/f", icon: TrendingUp, color: "text-blue-400" },
+            { label: "Active Models", value: statsSummary.activeModels.toString(), icon: Cpu, color: "text-accent" },
+            { label: "Total Clips", value: statsSummary.totalClips.toLocaleString(), icon: Play, color: "text-primary" },
+            { label: "Tracking Accuracy", value: statsSummary.accuracy, icon: Target, color: "text-emerald-400" },
+            { label: "Processing Speed", value: statsSummary.speed, icon: TrendingUp, color: "text-blue-400" },
           ].map((stat, i) => (
             <Card key={i} className="glass-card border-none overflow-hidden group">
               <CardContent className="p-6">
