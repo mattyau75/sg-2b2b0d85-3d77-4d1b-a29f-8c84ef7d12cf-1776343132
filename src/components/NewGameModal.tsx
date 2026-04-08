@@ -151,14 +151,21 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-card border-border p-0 overflow-hidden">
         <div className="flex flex-col h-[80vh] md:h-auto">
-          <DialogHeader className="p-6 border-b border-border bg-muted/30">
-            <div className="flex items-center gap-2 mb-1">
-              <Cpu className="h-4 w-4 text-primary" />
-              <Badge variant="outline" className="text-[10px] font-mono border-primary/30 text-primary">A100-ACTIVE</Badge>
-            </div>
-            <DialogTitle className="text-2xl">New Game Analysis</DialogTitle>
-            <DialogDescription>Link video and metadata for AI-powered clip extraction.</DialogDescription>
+          <DialogHeader>
+            <DialogTitle>Process New Game</DialogTitle>
+            <DialogDescription>
+              Enter a YouTube URL or video file link to analyze the game footage.
+            </DialogDescription>
           </DialogHeader>
+
+          {/* YouTube Warning Banner */}
+          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+            <p className="font-medium mb-1">⚠️ YouTube Authentication Required</p>
+            <p className="text-xs opacity-90">
+              YouTube now requires authentication for video downloads. For best results, use direct video URLs (.mp4, .mov) 
+              or other platforms like Vimeo. See documentation for YouTube cookie setup.
+            </p>
+          </div>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
             {/* Step 1: Video & Camera */}
