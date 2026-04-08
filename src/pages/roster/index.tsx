@@ -47,7 +47,18 @@ export default function RosterDirectory() {
   };
 
   useEffect(() => {
-    loadTeams();
+    const fetchTeams = async () => {
+      setLoading(true);
+      try {
+        const data = await rosterService.getTeams();
+        setTeams(data || []);
+      } catch (error) {
+        console.error("Error fetching teams:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTeams();
   }, []);
 
   const handleAddTeam = async () => {

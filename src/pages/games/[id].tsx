@@ -145,10 +145,10 @@ export default function GameDetailPage() {
   ].filter((p, i, a) => p && a.findIndex(t => t?.id === p.id) === i);
 
   const shotData = gameData.play_by_play
-    ?.filter((e: any) => e.event_type.includes("pt") && e.x_pos !== null && e.y_pos !== null)
+    ?.filter((e: any) => (e.event_type.includes("pt") || e.event_type.includes("shot")) && e.x_coord !== null && e.y_coord !== null)
     .map((e: any) => ({
-      x: e.x_pos,
-      y: e.y_pos,
+      x: Number(e.x_coord),
+      y: Number(e.y_coord),
       isMake: e.is_make,
       type: e.event_type.includes("3") ? "3PT" : "2PT",
       playerName: e.player?.name

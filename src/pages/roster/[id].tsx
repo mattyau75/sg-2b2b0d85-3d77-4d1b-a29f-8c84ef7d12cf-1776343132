@@ -69,7 +69,21 @@ export default function TeamRoster() {
   };
 
   useEffect(() => {
-    loadTeam();
+    if (!id) return;
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const teamData = await rosterService.getTeamById(id as string);
+        setTeam(teamData);
+        const playersData = await rosterService.getPlayers(id as string);
+        setPlayers(playersData || []);
+      } catch (error) {
+        console.error("Error fetching roster:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, [id]);
 
   const handleAddPlayer = async () => {
