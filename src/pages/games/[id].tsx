@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { 
-  Trophy, ChevronLeft, RefreshCw, Edit2, Save, X, Trash2, Video, List, LayoutGrid, Users
+  Trophy, ChevronLeft, RefreshCw, Video, List, LayoutGrid, Users, Target, Play, Edit2, Save, X, Trash2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { storageService } from "@/services/storageService";
-import { 
-  Trophy, ChevronLeft, RefreshCw, Video, List, LayoutGrid, Users, Target, Play 
-} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function GameDetailPage() {
   const router = useRouter();
@@ -351,6 +349,3 @@ export default function GameDetailPage() {
     </Layout>
   );
 }
-
-import { cn } from "@/lib/utils";
-import { Target, Play } from "lucide-react";
