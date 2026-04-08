@@ -13,7 +13,7 @@ position: 1
 Initial infrastructure for CourtVision Elite. Setting up the data tables for basketball entities and configuring the visual theme.
 
 ## Checklist:
-- [ ] Execute SQL for teams, players, games, stats, pbp, and shots tables
+- [x] Execute SQL for teams, players, games, stats, pbp, and shots tables
 - [ ] Configure globals.css with CourtVision theme variables (Dark Mode)
 - [ ] Update tailwind.config.ts with custom colors and Geist Mono font
-- [ ] Create basic SEO and layout wrapper
+- [x] Create basic SEO and layout wrapper
