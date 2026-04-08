@@ -79,8 +79,9 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 500 * 1024 * 1024) { // 500MB limit
-        toast({ title: "File too large", description: "Please upload a video under 500MB.", variant: "destructive" });
+      // 8GB Limit (8 * 1024 * 1024 * 1024)
+      if (file.size > 8589934592) { 
+        toast({ title: "File too large", description: "Please upload a video under 8GB.", variant: "destructive" });
         return;
       }
       setFormData(prev => ({ ...prev, videoFile: file, sourceType: "upload" }));
@@ -120,9 +121,14 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
       let videoPath = "";
       if (formData.sourceType === "upload" && formData.videoFile) {
-        setUploadProgress(10);
-        videoPath = await storageService.uploadVideo(formData.videoFile, newGame.id);
-        setUploadProgress(100);
+        videoPath = await storageService.uploadVideoResumable(
+          formData.videoFile, 
+          newGame.id,
+          (uploaded, total) => {
+            const progress = Math.round((uploaded / total) * 100);
+            setUploadProgress(progress);
+          }
+        );
         
         // Update game with storage path
         await supabase
