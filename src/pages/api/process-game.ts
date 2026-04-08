@@ -76,8 +76,21 @@ export default async function handler(
     }
 
     if (MODAL_URL) {
-      console.log("Server: Dispatching production payload to Modal...");
+      console.log("Server: Dispatching production payload to Modal URL:", MODAL_URL);
+      console.log("Server: Headers configured with Token ID:", MODAL_TOKEN_ID?.substring(0, 5) + "...");
       
+      const payload = {
+        youtube_url: normalizedUrl,
+        game_id: gameId,
+        config: config,
+        home_roster: homePlayers || [],
+        away_roster: awayPlayers || [],
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      };
+
+      console.log("Server: Request Payload Structure:", JSON.stringify({ ...payload, youtube_url: "[HIDDEN]" }));
+
       // THE REAL HANDSHAKE: Call the GPU cluster
       const modalResponse = await fetch(MODAL_URL, {
         method: 'POST',
@@ -86,15 +99,7 @@ export default async function handler(
           'X-Modal-Token-Id': MODAL_TOKEN_ID,
           'X-Modal-Token-Secret': MODAL_TOKEN_SECRET
         },
-        body: JSON.stringify({
-          youtube_url: normalizedUrl,
-          game_id: gameId,
-          config: config,
-          home_roster: homePlayers || [],
-          away_roster: awayPlayers || [],
-          supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        })
+        body: JSON.stringify(payload)
       });
 
       if (!modalResponse.ok) {
