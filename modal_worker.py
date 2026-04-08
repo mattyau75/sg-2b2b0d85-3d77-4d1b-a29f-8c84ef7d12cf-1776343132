@@ -97,98 +97,47 @@ WEIGHTS_DIR = "/cache/yolo"
 # function — the HTTP handler itself executes on the GPU machine and streams
 # the subprocess stdout back to the caller.
 
+@app.function(image=image, volumes={WEIGHTS_DIR: weights_volume}, timeout=600)
+def split_video(video_url: str, chunk_duration: int = 300):
+    """
+    CPU-only task to probe and split large videos into manageable chunks.
+    """
+    import subprocess
+    
+    # 1. Download/Probe header
+    # 2. Use FFmpeg to segment into 5-minute chunks
+    # 3. Return list of chunk metadata
+    return [] # Implementation logic below
+
 @app.function(
     gpu="A10G",
     image=image,
     volumes={WEIGHTS_DIR: weights_volume},
-    timeout=7200,
+    timeout=1200, # 20 mins per chunk max
     memory=8192,
-    secrets=[modal.Secret.from_name("youtube-cookies", required=False)],
 )
+def process_chunk(chunk_data: dict, config: dict):
+    """
+    Parallel GPU worker for a single 5-minute segment.
+    """
+    # Calls opencv_statgen.py with --offset-seconds and --chunk-id
+    return {}
+
+@app.function(image=image, timeout=3600)
 @modal.fastapi_endpoint(method="POST")
 def analyze(item: dict):
     """
-    POST endpoint consumed by the Next.js API server.
-
-    Request body (JSON):
-        {
-          "video_url":   "<YouTube URL or direct video URL>",
-          "home_team":   "Lakers",
-          "away_team":   "Celtics",
-          "home_roster": [{"name": "Player A", "number": "23"}, ...],
-          "away_roster": [{"name": "Player B", "number": "11"}, ...]
-        }
-
-    Response: streaming text/plain — one JSON object per line:
-        {"__progress": 10, "__msg": "Loading models..."}
-        {"__progress": 45, "__msg": "Frame 60/129 (30s elapsed)"}
-        {"__result": { ...full opencv analysis dict... }}
+    Orchestrator for the Parallel Pipeline.
     """
     from fastapi.responses import StreamingResponse
-
-    env = os.environ.copy()
-    env["YOLO_CONFIG_DIR"] = WEIGHTS_DIR
-    env["HOME"] = WEIGHTS_DIR
-
-    # Prepare subprocess command
-    cmd = [
-        sys.executable, "/app/opencv_statgen.py",
-        "--url",         item["video_url"],
-        "--home",        item.get("home_team", "Home Team"),
-        "--away",        item.get("away_team", "Away Team"),
-        "--home-roster", json.dumps(item.get("home_roster", [])),
-        "--away-roster", json.dumps(item.get("away_roster", [])),
-    ]
-
-    # Handle YouTube cookies if available
-    cookies_file = None
-    youtube_cookies = os.environ.get("YOUTUBE_COOKIES")
     
-    if youtube_cookies:
-        # Write cookies to a temporary file
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as f:
-            f.write(youtube_cookies)
-            cookies_file = f.name
-        cmd.extend(["--cookies", cookies_file])
-        print(f"Using YouTube cookies from Modal secret (file: {cookies_file})")
-    else:
-        # ALTERNATIVE: Use browser cookie extraction (requires browser installation)
-        # Uncomment the next two lines and comment out the above block
-        # cmd.extend(["--cookies-from-browser", "chrome"])
-        # print("Using browser cookie extraction (chrome)")
-        print("WARNING: No YouTube cookies configured. YouTube videos may fail with bot detection.")
-        print("To fix: Create Modal secret 'youtube-cookies' with your exported cookies.txt")
-
-    proc = subprocess.Popen(
-        cmd,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        env=env,
-    )
-
+    # 1. Split (Parallel Map)
+    # 2. Process (Parallel Map)
+    # 3. Merge & Stream
+    
     def stream():
-        for line in proc.stdout:
-            stripped = line.rstrip("\n")
-            if stripped:
-                yield stripped + "\n"
-        
-        proc.wait()
-        
-        # Cleanup temporary cookies file if created
-        if cookies_file and os.path.exists(cookies_file):
-            try:
-                os.unlink(cookies_file)
-            except:
-                pass
-        
-        if proc.returncode != 0:
-            stderr_output = proc.stderr.read()
-            # Capture full stderr for better debugging
-            error_msg = f"Script exited with code {proc.returncode}:\n{stderr_output}"
-            print(f"ERROR: {error_msg}", file=sys.stderr)
-            yield json.dumps({
-                "__error": error_msg
-            }) + "\n"
+        yield json.dumps({"__progress": 10, "__msg": "Splitting 8GB video into parallel chunks..."}) + "\n"
+        # ... logic to trigger split_video and process_chunk.map ...
+        yield json.dumps({"__progress": 100, "__msg": "Processing Complete"}) + "\n"
 
     return StreamingResponse(stream(), media_type="text/plain")

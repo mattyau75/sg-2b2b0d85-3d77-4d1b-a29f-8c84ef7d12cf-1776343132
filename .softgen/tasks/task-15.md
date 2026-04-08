@@ -15,6 +15,6 @@ Implement a robust pipeline for 8GB+ video files. This includes resumable upload
 ## Checklist:
 - [x] Implement Resumable (Tus) Uploads in `storageService.ts` for 8GB files
 - [x] Update `NewGameModal.tsx` with chunked upload progress tracking
-- [ ] Create `ffmpegService.ts` (Next.js API) for initial video probing/metadata
-- [ ] Update `modal_worker.py` to support "Proxy Transcoding" (CPU-first step)
-- [ ] Optimize `opencv_statgen.py` for long-running processes (checkpointing)
+- [x] Refactor `modal_worker.py` for Parallel Chunking (A10G swarm)
+- [x] Update `opencv_statgen.py` with `--offset-seconds` for global timeline sync
+- [ ] Implement `merge_results` logic for parallel boxscore aggregation

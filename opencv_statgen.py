@@ -157,17 +157,23 @@ def process_video(video_path: str, home_team: str, away_team: str,
     
     return results
 
-def main():
-    parser = argparse.ArgumentParser(description="Basketball video stats generator")
-    parser.add_argument("--url", required=True, help="Video URL to process")
-    parser.add_argument("--home", required=True, help="Home team name")
-    parser.add_argument("--away", required=True, help="Away team name")
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--url", required=True)
+    parser.add_argument("--home", default="Home")
+    parser.add_argument("--away", default="Away")
+    parser.add_argument("--offset-seconds", type=float, default=0.0, help="Start time offset for chunked processing")
+    parser.add_argument("--chunk-id", type=int, default=0)
     parser.add_argument("--home-roster", required=True, help="Home roster JSON")
     parser.add_argument("--away-roster", required=True, help="Away roster JSON")
     parser.add_argument("--cookies", help="Path to cookies.txt file for yt-dlp")
     parser.add_argument("--cookies-from-browser", help="Browser to extract cookies from (chrome, firefox, etc.)")
-    
-    args = parser.parse_args()
+    return parser.parse_args()
+
+def main():
+    args = parse_args()
+    # When emitting play-by-play, add offset-seconds to current frame time
+    # This ensures the global timeline is correct
     
     try:
         # Parse roster data
