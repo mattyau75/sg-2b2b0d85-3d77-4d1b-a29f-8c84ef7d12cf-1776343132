@@ -24,7 +24,9 @@ import {
   BarChart3, 
   ArrowUpRight, 
   ArrowDownRight,
-  Filter
+  Filter,
+  History,
+  TrendingDown
 } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +39,7 @@ export default function AnalyticsPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
+  const [lineupStats, setLineupStats] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchTeams = async () => {
@@ -51,6 +54,16 @@ export default function AnalyticsPage() {
       setLoading(true);
       const { data, error } = await supabase.from("player_game_stats").select("*");
       if (!error && data) setStats(data);
+      
+      const { data: lineups, error: lError } = await supabase
+        .from("lineup_stats")
+        .select(`
+          *,
+          team:teams(name)
+        `)
+        .order('minutes_played', { ascending: false });
+      if (!lError && lineups) setLineupStats(lineups);
+      
       setLoading(false);
     };
     fetchStats();
@@ -132,6 +145,10 @@ export default function AnalyticsPage() {
             <TabsTrigger value="efficiency" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
               <Target className="h-4 w-4 mr-2" />
               Efficiency
+            </TabsTrigger>
+            <TabsTrigger value="rotations" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
+              <Users className="h-4 w-4 mr-2" />
+              Rotation Analysis
             </TabsTrigger>
           </TabsList>
 
@@ -218,6 +235,65 @@ export default function AnalyticsPage() {
                     <Line type="monotone" dataKey="pts" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: "hsl(var(--primary))" }} />
                   </LineChart>
                 </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="rotations" className="space-y-6">
+            <Card className="bg-card/30 border-border">
+              <CardHeader>
+                <CardTitle className="text-lg">Top 5-Player Combinations</CardTitle>
+                <CardDescription>Lineups ranked by total minutes played and Net Rating</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-border hover:bg-transparent">
+                      <TableHead className="text-xs uppercase font-mono">Team</TableHead>
+                      <TableHead className="text-xs uppercase font-mono">Lineup (IDs)</TableHead>
+                      <TableHead className="text-center text-xs uppercase font-mono">MIN</TableHead>
+                      <TableHead className="text-center text-xs uppercase font-mono">OFF RTG</TableHead>
+                      <TableHead className="text-center text-xs uppercase font-mono">DEF RTG</TableHead>
+                      <TableHead className="text-right text-xs uppercase font-mono">NET RTG</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {lineupStats.length > 0 ? (
+                      lineupStats.map((lineup, i) => {
+                        const offRtg = (lineup.points_for / (lineup.possessions || 1) * 100).toFixed(1);
+                        const defRtg = (lineup.points_against / (lineup.possessions || 1) * 100).toFixed(1);
+                        const netRtg = (Number(offRtg) - Number(defRtg)).toFixed(1);
+                        
+                        return (
+                          <TableRow key={i} className="border-border hover:bg-muted/20">
+                            <TableCell className="font-medium">{lineup.team?.name}</TableCell>
+                            <TableCell>
+                              <div className="flex gap-1">
+                                {lineup.player_ids.map((id: string, idx: number) => (
+                                  <Badge key={idx} variant="outline" className="text-[10px] bg-muted/30">
+                                    {id.substring(0, 4)}
+                                  </Badge>
+                                ))}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center font-mono">{lineup.minutes_played}</TableCell>
+                            <TableCell className="text-center font-mono text-primary">{offRtg}</TableCell>
+                            <TableCell className="text-center font-mono text-accent">{defRtg}</TableCell>
+                            <TableCell className={`text-right font-mono font-bold ${Number(netRtg) >= 0 ? 'text-green-500' : 'text-accent'}`}>
+                              {Number(netRtg) >= 0 ? '+' : ''}{netRtg}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={6} className="h-32 text-center text-muted-foreground font-mono">
+                          No rotation data available. Run game analysis to populate.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
               </CardContent>
             </Card>
           </TabsContent>

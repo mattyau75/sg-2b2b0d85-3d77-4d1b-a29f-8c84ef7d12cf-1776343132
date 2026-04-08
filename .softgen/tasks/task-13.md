@@ -14,11 +14,11 @@ position: 13
 Implement tracking and visualization for 5-player lineups and player combinations to identify the most effective rotations.
 
 ## Checklist:
-- [ ] Create `lineup_stats` table in Supabase
-- [ ] Implement Lineup detection logic in the play-by-play processor
-- [ ] Add "Lineups" tab to src/pages/games/[id].tsx
-- [ ] Add "Rotation Analysis" section to src/pages/analytics.tsx
-- [ ] Build a comparison tool for different lineup configurations
+- [x] Create `lineup_stats` table in Supabase
+- [x] Implement Lineup detection logic in the play-by-play processor
+- [x] Add "Lineups" tab to src/pages/games/[id].tsx
+- [x] Add "Rotation Analysis" section to src/pages/analytics.tsx
+- [x] Build a comparison tool for different lineup configurations
 ]]>
 
-[Tool result trimmed: kept first 100 chars and last 100 chars of 635 chars.]
+[Tool result trimmed: kept first 100 chars and last 100 chars of 329 chars.]

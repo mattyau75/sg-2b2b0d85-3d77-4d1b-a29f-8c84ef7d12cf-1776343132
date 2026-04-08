@@ -12,7 +12,8 @@ import {
   Table as TableIcon,
   Download,
   Share2,
-  Video
+  Video,
+  Users
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -53,7 +54,8 @@ export default function GameDetailPage() {
             player_game_stats(
               *,
               player:players(*)
-            )
+            ),
+            lineup_stats(*)
           `)
           .eq("id", id)
           .single();
@@ -232,6 +234,9 @@ export default function GameDetailPage() {
             <TabsTrigger value="shotchart" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
               <Target className="h-4 w-4" /> Shot Chart
             </TabsTrigger>
+            <TabsTrigger value="lineups" className="data-[state=active]:bg-primary data-[state=active]:text-white gap-2 px-6">
+              <Users className="h-4 w-4" /> Lineups
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="boxscore" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -387,6 +392,66 @@ export default function GameDetailPage() {
                 </Card>
               </div>
             </div>
+          </TabsContent>
+
+          <TabsContent value="lineups" className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <Card className="bg-card/30 border-border overflow-hidden">
+              <CardHeader className="border-b border-border bg-muted/20">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Users className="h-5 w-5 text-primary" /> Tactical Lineup Efficiency
+                </CardTitle>
+              </CardHeader>
+              <Table>
+                <TableHeader className="bg-muted/30">
+                  <TableRow className="border-border hover:bg-transparent">
+                    <TableHead className="w-[350px] text-xs uppercase tracking-widest font-mono">5-Player Unit</TableHead>
+                    <TableHead className="text-center text-xs uppercase tracking-widest font-mono">MIN</TableHead>
+                    <TableHead className="text-center text-xs uppercase tracking-widest font-mono">PTS +/-</TableHead>
+                    <TableHead className="text-center text-xs uppercase tracking-widest font-mono text-primary font-bold">OFF RTG</TableHead>
+                    <TableHead className="text-center text-xs uppercase tracking-widest font-mono text-accent font-bold">DEF RTG</TableHead>
+                    <TableHead className="text-right text-xs uppercase tracking-widest font-mono font-bold">NET RTG</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {gameData?.lineup_stats?.length > 0 ? (
+                    gameData.lineup_stats.map((lineup: any, index: number) => {
+                      const netRtg = ((lineup.points_for - lineup.points_against) / (lineup.possessions || 1) * 100).toFixed(1);
+                      const offRtg = (lineup.points_for / (lineup.possessions || 1) * 100).toFixed(1);
+                      const defRtg = (lineup.points_against / (lineup.possessions || 1) * 100).toFixed(1);
+                      
+                      return (
+                        <TableRow key={index} className="border-border hover:bg-muted/20 transition-colors">
+                          <TableCell>
+                            <div className="flex flex-wrap gap-1">
+                              {lineup.player_ids.slice(0, 5).map((pid: string, i: number) => (
+                                <Badge key={i} variant="outline" className="text-[9px] bg-muted/50 border-border px-1">
+                                  {gameData.player_game_stats?.find((p: any) => p.player_id === pid)?.player?.name?.split(' ').pop() || "Player"}
+                                </Badge>
+                              ))}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-sm">{lineup.minutes_played}</TableCell>
+                          <TableCell className={`text-center font-mono text-sm ${(lineup.points_for - lineup.points_against) >= 0 ? 'text-green-500' : 'text-accent'}`}>
+                            {lineup.points_for - lineup.points_against >= 0 ? '+' : ''}{lineup.points_for - lineup.points_against}
+                          </TableCell>
+                          <TableCell className="text-center font-mono text-sm text-primary font-bold">{offRtg}</TableCell>
+                          <TableCell className="text-center font-mono text-sm text-accent font-bold">{defRtg}</TableCell>
+                          <TableCell className={`text-right font-mono text-sm font-bold ${Number(netRtg) >= 0 ? 'text-green-500' : 'text-accent'}`}>
+                            {Number(netRtg) >= 0 ? '+' : ''}{netRtg}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-32 text-center text-muted-foreground font-mono text-sm">
+                        No lineup data tracked for this game yet.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
