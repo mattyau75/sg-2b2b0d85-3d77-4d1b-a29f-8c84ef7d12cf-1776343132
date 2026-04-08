@@ -14,15 +14,27 @@ export default async function handler(
 
   const { youtubeUrl, config, gameId } = req.body;
 
-  if (!youtubeUrl) {
-    return res.status(400).json({ message: "YouTube URL is required" });
-  }
+  // youtubeUrl might be a YouTube link OR a Supabase Storage path
+  let videoSourceUrl = youtubeUrl;
 
-  // Normalize URL for Modal/yt-dlp compatibility
-  let normalizedUrl = youtubeUrl;
-  if (youtubeUrl.includes("youtu.be/")) {
-    const videoId = youtubeUrl.split("youtu.be/")[1]?.split("?")[0];
-    normalizedUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  // 1. If it's a storage path (doesn't start with http/www), generate a signed URL
+  if (youtubeUrl && !youtubeUrl.startsWith('http') && !youtubeUrl.includes('youtube') && !youtubeUrl.includes('youtu.be')) {
+    console.log("Server: Detected storage path, generating signed URL:", youtubeUrl);
+    const { data, error: signedUrlError } = await supabase.storage
+      .from('game-videos')
+      .createSignedUrl(youtubeUrl, 7200); // 2 hours access
+
+    if (signedUrlError || !data?.signedUrl) {
+      console.error("Server: Failed to generate signed URL:", signedUrlError);
+      return res.status(500).json({ message: "Failed to generate secure access to video file." });
+    }
+    videoSourceUrl = data.signedUrl;
+  } else if (youtubeUrl && (youtubeUrl.includes("youtu.be/") || youtubeUrl.includes("youtube.com"))) {
+    // Normalize YouTube URL for Modal/yt-dlp compatibility
+    if (youtubeUrl.includes("youtu.be/")) {
+      const videoId = youtubeUrl.split("youtu.be/")[1]?.split("?")[0];
+      videoSourceUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    }
   }
 
   const MODAL_TOKEN_ID = process.env.MODAL_TOKEN_ID;
@@ -51,7 +63,8 @@ export default async function handler(
         .from('games')
         .update({ 
           status: 'queued', 
-          youtube_url: normalizedUrl,
+          youtube_url: youtubeUrl.includes('http') ? youtubeUrl : null,
+          video_path: !youtubeUrl.includes('http') ? youtubeUrl : null,
           camera_type: config.camera_type,
           progress_percentage: 15,
           last_error: null
@@ -64,7 +77,7 @@ export default async function handler(
     }
 
     const payload = {
-      video_url: normalizedUrl,
+      video_url: videoSourceUrl,
       game_id: gameId,
       home_team: homeTeam?.name || "Home Team",
       away_team: awayTeam?.name || "Away Team",

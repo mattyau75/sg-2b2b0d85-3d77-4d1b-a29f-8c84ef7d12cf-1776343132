@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-object-type */
+ 
 export type Json =
   | string
   | number
@@ -31,6 +31,7 @@ export type Database = {
           status: string | null
           updated_at: string | null
           venue: string | null
+          video_path: string | null
           youtube_url: string | null
         }
         Insert: {
@@ -48,6 +49,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           venue?: string | null
+          video_path?: string | null
           youtube_url?: string | null
         }
         Update: {
@@ -65,6 +67,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           venue?: string | null
+          video_path?: string | null
           youtube_url?: string | null
         }
         Relationships: [

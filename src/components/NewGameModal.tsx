@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,9 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Youtube, Target, Cpu, SlidersHorizontal, Settings2, Palette, Camera } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Youtube, Target, Cpu, SlidersHorizontal, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
+import { storageService } from "@/services/storageService";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
@@ -33,10 +35,14 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const { toast } = useToast();
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
+    sourceType: "upload" as "upload" | "youtube",
     youtubeUrl: "",
+    videoFile: null as File | null,
     homeTeamId: "",
     awayTeamId: "",
     cameraType: "panning" as "panning" | "fixed",
@@ -70,9 +76,24 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 500 * 1024 * 1024) { // 500MB limit
+        toast({ title: "File too large", description: "Please upload a video under 500MB.", variant: "destructive" });
+        return;
+      }
+      setFormData(prev => ({ ...prev, videoFile: file, sourceType: "upload" }));
+    }
+  };
+
   const handleProcess = async () => {
-    if (!formData.youtubeUrl) {
+    if (formData.sourceType === "youtube" && !formData.youtubeUrl) {
       toast({ title: "Missing URL", description: "Please provide a YouTube link.", variant: "destructive" });
+      return;
+    }
+    if (formData.sourceType === "upload" && !formData.videoFile) {
+      toast({ title: "Missing File", description: "Please upload a video file.", variant: "destructive" });
       return;
     }
     if (!formData.homeTeamId || !formData.awayTeamId) {
@@ -82,11 +103,11 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
     setIsProcessing(true);
     try {
-      // 1. Create the game record in Supabase first to get an ID
+      // 1. Create the game record in Supabase
       const { data: newGame, error: dbError } = await supabase
         .from('games')
         .insert({
-          youtube_url: formData.youtubeUrl,
+          youtube_url: formData.sourceType === "youtube" ? formData.youtubeUrl : null,
           home_team_id: formData.homeTeamId,
           away_team_id: formData.awayTeamId,
           camera_type: formData.cameraType,
@@ -97,33 +118,48 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
       if (dbError) throw dbError;
 
-      // 2. Trigger the GPU pipeline via Modal.com with the new game ID
-      const result = await modalService.processGame(formData.youtubeUrl, {
-        imgsz: formData.imgsz,
-        conf: formData.conf,
-        iou: formData.iou,
-        tracking: formData.tracking,
-        agnostic_nms: formData.agnosticNms,
-        rim_detection: formData.rimDetection,
-        shot_logic: formData.shotLogic,
-        home_team_id: formData.homeTeamId,
-        away_team_id: formData.awayTeamId,
-        home_team_color: formData.homeColor,
-        away_team_color: formData.awayColor,
-        camera_type: formData.cameraType,
-        gameId: newGame.id // Crucial: tell the AI which record to update
-      });
+      let videoPath = "";
+      if (formData.sourceType === "upload" && formData.videoFile) {
+        setUploadProgress(10);
+        videoPath = await storageService.uploadVideo(formData.videoFile, newGame.id);
+        setUploadProgress(100);
+        
+        // Update game with storage path
+        await supabase
+          .from('games')
+          .update({ video_path: videoPath })
+          .eq('id', newGame.id);
+      }
+
+      // 2. Trigger the GPU pipeline via Modal.com
+      const result = await modalService.processGame(
+        formData.sourceType === "youtube" ? formData.youtubeUrl : videoPath, 
+        {
+          imgsz: formData.imgsz,
+          conf: formData.conf,
+          iou: formData.iou,
+          tracking: formData.tracking,
+          agnostic_nms: formData.agnosticNms,
+          rim_detection: formData.rimDetection,
+          shot_logic: formData.shotLogic,
+          home_team_id: formData.homeTeamId,
+          away_team_id: formData.awayTeamId,
+          home_team_color: formData.homeColor,
+          away_team_color: formData.awayColor,
+          camera_type: formData.cameraType,
+          gameId: newGame.id
+        }
+      );
       
       toast({ title: "Analysis Started", description: `GPU Pipeline initiated for Game ID: ${newGame.id.substring(0, 8)}` });
-      onJobStarted(result.job_id);
+      onJobStarted(result.job_id || "started");
       onClose();
-      
-      // Automatically navigate to the processing queue to monitor progress
       router.push('/analysis-queue');
     } catch (error: any) {
       toast({ title: "Processing Failed", description: error.message, variant: "destructive" });
     } finally {
       setIsProcessing(false);
+      setUploadProgress(0);
     }
   };
 
@@ -150,61 +186,137 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl bg-card border-border p-0 overflow-hidden">
-        <div className="flex flex-col h-[80vh] md:h-auto">
-          <DialogHeader>
+        <div className="flex flex-col h-[85vh] md:h-auto">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>Process New Game</DialogTitle>
             <DialogDescription>
-              Enter a YouTube URL or video file link to analyze the game footage.
+              Analyze high-performance basketball footage for scouting and advanced metrics.
             </DialogDescription>
           </DialogHeader>
 
-          {/* YouTube Warning Banner */}
-          <div className="rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3 text-sm text-yellow-200">
-            <p className="font-medium mb-1">⚠️ YouTube Authentication Required</p>
-            <p className="text-xs opacity-90">
-              YouTube now requires authentication for video downloads. For best results, use direct video URLs (.mp4, .mov) 
-              or other platforms like Vimeo. See documentation for YouTube cookie setup.
-            </p>
-          </div>
-
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* Step 1: Video & Camera */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 space-y-4">
+            {/* Step 1: Video Source */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-bold">
-                  <Youtube className="h-4 w-4 text-red-500" />
+                  <Video className="h-4 w-4 text-accent" />
                   Video Source
                 </div>
-                <Input 
-                  placeholder="Paste YouTube URL..." 
-                  className="bg-background border-border font-mono text-sm"
-                  value={formData.youtubeUrl}
-                  onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
-                />
-              </div>
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold">
-                  <Camera className="h-4 w-4 text-accent" />
-                  Camera
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2 text-[10px] uppercase font-bold text-muted-foreground">
+                    <Camera className="h-3 w-3" /> Camera
+                  </div>
+                  <Select 
+                    value={formData.cameraType} 
+                    onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
+                  >
+                    <SelectTrigger className="w-[120px] bg-background border-border h-8 text-[11px]">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      <SelectItem value="panning">Panning</SelectItem>
+                      <SelectItem value="fixed">Fixed</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <Select 
-                  value={formData.cameraType} 
-                  onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
-                >
-                  <SelectTrigger className="bg-background border-border">
-                    <SelectValue placeholder="Type" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-card border-border">
-                    <SelectItem value="panning">Panning</SelectItem>
-                    <SelectItem value="fixed">Fixed</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
+
+              <Tabs 
+                value={formData.sourceType} 
+                onValueChange={(val: any) => setFormData(prev => ({ ...prev, sourceType: val }))}
+                className="w-full"
+              >
+                <TabsList className="grid w-full grid-cols-2 bg-muted/20 border border-border/50">
+                  <TabsTrigger value="upload" className="gap-2 text-xs">
+                    <Upload className="h-3.5 w-3.5" /> Local Upload
+                  </TabsTrigger>
+                  <TabsTrigger value="youtube" className="gap-2 text-xs">
+                    <Youtube className="h-3.5 w-3.5 text-red-500" /> YouTube
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="upload" className="pt-4 mt-0">
+                  <div 
+                    onClick={() => fileInputRef.current?.click()}
+                    className={cn(
+                      "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 transition-all cursor-pointer",
+                      formData.videoFile ? "border-accent bg-accent/5" : "border-border hover:border-accent/50 hover:bg-muted/5"
+                    )}
+                  >
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      className="hidden" 
+                      accept="video/*" 
+                      onChange={handleFileSelect}
+                    />
+                    
+                    {formData.videoFile ? (
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center">
+                          <FileVideo className="h-6 w-6 text-accent" />
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-foreground">{formData.videoFile.name}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {(formData.videoFile.size / (1024 * 1024)).toFixed(1)} MB • Click to change
+                          </p>
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-7 text-[10px] hover:text-red-400"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setFormData(prev => ({ ...prev, videoFile: null }));
+                          }}
+                        >
+                          <X className="h-3 w-3 mr-1" /> Remove
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="h-8 w-8 text-muted-foreground mb-3 group-hover:text-accent group-hover:scale-110 transition-transform" />
+                        <p className="text-sm font-medium text-muted-foreground group-hover:text-foreground">Click to upload game footage</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">MP4, MOV, or AVI up to 500MB</p>
+                      </>
+                    )}
+
+                    {isProcessing && uploadProgress > 0 && uploadProgress < 100 && (
+                      <div className="absolute inset-x-4 bottom-4">
+                        <div className="h-1 w-full bg-muted rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-accent transition-all duration-300" 
+                            style={{ width: `${uploadProgress}%` }}
+                          />
+                        </div>
+                        <p className="text-[9px] text-center mt-1 text-accent font-bold">Uploading to Storage... {uploadProgress}%</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="youtube" className="pt-4 mt-0">
+                  <div className="space-y-4">
+                    <Input 
+                      placeholder="Paste YouTube game URL..." 
+                      className="bg-background border-border font-mono text-sm h-12"
+                      value={formData.youtubeUrl}
+                      onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
+                    />
+                    <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 text-[11px] text-yellow-200/80 leading-relaxed">
+                      <span className="font-bold flex items-center gap-1.5 mb-1">
+                        <Settings2 className="h-3 w-3" /> Connection Note
+                      </span>
+                      YouTube processing requires valid authentication cookies in the GPU worker. Direct uploads are recommended for higher reliability.
+                    </div>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </div>
 
             {/* Step 2: Teams & Colors */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Home Team */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold">
                   <div className="h-2 w-2 rounded-full bg-primary" />
@@ -223,10 +335,10 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                 
                 <div className="space-y-3">
                   <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Palette className="h-3 w-3" /> Select Jersey Color
+                    <Palette className="h-3 w-3" /> Jersey Color
                   </Label>
                   <div className="flex items-center gap-2">
-                    {formData.homeTeamData && (
+                    {formData.homeTeamData ? (
                       <>
                         <Button
                           variant="outline"
@@ -239,7 +351,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                           )}
                           onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.primary_color })}
                         >
-                          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.homeTeamData.primary_color }} />
+                          <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.homeTeamData.primary_color }} />
                           <span className="text-[10px] uppercase font-bold">Primary</span>
                         </Button>
                         {formData.homeTeamData.secondary_color && (
@@ -251,17 +363,16 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                               formData.homeColor === formData.homeTeamData.secondary_color 
                                 ? "border-primary bg-primary/10 shadow-[0_0_15px_rgba(var(--primary),0.2)]" 
                                 : "border-border opacity-50 grayscale hover:grayscale-0"
-                            )}
-                            onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.secondary_color })}
-                          >
-                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.homeTeamData.secondary_color }} />
-                            <span className="text-[10px] uppercase font-bold">Secondary</span>
-                          </Button>
+                          )}
+                          onClick={() => setFormData({ ...formData, homeColor: formData.homeTeamData.secondary_color })}
+                        >
+                          <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.homeTeamData.secondary_color }} />
+                          <span className="text-[10px] uppercase font-bold">Secondary</span>
+                        </Button>
                         )}
                       </>
-                    )}
-                    {!formData.homeTeamData && (
-                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
+                    ) : (
+                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground italic">
                         Select home team first
                       </div>
                     )}
@@ -269,7 +380,6 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                 </div>
               </div>
 
-              {/* Away Team */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold">
                   <div className="h-2 w-2 rounded-full bg-accent" />
@@ -288,10 +398,10 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
                 <div className="space-y-3">
                   <Label className="text-[10px] uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                    <Palette className="h-3 w-3" /> Select Jersey Color
+                    <Palette className="h-3 w-3" /> Jersey Color
                   </Label>
                   <div className="flex items-center gap-2">
-                    {formData.awayTeamData && (
+                    {formData.awayTeamData ? (
                       <>
                         <Button
                           variant="outline"
@@ -304,7 +414,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                           )}
                           onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.primary_color })}
                         >
-                          <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.awayTeamData.primary_color }} />
+                          <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.awayTeamData.primary_color }} />
                           <span className="text-[10px] uppercase font-bold">Primary</span>
                         </Button>
                         {formData.awayTeamData.secondary_color && (
@@ -319,14 +429,13 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                             )}
                             onClick={() => setFormData({ ...formData, awayColor: formData.awayTeamData.secondary_color })}
                           >
-                            <div className="h-4 w-4 rounded-full" style={{ backgroundColor: formData.awayTeamData.secondary_color }} />
+                            <div className="h-4 w-4 rounded-full border border-white/20" style={{ backgroundColor: formData.awayTeamData.secondary_color }} />
                             <span className="text-[10px] uppercase font-bold">Secondary</span>
                           </Button>
                         )}
                       </>
-                    )}
-                    {!formData.awayTeamData && (
-                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground">
+                    ) : (
+                      <div className="h-12 w-full rounded-lg border border-dashed border-border flex items-center justify-center text-[10px] text-muted-foreground italic">
                         Select away team first
                       </div>
                     )}
@@ -335,14 +444,14 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
               </div>
             </div>
 
-            {/* Step 3: Inference Optimization */}
+            {/* Step 3: Inference Settings */}
             <div className="pt-6 border-t border-border space-y-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-sm font-bold">
                   <Settings2 className="h-4 w-4 text-accent" />
                   Inference Optimization
                 </div>
-                <Badge variant="secondary" className="text-[9px] font-mono">YOLOv11m Optimized</Badge>
+                <Badge variant="secondary" className="text-[9px] font-mono bg-accent/10 text-accent border-accent/20">YOLOv11m Optimized</Badge>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
@@ -356,7 +465,6 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                     min={640} max={1280} step={320}
                     onValueChange={([val]) => setFormData({ ...formData, imgsz: val })}
                   />
-                  <p className="text-[9px] text-muted-foreground italic">Use 1280px for wide pans.</p>
                 </div>
 
                 <div className="space-y-3">
@@ -371,10 +479,10 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/5 border border-border/50">
                   <div className="space-y-0.5">
                     <Label className="text-[10px] uppercase text-muted-foreground">ByteTrack</Label>
-                    <p className="text-[9px] text-muted-foreground">ID persistence</p>
+                    <p className="text-[9px] text-muted-foreground">ID persistence across frames</p>
                   </div>
                   <Switch 
                     checked={formData.tracking}
@@ -382,10 +490,10 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/5 border border-border/50">
                   <div className="space-y-0.5">
                     <Label className="text-[10px] uppercase text-muted-foreground">Shot Intel</Label>
-                    <p className="text-[9px] text-muted-foreground">Rim & Ball logic</p>
+                    <p className="text-[9px] text-muted-foreground">Rim proximity & Ball arc logic</p>
                   </div>
                   <Switch 
                     checked={formData.rimDetection}
@@ -401,14 +509,19 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
             <Button 
               onClick={handleProcess} 
               disabled={isProcessing}
-              className="bg-primary hover:bg-primary/90 text-white min-w-[140px]"
+              className="bg-primary hover:bg-primary/90 text-white min-w-[160px] h-11"
             >
               {isProcessing ? (
                 <div className="flex items-center gap-2">
                   <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
+                  {uploadProgress > 0 && uploadProgress < 100 ? "Uploading..." : "Initializing GPU..."}
                 </div>
-              ) : "Start Analysis"}
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Cpu className="h-4 w-4" />
+                  Start Analysis
+                </div>
+              )}
             </Button>
           </DialogFooter>
         </div>
