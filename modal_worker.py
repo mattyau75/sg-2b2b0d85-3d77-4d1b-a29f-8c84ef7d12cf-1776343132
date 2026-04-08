@@ -171,18 +171,34 @@ def analyze(item: dict):
         
         yield json.dumps({"__progress": 90, "__msg": "Merging parallel results..."}) + "\n"
         
-        # Merge Logic (Simplified)
+        # Merge Logic (Enhanced)
         final_result = {
-            "game_metadata": results[0]["game_metadata"],
+            "game_metadata": results[0].get("game_metadata", {}),
             "box_score": {}, # Aggregate stats across chunks
             "play_by_play": [], # Flatten list
             "shot_chart": [] # Flatten list
         }
         
         for r in results:
+            # 1. Play by Play & Shot Chart
             final_result["play_by_play"].extend(r.get("play_by_play", []))
             final_result["shot_chart"].extend(r.get("shot_chart", []))
-            # ... additional merge logic for box_score metrics ...
+            
+            # 2. Aggregate Box Score (Stats per player/team)
+            chunk_box = r.get("box_score", {})
+            for key, stats in chunk_box.items():
+                if key not in final_result["box_score"]:
+                    final_result["box_score"][key] = stats
+                else:
+                    # Sum numeric values (PTS, REB, AST, etc.)
+                    for stat_name, val in stats.items():
+                        if isinstance(val, (int, float)):
+                            final_result["box_score"][key][stat_name] = final_result["box_score"][key].get(stat_name, 0) + val
+                        elif isinstance(val, list):
+                            final_result["box_score"][key][stat_name].extend(val)
+
+        # Sort play by play by global timestamp
+        final_result["play_by_play"].sort(key=lambda x: x.get("timestamp", 0))
 
         yield json.dumps({"__result": final_result}) + "\n"
 
