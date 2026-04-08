@@ -49,23 +49,18 @@ export default async function handler(
   try {
     console.log("Server: Initiating Modal.com GPU pipeline for", youtubeUrl);
 
-    /* 
-    Logic for Fuzzy Matching:
-    When the YOLOv11m model detects a number (e.g., '2'), we compare it against the team roster:
-    - If Player #2 exists, assign to Player #2.
-    - If not, check if Player #24, #21, #02 exist (partial match).
-    - If multiple partial matches, assign to 'Unknown' and flag for manual correction in UI.
-    */
-    
+    // Get the Modal endpoint from env - this should be your deployed function URL
+    // e.g., https://your-user--basketball-scout-process.modal.run
+    const MODAL_URL = process.env.MODAL_URL;
+
+    if (!MODAL_URL) {
+      console.warn("MODAL_URL missing. Using simulation mode for bridge verification.");
+    }
+
     // Pass team roster info to Modal to enable this fuzzy matching on the edge
     const { data: homePlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.home_team_id);
     const { data: awayPlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.away_team_id);
 
-    /**
-     * IMPLEMENTATION NOTE: 
-     * We now forward the camera_type to Modal to optimize the YOLOv11 tracking logic.
-     */
-    
     // Update game status in database to 'queued'
     if (gameId) {
       await supabase
@@ -74,16 +69,38 @@ export default async function handler(
           status: 'queued', 
           youtube_url: normalizedUrl,
           camera_type: config.camera_type,
-          progress_percentage: 15, // Start at 15% to show active handshake
-          last_error: null // Clear any previous errors on retry
+          progress_percentage: 15,
+          last_error: null
         })
         .eq('id', gameId);
     }
 
-    // Forwarding logic to Modal (Simulated here, but identifying the requirement)
-    // The Modal worker MUST receive gameId to call back to our Supabase instance
+    if (MODAL_URL) {
+      // THE REAL HANDSHAKE: Call the GPU cluster
+      const modalResponse = await fetch(MODAL_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Modal-Token-Id': MODAL_TOKEN_ID,
+          'X-Modal-Token-Secret': MODAL_TOKEN_SECRET
+        },
+        body: JSON.stringify({
+          youtube_url: normalizedUrl,
+          game_id: gameId,
+          config: config,
+          home_roster: homePlayers,
+          away_roster: awayPlayers,
+          supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+          supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+        })
+      });
 
-    // Simulating success for the bridge verification
+      if (!modalResponse.ok) {
+        const errorData = await modalResponse.json();
+        throw new Error(errorData.message || "Modal GPU cluster rejected the request.");
+      }
+    }
+
     return res.status(200).json({ 
       success: true, 
       message: "Modal.com GPU pipeline initiated successfully.",
@@ -91,7 +108,7 @@ export default async function handler(
       normalized_url: normalizedUrl
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Modal processing error:", error);
     return res.status(500).json({ message: "Failed to communicate with Modal.com" });
   }
