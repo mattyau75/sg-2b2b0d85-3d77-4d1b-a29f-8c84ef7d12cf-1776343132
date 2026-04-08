@@ -21,27 +21,27 @@ export function Layout({ children, title, description }: LayoutProps) {
             <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center shadow-lg shadow-primary/20">
               <Trophy className="text-white h-6 w-6" />
             </div>
-            <span className="hidden md:block font-serif text-xl font-bold tracking-tight">CourtVision</span>
+            <span className="hidden md:block font-serif text-xl font-bold tracking-tight">DribbleStat AI</span>
           </div>
 
           <nav className="flex-1 space-y-2">
             {[
-              { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-              { icon: Trophy, label: "Roster", href: "/roster" },
-              { icon: BarChart3, label: "Analytics", href: "/analytics" },
-              { icon: PlayCircle, label: "Highlights", href: "/highlights" },
-            ].map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group"
-              >
+            { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+            { icon: Trophy, label: "Roster", href: "/roster" },
+            { icon: BarChart3, label: "Analytics", href: "/analytics" },
+            { icon: PlayCircle, label: "Highlights", href: "/highlights" }].
+            map((item) =>
+            <Link
+              key={item.label}
+              href={item.href}
+              className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group">
+              
                 <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="hidden md:block font-medium text-muted-foreground group-hover:text-foreground">
                   {item.label}
                 </span>
               </Link>
-            ))}
+            )}
           </nav>
 
           <div className="mt-auto pt-6 border-t border-border">
@@ -73,6 +73,6 @@ export function Layout({ children, title, description }: LayoutProps) {
           {children}
         </div>
       </main>
-    </div>
-  );
+    </div>);
+
 }

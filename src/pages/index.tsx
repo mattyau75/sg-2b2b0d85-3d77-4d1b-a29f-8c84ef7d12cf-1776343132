@@ -7,16 +7,11 @@ import {
   Play, 
   Target, 
   Activity, 
-  History, 
-  ChevronRight,
   TrendingUp,
   Cpu,
   Download,
   ListTodo,
-  Youtube,
-  Upload,
-  Settings2,
-  SlidersHorizontal
+  Video
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -29,12 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { modalService } from "@/services/modalService";
-import { useToast } from "@/hooks/use-toast";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { NewGameModal } from "@/components/NewGameModal";
 
 const MOCK_SHOTS: Shot[] = [
   { id: "1", x: 250, y: 52, is_made: true, player_name: "Steph Curry", shot_type: "Layup", timestamp: "Q1 08:45" },
@@ -61,62 +51,14 @@ const MOCK_PBP = [
 ];
 
 export default function Home() {
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [config, setConfig] = useState({
-    imgsz: 1280,
-    conf: 0.25,
-    iou: 0.45,
-    tracking: true,
-    agnosticNms: true,
-    rimDetection: true,
-    shotLogic: true,
-  });
-  const { toast } = useToast();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [activeJobs, setActiveJobs] = useState<any[]>([
+    { name: "MIL vs PHX - Highlights", progress: 65, status: "Processing" },
+    { name: "BOS vs MIA - Q1", progress: 0, status: "Pending" },
+  ]);
 
-  const handleProcessGame = async () => {
-    if (!youtubeUrl) {
-      toast({
-        title: "Missing URL",
-        description: "Please paste a YouTube URL to begin processing.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!youtubeUrl.includes("youtube.com") && !youtubeUrl.includes("youtu.be")) {
-      toast({
-        title: "Invalid URL",
-        description: "Please provide a valid YouTube link.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsProcessing(true);
-    try {
-      await modalService.processGame(youtubeUrl, {
-        imgsz: config.imgsz,
-        conf: config.conf,
-        iou: config.iou,
-        tracking: config.tracking,
-        agnostic_nms: config.agnosticNms,
-        rim_detection: config.rimDetection,
-        shot_logic: config.shotLogic,
-      });
-      toast({
-        title: "Processing Started",
-        description: "Modal.com GPU (A100) has initiated the YOLOv11m pipeline.",
-      });
-    } catch (error) {
-      toast({
-        title: "Connection Error",
-        description: "Failed to connect to Modal.com. Check your credentials.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsProcessing(false);
-    }
+  const handleNewJob = (jobId: string) => {
+    setActiveJobs([{ name: "New Analysis Job", progress: 5, status: "Initiated", id: jobId }, ...activeJobs]);
   };
 
   return (
@@ -135,137 +77,23 @@ export default function Home() {
             </div>
             <h1 className="text-4xl md:text-5xl font-bold">Game Analysis</h1>
             <p className="text-muted-foreground max-w-xl">
-              Advanced tactical scouting powered by computer vision. Upload a YouTube link to begin automated clip extraction and shot tracking.
+              Advanced tactical scouting powered by computer vision. Define teams and jersey colors for accurate player attribution.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-            <div className="flex-1 relative min-w-[300px]">
-              <Youtube className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input 
-                type="text" 
-                value={youtubeUrl}
-                onChange={(e) => setYoutubeUrl(e.target.value)}
-                placeholder="Paste unlisted YouTube URL..." 
-                className="w-full h-12 pl-11 pr-12 rounded-xl bg-card/50 border border-border focus:border-primary outline-none transition-all text-sm font-mono"
-              />
-              <div className="absolute right-2 top-1/2 -translate-y-1/2">
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent">
-                      <Settings2 className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-80 bg-card/95 backdrop-blur-xl border-border shadow-2xl p-6" align="end">
-                    <div className="space-y-6">
-                      <div className="flex items-center gap-2 mb-2">
-                        <SlidersHorizontal className="h-4 w-4 text-accent" />
-                        <h4 className="font-bold text-sm">Inference Configuration</h4>
-                      </div>
-                      
-                      <div className="space-y-3">
-                        <div className="flex justify-between">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Img Size (px)</Label>
-                          <span className="text-[10px] font-mono text-accent">{config.imgsz}</span>
-                        </div>
-                        <Slider 
-                          value={[config.imgsz]} 
-                          min={640} 
-                          max={1280} 
-                          step={320}
-                          onValueChange={([val]) => setConfig({ ...config, imgsz: val })}
-                          className="py-2"
-                        />
-                        <p className="text-[9px] text-muted-foreground">Use 1280px for small jersey numbers.</p>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex justify-between">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Confidence</Label>
-                          <span className="text-[10px] font-mono text-accent">{config.conf}</span>
-                        </div>
-                        <Slider 
-                          value={[config.conf]} 
-                          min={0.1} 
-                          max={0.9} 
-                          step={0.05}
-                          onValueChange={([val]) => setConfig({ ...config, conf: val })}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">ByteTrack</Label>
-                          <p className="text-[9px] text-muted-foreground">ID persistence across pans</p>
-                        </div>
-                        <Switch 
-                          checked={config.tracking}
-                          onCheckedChange={(val) => setConfig({ ...config, tracking: val })}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-0.5">
-                          <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Agnostic NMS</Label>
-                          <p className="text-[9px] text-muted-foreground">Better cluster detection</p>
-                        </div>
-                        <Switch 
-                          checked={config.agnosticNms}
-                          onCheckedChange={(val) => setConfig({ ...config, agnosticNms: val })}
-                        />
-                      </div>
-
-                      <div className="pt-4 border-t border-border space-y-4">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Target className="h-4 w-4 text-primary" />
-                          <h4 className="font-bold text-sm">Shot Intelligence</h4>
-                        </div>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Rim Detection</Label>
-                            <p className="text-[9px] text-muted-foreground">SOTA Roboflow v2 Rim model</p>
-                          </div>
-                          <Switch 
-                            checked={config.rimDetection}
-                            onCheckedChange={(val) => setConfig({ ...config, rimDetection: val })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label className="text-[10px] uppercase tracking-wider text-muted-foreground">Shot Attribution</Label>
-                            <p className="text-[9px] text-muted-foreground">Auto-match to Team Roster</p>
-                          </div>
-                          <Switch 
-                            checked={config.shotLogic}
-                            onCheckedChange={(val) => setConfig({ ...config, shotLogic: val })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-            </div>
-            <Button 
-              onClick={handleProcessGame}
-              disabled={isProcessing}
-              className="h-12 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all disabled:opacity-50"
-            >
-              {isProcessing ? (
-                <div className="flex items-center gap-2">
-                  <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Processing...
-                </div>
-              ) : (
-                <>
-                  <Upload className="mr-2 h-4 w-4" />
-                  Process Game
-                </>
-              )}
-            </Button>
-          </div>
+          <Button 
+            onClick={() => setIsModalOpen(true)}
+            className="h-14 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 transition-all font-bold text-lg"
+          >
+            <Video className="mr-2 h-6 w-6" />
+            Analyze New Game
+          </Button>
         </div>
+
+        <NewGameModal 
+          isOpen={isModalOpen} 
+          onClose={() => setIsModalOpen(false)} 
+          onSuccess={handleNewJob}
+        />
 
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -412,11 +240,7 @@ export default function Home() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[
-                  { name: "LAL vs GSW - Full Game", progress: 100, status: "Completed" },
-                  { name: "MIL vs PHX - Highlights", progress: 65, status: "Processing" },
-                  { name: "BOS vs MIA - Q1", progress: 0, status: "Pending" },
-                ].map((job, i) => (
+                {activeJobs.map((job, i) => (
                   <div key={i} className="space-y-2">
                     <div className="flex justify-between text-[10px] font-mono">
                       <span className="text-muted-foreground uppercase truncate w-32">{job.name}</span>
