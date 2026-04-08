@@ -23,36 +23,41 @@ export const modalService = {
     gameId?: string;
   }) => {
     console.log("Service: Initiating GPU process request for", youtubeUrl);
-    const response = await fetch("/api/process-game", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ 
-        youtubeUrl,
-        gameId: config?.gameId,
-        config: {
-          ...config,
-          imgsz: config?.imgsz || 1280, // Optimized for jersey numbers
-          conf: config?.conf || 0.25,
-          iou: config?.iou || 0.45,
-          tracking: config?.tracking ?? true, // Player ID persistence
-          agnostic_nms: config?.agnostic_nms ?? true,
-          rim_detection: config?.rim_detection ?? true,
-          shot_logic: config?.shot_logic ?? true,
-          camera_type: config?.camera_type || "panning", // Default to panning for broadcast
-        }
-      }),
-    });
+    try {
+      const response = await fetch("/api/process-game", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          youtubeUrl,
+          gameId: config?.gameId,
+          config: {
+            ...config,
+            imgsz: config?.imgsz || 1280,
+            conf: config?.conf || 0.25,
+            iou: config?.iou || 0.45,
+            tracking: config?.tracking ?? true,
+            agnostic_nms: config?.agnostic_nms ?? true,
+            rim_detection: config?.rim_detection ?? true,
+            shot_logic: config?.shot_logic ?? true,
+            camera_type: config?.camera_type || "panning",
+          }
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      console.error("Service: GPU Request Failed:", data);
-      throw new Error(data.message || "Failed to process game");
+      if (!response.ok) {
+        console.error("Service: GPU Request Failed (API Error):", data);
+        throw new Error(data.message || "Failed to process game");
+      }
+
+      return data;
+    } catch (error: any) {
+      console.error("Service: GPU Request Failed (Network/Client Error):", error);
+      throw error;
     }
-
-    return data;
   },
 
   /**
