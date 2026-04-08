@@ -49,6 +49,7 @@ export default function TeamRoster() {
   const router = useRouter();
   const { id } = router.query;
   const [team, setTeam] = useState<any>(null);
+  const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
   const [isEditPlayerOpen, setIsEditPlayerOpen] = useState(false);
@@ -73,7 +74,7 @@ export default function TeamRoster() {
     const fetchData = async () => {
       setLoading(true);
       try {
-        const teamData = await rosterService.getTeamById(id as string);
+        const teamData = await rosterService.getTeam(id as string);
         setTeam(teamData);
         const playersData = await rosterService.getPlayers(id as string);
         setPlayers(playersData || []);
