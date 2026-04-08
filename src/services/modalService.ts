@@ -24,7 +24,10 @@ export const modalService = {
   }) => {
     console.log("Service: Initiating GPU process request for", youtubeUrl);
     try {
-      const response = await fetch("/api/process-game", {
+      // Use window.location.origin to ensure absolute pathing
+      const apiEndpoint = `${window.location.origin}/api/process-game`;
+      
+      const response = await fetch(apiEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -56,6 +59,8 @@ export const modalService = {
       return data;
     } catch (error: any) {
       console.error("Service: GPU Request Failed (Network/Client Error):", error);
+      // Give the user immediate visual feedback on the browser error
+      alert(`Connection Error: ${error.message}. Please check if the server is running and try again.`);
       throw error;
     }
   },
