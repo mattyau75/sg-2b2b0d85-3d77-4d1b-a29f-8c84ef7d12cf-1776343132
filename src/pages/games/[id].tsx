@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { 
-  Trophy, ChevronLeft, RefreshCw, Edit2, Save, X, Trash2 
+  Trophy, ChevronLeft, RefreshCw, Edit2, Save, X, Trash2, Video, List, LayoutGrid, Users
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,11 +12,11 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
 } from "@/components/ui/table";
 import { ShotChart } from "@/components/ShotChart";
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function GameDetailPage() {
   const router = useRouter();
@@ -28,6 +28,7 @@ export default function GameDetailPage() {
   const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const [editedEvent, setEditedEvent] = useState<any>(null);
+  const [playerMap, setPlayerMap] = useState<Record<string, string>>({});
 
   const fetchGameData = async () => {
     if (!id || typeof id !== "string") return;
@@ -47,8 +48,14 @@ export default function GameDetailPage() {
         .single();
 
       if (error) throw error;
+      
       if (data.play_by_play) {
         data.play_by_play.sort((a: any, b: any) => (a.timestamp_seconds || 0) - (b.timestamp_seconds || 0));
+        const pMap: Record<string, string> = {};
+        data.play_by_play.forEach((e: any) => {
+          if (e.player) pMap[e.player.id] = e.player.name;
+        });
+        setPlayerMap(pMap);
       }
       setGameData(data);
     } catch (err) {
@@ -80,11 +87,6 @@ export default function GameDetailPage() {
     }
   };
 
-  const handleEditEvent = (event: any) => {
-    setEditingEventId(event.id);
-    setEditedEvent({ ...event });
-  };
-
   const handleSaveEvent = async () => {
     try {
       const { error } = await supabase
@@ -98,24 +100,10 @@ export default function GameDetailPage() {
         .eq("id", editedEvent.id);
 
       if (error) throw error;
-      
       setEditingEventId(null);
-      toast({ title: "Event Updated", description: "Re-calculating stats..." });
       await handleSyncStats();
     } catch (error: any) {
       toast({ title: "Update Failed", description: error.message, variant: "destructive" });
-    }
-  };
-
-  const handleDeleteEvent = async (eventId: string) => {
-    if (!confirm("Delete this event?")) return;
-    try {
-      const { error } = await supabase.from("play_by_play").delete().eq("id", eventId);
-      if (error) throw error;
-      toast({ title: "Event Deleted", description: "Re-calculating stats..." });
-      await handleSyncStats();
-    } catch (error: any) {
-      toast({ title: "Delete Failed", description: error.message, variant: "destructive" });
     }
   };
 
@@ -123,24 +111,14 @@ export default function GameDetailPage() {
     <Layout title="Loading Game | CourtVision Elite">
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
         <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-muted-foreground font-mono animate-pulse">Syncing Tactical Data...</p>
+        <p className="text-muted-foreground font-mono">Syncing Tactical Data...</p>
       </div>
     </Layout>
   );
 
-  if (!gameData) return (
-    <Layout title="Game Not Found | CourtVision Elite">
-      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6">
-        <Trophy className="h-12 w-12 text-destructive" />
-        <h2 className="text-2xl font-bold">Game Not Found</h2>
-        <Button onClick={() => router.push("/")}>Back to Dashboard</Button>
-      </div>
-    </Layout>
-  );
+  if (!gameData) return <Layout title="Not Found"><div>Game Not Found</div></Layout>;
 
-  const players = [
-    ...(gameData.player_game_stats?.map((s: any) => s.player) || [])
-  ].filter((p, i, a) => p && a.findIndex(t => t?.id === p.id) === i);
+  const players = Object.entries(playerMap).map(([id, name]) => ({ id, name }));
 
   const shotData = gameData.play_by_play
     ?.filter((e: any) => (e.event_type.includes("pt") || e.event_type.includes("shot")) && e.x_coord !== null && e.y_coord !== null)
@@ -159,70 +137,81 @@ export default function GameDetailPage() {
           <Button variant="ghost" onClick={() => router.push('/')} className="gap-2">
             <ChevronLeft className="h-4 w-4" /> Back
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleSyncStats} 
-            disabled={isSyncing}
-            className="gap-2"
-          >
-            <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-            {isSyncing ? 'Syncing...' : 'Re-sync Stats'}
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={handleSyncStats} disabled={isSyncing} className="gap-2">
+              <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
+              Re-sync Stats
+            </Button>
+          </div>
         </div>
 
+        {/* Scoreboard */}
         <Card className="bg-card/50 border-border overflow-hidden">
           <CardContent className="p-8">
-            <div className="flex justify-between items-center text-center">
-              <div className="flex flex-col items-center gap-2">
-                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
+            <div className="flex justify-between items-center">
+              <div className="text-center space-y-2">
+                <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto border border-primary/20">
                   <Trophy className="h-8 w-8 text-primary" />
                 </div>
-                <h3 className="font-bold">{gameData.home_team?.name}</h3>
+                <h3 className="font-bold text-xl">{gameData.home_team?.name}</h3>
+                <Badge variant="outline" className="font-mono text-[10px]">HOME</Badge>
               </div>
-              <div className="text-6xl font-black font-mono">
-                {gameData.home_score || 0} - {gameData.away_score || 0}
+              <div className="flex flex-col items-center">
+                <div className="text-7xl font-black font-mono tracking-tighter text-foreground">
+                  {gameData.home_score} <span className="text-muted/30">-</span> {gameData.away_score}
+                </div>
+                <Badge variant="secondary" className="mt-2 font-mono uppercase tracking-widest text-[10px]">
+                  Final Result
+                </Badge>
               </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center">
+              <div className="text-center space-y-2">
+                <div className="h-16 w-16 bg-muted/20 rounded-full flex items-center justify-center mx-auto border border-border">
                   <Trophy className="h-8 w-8 text-muted-foreground" />
                 </div>
-                <h3 className="font-bold">{gameData.away_team?.name}</h3>
+                <h3 className="font-bold text-xl">{gameData.away_team?.name}</h3>
+                <Badge variant="outline" className="font-mono text-[10px]">AWAY</Badge>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="bg-card/30 border border-border mb-6">
-            <TabsTrigger value="boxscore">Boxscore</TabsTrigger>
-            <TabsTrigger value="playbyplay">Play-by-Play</TabsTrigger>
-            <TabsTrigger value="shotchart">Shot Chart</TabsTrigger>
-            <TabsTrigger value="lineups">Lineups</TabsTrigger>
+          <TabsList className="bg-card/30 border border-border mb-6 p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-1">
+            <TabsTrigger value="boxscore" className="gap-2"><LayoutGrid className="h-4 w-4" /> Boxscore</TabsTrigger>
+            <TabsTrigger value="playbyplay" className="gap-2"><List className="h-4 w-4" /> Log</TabsTrigger>
+            <TabsTrigger value="shotchart" className="gap-2"><Target className="h-4 w-4" /> Shots</TabsTrigger>
+            <TabsTrigger value="lineups" className="gap-2"><Users className="h-4 w-4" /> Lineups</TabsTrigger>
+            <TabsTrigger value="highlights" className="gap-2 text-primary"><Video className="h-4 w-4" /> Highlights</TabsTrigger>
           </TabsList>
 
           <TabsContent value="boxscore">
-             <Card className="bg-card/30 border-border overflow-hidden">
+             <Card className="bg-card/20 border-border overflow-hidden">
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="bg-muted/30">
                     <TableRow>
                       <TableHead>Player</TableHead>
                       <TableHead className="text-center">PTS</TableHead>
                       <TableHead className="text-center">REB</TableHead>
                       <TableHead className="text-center">AST</TableHead>
                       <TableHead className="text-center">FG</TableHead>
+                      <TableHead className="text-center">3PT</TableHead>
                       <TableHead className="text-right">+/-</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {gameData.player_game_stats?.map((stat: any) => (
-                      <TableRow key={stat.id}>
-                        <TableCell className="font-bold">{stat.player?.name} <span className="text-muted-foreground text-[10px]">#{stat.player?.number}</span></TableCell>
-                        <TableCell className="text-center font-mono text-primary font-bold">{stat.points}</TableCell>
-                        <TableCell className="text-center font-mono">{stat.rebounds}</TableCell>
-                        <TableCell className="text-center font-mono">{stat.assists}</TableCell>
-                        <TableCell className="text-center font-mono text-xs">{stat.fg_made}-{stat.fg_attempted}</TableCell>
-                        <TableCell className="text-right font-mono">{stat.plus_minus >= 0 ? '+' : ''}{stat.plus_minus}</TableCell>
+                    {gameData.player_game_stats?.map((s: any) => (
+                      <TableRow key={s.id} className="hover:bg-muted/10 transition-colors">
+                        <TableCell className="font-bold">
+                          {s.player?.name} <span className="text-muted-foreground text-[10px] ml-1">#{s.player?.number}</span>
+                        </TableCell>
+                        <TableCell className="text-center font-mono font-bold text-primary">{s.points}</TableCell>
+                        <TableCell className="text-center font-mono">{s.rebounds}</TableCell>
+                        <TableCell className="text-center font-mono">{s.assists}</TableCell>
+                        <TableCell className="text-center font-mono text-xs">{s.fg_made}/{s.fg_attempted}</TableCell>
+                        <TableCell className="text-center font-mono text-xs">{s.three_made}/{s.three_attempted}</TableCell>
+                        <TableCell className={cn("text-right font-mono", s.plus_minus > 0 ? "text-emerald-400" : s.plus_minus < 0 ? "text-red-400" : "")}>
+                          {s.plus_minus > 0 ? "+" : ""}{s.plus_minus}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -231,126 +220,118 @@ export default function GameDetailPage() {
           </TabsContent>
 
           <TabsContent value="playbyplay">
-            <div className="space-y-4">
-              {gameData.play_by_play?.map((event: any) => (
-                <div key={event.id} className="flex items-center gap-4 p-4 rounded-xl bg-card/40 border border-border group">
-                  <div className="w-16 font-mono text-xs text-muted-foreground">
-                    {editingEventId === event.id ? (
-                      <Input 
-                        type="number" 
-                        value={editedEvent.timestamp_seconds} 
-                        onChange={(e) => setEditedEvent({ ...editedEvent, timestamp_seconds: parseInt(e.target.value) })}
-                        className="h-8 py-1 px-2"
-                      />
-                    ) : (
-                      `${Math.floor(event.timestamp_seconds / 60)}:${(event.timestamp_seconds % 60).toString().padStart(2, '0')}`
-                    )}
-                  </div>
-                  
-                  <div className="flex-1">
-                    {editingEventId === event.id ? (
-                      <div className="flex gap-2">
-                        <Select 
-                          value={editedEvent.player_id} 
-                          onValueChange={(val) => setEditedEvent({ ...editedEvent, player_id: val })}
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Player" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {players.map((p: any) => (
-                              <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <Select 
-                          value={editedEvent.event_type} 
-                          onValueChange={(val) => setEditedEvent({ ...editedEvent, event_type: val })}
-                        >
-                          <SelectTrigger className="h-8">
-                            <SelectValue placeholder="Event" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="made_2pt">Made 2PT</SelectItem>
-                            <SelectItem value="missed_2pt">Missed 2PT</SelectItem>
-                            <SelectItem value="made_3pt">Made 3PT</SelectItem>
-                            <SelectItem value="missed_3pt">Missed 3PT</SelectItem>
-                            <SelectItem value="rebound">Rebound</SelectItem>
-                            <SelectItem value="assist">Assist</SelectItem>
-                            <SelectItem value="steal">Steal</SelectItem>
-                            <SelectItem value="block">Block</SelectItem>
-                            <SelectItem value="turnover">Turnover</SelectItem>
-                          </SelectContent>
-                        </Select>
+            <ScrollArea className="h-[600px] rounded-xl border border-border bg-card/10">
+              <div className="p-4 space-y-3">
+                {gameData.play_by_play?.map((e: any) => (
+                  <div key={e.id} className="flex items-center gap-4 p-4 rounded-lg bg-card/40 border border-border/50 group hover:border-primary/50 transition-all">
+                    <div className="w-16 font-mono text-xs text-muted-foreground">
+                      {Math.floor(e.timestamp_seconds / 60)}:{(e.timestamp_seconds % 60).toString().padStart(2, '0')}
+                    </div>
+                    <div className="flex-1 flex items-center gap-3">
+                      <div className={cn(
+                        "h-8 w-8 rounded-full flex items-center justify-center text-[10px] font-bold border",
+                        e.team_id === gameData.home_team_id ? "bg-primary/10 border-primary/30 text-primary" : "bg-muted border-border"
+                      )}>
+                        #{e.player?.number || '??'}
                       </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">{event.player?.name || "Unknown"}</span>
-                        <span className="text-muted-foreground">{event.event_type.replace('_', ' ')}</span>
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold">{e.player?.name || "Unknown Player"}</p>
+                        <p className="text-xs text-muted-foreground uppercase tracking-tight">{e.event_type.replace(/_/g, ' ')}</p>
                       </div>
+                    </div>
+                    {e.video_url && (
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-primary" onClick={() => window.open(e.video_url, '_blank')}>
+                        <Video className="h-4 w-4" />
+                      </Button>
                     )}
                   </div>
-
-                  <div className="flex items-center gap-2">
-                    {editingEventId === event.id ? (
-                      <>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-500" onClick={handleSaveEvent}><Save className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" onClick={() => setEditingEventId(null)}><X className="h-4 w-4" /></Button>
-                      </>
-                    ) : (
-                      <>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleEditEvent(event)}><Edit2 className="h-4 w-4" /></Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity text-destructive" onClick={() => handleDeleteEvent(event.id)}><Trash2 className="h-4 w-4" /></Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </ScrollArea>
           </TabsContent>
 
           <TabsContent value="shotchart">
-            <Card className="bg-card/30 border-border p-8 flex flex-col items-center">
-              <div className="w-full max-w-2xl min-h-[400px]">
+            <Card className="bg-card/20 border-border p-12">
+              <div className="max-w-xl mx-auto">
                 <ShotChart shots={shotData || []} />
               </div>
             </Card>
           </TabsContent>
 
           <TabsContent value="lineups">
-            <Card className="bg-card/30 border-border overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Lineup</TableHead>
-                    <TableHead className="text-center">MIN</TableHead>
-                    <TableHead className="text-center">PTS FOR</TableHead>
-                    <TableHead className="text-center">PTS AGN</TableHead>
-                    <TableHead className="text-right">NET</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {gameData.lineup_stats?.map((lineup: any, idx: number) => (
-                    <TableRow key={idx}>
-                      <TableCell className="text-xs font-mono">
-                        {lineup.player_ids?.join(', ')}
-                      </TableCell>
-                      <TableCell className="text-center font-mono">{lineup.minutes_played}</TableCell>
-                      <TableCell className="text-center font-mono text-green-500">{lineup.points_for}</TableCell>
-                      <TableCell className="text-center font-mono text-destructive">{lineup.points_against}</TableCell>
-                      <TableCell className="text-right font-mono font-bold">
-                        {(lineup.points_for - lineup.points_against) >= 0 ? '+' : ''}
-                        {lineup.points_for - lineup.points_against}
-                      </TableCell>
+             <Card className="bg-card/20 border-border overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-muted/30">
+                    <TableRow>
+                      <TableHead>Personnel</TableHead>
+                      <TableHead className="text-center">MIN</TableHead>
+                      <TableHead className="text-center">PTS FOR</TableHead>
+                      <TableHead className="text-center">PTS AGN</TableHead>
+                      <TableHead className="text-right">NET</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {gameData.lineup_stats?.map((l: any) => (
+                      <TableRow key={l.id}>
+                        <TableCell className="py-4">
+                          <div className="flex flex-wrap gap-1">
+                            {l.player_ids.map((pid: string) => (
+                              <Badge key={pid} variant="outline" className="text-[9px] px-1 h-5">
+                                {playerMap[pid] || pid.substring(0, 4)}
+                              </Badge>
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-center font-mono">{l.minutes_played}</TableCell>
+                        <TableCell className="text-center font-mono text-emerald-400">{l.points_for}</TableCell>
+                        <TableCell className="text-center font-mono text-red-400">{l.points_against}</TableCell>
+                        <TableCell className={cn("text-right font-mono font-bold", (l.points_for - l.points_against) > 0 ? "text-emerald-400" : "")}>
+                          {(l.points_for - l.points_against) > 0 ? "+" : ""}{l.points_for - l.points_against}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+             </Card>
+          </TabsContent>
+
+          <TabsContent value="highlights">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {gameData.play_by_play?.filter((e: any) => e.video_url).map((clip: any) => (
+                <Card key={clip.id} className="bg-card/40 border-border overflow-hidden group hover:border-primary/50 transition-all">
+                  <div className="aspect-video bg-muted relative flex items-center justify-center">
+                    <Video className="h-10 w-10 text-muted-foreground/30" />
+                    <Button 
+                      className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 rounded-none flex items-center justify-center gap-2"
+                      onClick={() => window.open(clip.video_url, '_blank')}
+                    >
+                      <Play className="h-5 w-5 fill-current" /> Watch Clip
+                    </Button>
+                  </div>
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-sm font-bold truncate">{clip.player?.name}</p>
+                    <div className="flex justify-between items-center">
+                      <Badge variant="secondary" className="text-[9px] uppercase">{clip.event_type.replace(/_/g, ' ')}</Badge>
+                      <span className="text-[10px] font-mono text-muted-foreground">
+                        {Math.floor(clip.timestamp_seconds / 60)}:{(clip.timestamp_seconds % 60).toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {(!gameData.play_by_play || gameData.play_by_play.filter((e: any) => e.video_url).length === 0) && (
+                <div className="col-span-full py-20 text-center space-y-4 bg-card/20 rounded-xl border border-dashed border-border">
+                  <Video className="h-12 w-12 text-muted-foreground/30 mx-auto" />
+                  <p className="text-muted-foreground">No video highlights generated for this game yet.</p>
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>
     </Layout>
   );
 }
+
+import { cn } from "@/lib/utils";
+import { Target, Play } from "lucide-react";

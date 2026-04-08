@@ -3,18 +3,11 @@ import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Secure server-side handler for Modal.com GPU processing.
- * This route has access to the MODAL_TOKEN_SECRET env var.
  */
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  console.log("------------------------------------------");
-  console.log("CRITICAL: Incoming GPU Handshake Request");
-  console.log("Method:", req.method);
-  console.log("Body:", JSON.stringify(req.body));
-  console.log("------------------------------------------");
-  
   if (req.method !== "POST") {
     return res.status(405).json({ message: "Method not allowed" });
   }
@@ -34,44 +27,25 @@ export default async function handler(
 
   const MODAL_TOKEN_ID = process.env.MODAL_TOKEN_ID;
   const MODAL_TOKEN_SECRET = process.env.MODAL_TOKEN_SECRET;
+  const MODAL_URL = process.env.MODAL_URL;
 
   if (!MODAL_TOKEN_ID || !MODAL_TOKEN_SECRET) {
-    console.error("Missing Modal credentials in server environment variables.");
-    // If gameId exists, mark as failed so user sees why in the UI
     if (gameId) {
       await supabase
         .from('games')
-        .update({ 
-          status: 'failed', 
-          last_error: "Server configuration error: Modal credentials missing." 
-        })
+        .update({ status: 'failed', last_error: "Modal credentials missing." })
         .eq('id', gameId);
     }
-    return res.status(500).json({ 
-      message: "Server configuration error: Modal credentials missing." 
-    });
+    return res.status(500).json({ message: "Server configuration error: Modal credentials missing." });
   }
 
   try {
-    console.log("Server: Initiating Modal.com GPU pipeline for", youtubeUrl);
-
-    // Get the Modal endpoint from env - this should be your deployed function URL
-    // e.g., https://your-user--basketball-scout-process.modal.run
-    const MODAL_URL = process.env.MODAL_URL;
-
-    if (!MODAL_URL) {
-      console.warn("MODAL_URL missing. Using simulation mode for bridge verification.");
-    }
-
-    // Pass team roster info to Modal to enable this fuzzy matching on the edge
+    // Fetch context for the GPU worker
     const { data: homePlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.home_team_id);
     const { data: awayPlayers } = await supabase.from('players').select('id, name, number').eq('team_id', config.away_team_id);
-
-    // Fetch team names for better labeling in the Python script
     const { data: homeTeam } = await supabase.from('teams').select('name').eq('id', config.home_team_id).single();
     const { data: awayTeam } = await supabase.from('teams').select('name').eq('id', config.away_team_id).single();
 
-    // Update game status in database to 'queued'
     if (gameId) {
       await supabase
         .from('games')
@@ -85,204 +59,129 @@ export default async function handler(
         .eq('id', gameId);
     }
 
-    if (MODAL_URL) {
-      console.log("Server: Dispatching production payload to Modal URL:", MODAL_URL);
-      
-      // Optimize roster payload for the wire
-      const payload = {
-        video_url: normalizedUrl,
-        youtube_url: normalizedUrl,
-        game_id: gameId,
-        home_team: homeTeam?.name || "Home Team",
-        away_team: awayTeam?.name || "Away Team",
-        home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
-        away_roster: (awayPlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
-        config: {
-          ...config,
-          game_id: gameId,
-          supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-          supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-        },
+    if (!MODAL_URL) {
+      return res.status(200).json({ success: true, message: "Simulation mode: MODAL_URL not set." });
+    }
+
+    const payload = {
+      video_url: normalizedUrl,
+      game_id: gameId,
+      home_team: homeTeam?.name || "Home Team",
+      away_team: awayTeam?.name || "Away Team",
+      home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
+      away_roster: (awayPlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
+      config: {
+        ...config,
         supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
         supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-      };
+      }
+    };
 
-      // THE REAL HANDSHAKE: Call the GPU cluster with a 2-hour timeout safety for long videos
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 7200000); // 2 hours
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 7200000); // 2h
 
-      try {
-        const modalResponse = await fetch(MODAL_URL, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
+    const modalResponse = await fetch(MODAL_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal
+    });
 
-        clearTimeout(timeoutId);
+    clearTimeout(timeoutId);
 
-        if (!modalResponse.ok) {
-          const errorText = await modalResponse.text();
-          console.error(`Server: Modal.com GPU Cluster Error (${modalResponse.status}):`, errorText);
-          return res.status(modalResponse.status).json({ message: `Modal Error: ${errorText.slice(0, 100)}` });
-        }
+    if (!modalResponse.ok) {
+      const errorText = await modalResponse.text();
+      return res.status(modalResponse.status).json({ message: `Modal Error: ${errorText.slice(0, 100)}` });
+    }
 
-        // START STREAMING HANDLER
-        const reader = modalResponse.body?.getReader();
-        const decoder = new TextDecoder();
+    const reader = modalResponse.body?.getReader();
+    const decoder = new TextDecoder();
+    
+    if (!reader) throw new Error("Failed to open stream from Modal GPU");
+
+    // Important: Respond to the client so the UI doesn't hang waiting for the stream
+    res.status(200).json({ success: true, message: "Handshake successful. Analysis started." });
+
+    let buffer = "";
+    let finalResultReceived = false;
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
         
-        if (!reader) {
-          throw new Error("Failed to open stream from Modal GPU");
-        }
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; 
 
-        // Buffer for JSON-lines
-        let buffer = "";
-        let hasResponded = false;
-        let finalResultReceived = false;
-
-        // Background loop to process the stream
-        const processStream = async () => {
+        for (const line of lines) {
+          if (!line.trim()) continue;
           try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split("\n");
-              buffer = lines.pop() || ""; 
-
-              for (const line of lines) {
-                if (!line.trim()) continue;
-                console.log("Server: Received line from Modal:", line);
-                
-                try {
-                  const data = JSON.parse(line);
-                  
-                  // Handle Progress Updates
-                  if (data.__progress !== undefined && gameId) {
-                    const progress = Math.min(Math.round(data.__progress), 95);
-                    console.log(`Server: Game ${gameId} progress: ${progress}%`);
-                    await supabase
-                      .from('games')
-                      .update({ 
-                        progress_percentage: progress,
-                        status: 'analyzing',
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq('id', gameId);
-                  }
-
-                  // Handle Final Result
-                  if (data.__result && gameId) {
-                    console.log(`Server: Game ${gameId} COMPLETED`);
-                    finalResultReceived = true;
-                    await supabase
-                      .from('games')
-                      .update({ 
-                        status: 'completed',
-                        progress_percentage: 100,
-                        processing_metadata: data.__result, // Pass object directly for jsonb
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq('id', gameId);
-                    
-                    // Trigger stats sync
-                    try {
-                      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/sync-game-stats`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ gameId })
-                      });
-                    } catch (syncErr) {
-                      console.error("Server: Failed to trigger stats sync:", syncErr);
-                    }
-                  }
-
-                  // Handle Errors from the Python Subprocess
-                  if (data.__error && gameId) {
-                    console.error(`Server: GPU Error for ${gameId}:`, data.__error);
-                    finalResultReceived = true; // Mark as "handled"
-                    await supabase
-                      .from('games')
-                      .update({ 
-                        status: 'failed', 
-                        last_error: data.__error,
-                        processing_metadata: { error: data.__error },
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq('id', gameId);
-                  }
-                } catch (e) {
-                  console.warn("Server: Failed to parse JSON line:", line);
-                }
-              }
-
-              // In some environments, we must respond quickly. 
-              // We respond after the first progress line to let the UI know it's alive.
-              if (!hasResponded) {
-                hasResponded = true;
-                res.status(200).json({ success: true, message: "Processing started on GPU cluster." });
-              }
-            }
-
-            // Cleanup: If stream ended but no result was saved
-            if (!finalResultReceived && gameId) {
-              console.warn(`Server: Stream ended for ${gameId} without result or error.`);
+            const data = JSON.parse(line);
+            
+            if (data.__progress !== undefined && gameId) {
               await supabase
                 .from('games')
                 .update({ 
-                  status: 'failed', 
-                  last_error: "Video processing interrupted (Unexpected end of stream).",
+                  progress_percentage: Math.min(Math.round(data.__progress), 95),
+                  status: 'analyzing',
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', gameId);
             }
-          } catch (streamError) {
-            console.error("Server: Stream processing interrupted:", streamError);
+
+            if (data.__result && gameId) {
+              finalResultReceived = true;
+              await supabase
+                .from('games')
+                .update({ 
+                  status: 'completed',
+                  progress_percentage: 100,
+                  processing_metadata: data.__result, // Directly as object for JSONB
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', gameId);
+              
+              // Trigger auto-sync
+              await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/sync-game-stats`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId })
+              }).catch(e => console.error("Sync trigger failed", e));
+            }
+
+            if (data.__error && gameId) {
+              finalResultReceived = true;
+              await supabase
+                .from('games')
+                .update({ 
+                  status: 'failed', 
+                  last_error: data.__error,
+                  processing_metadata: { error: data.__error },
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', gameId);
+            }
+          } catch (e) {
+            console.warn("Stream parse error", e);
           }
-        };
-
-        // Start processing the stream
-        // Note: In serverless, we might need to await this to keep the function alive
-        // but for now we follow the background pattern as the user sees progress.
-        await processStream();
-        
-        // Ensure we always respond if the stream finished immediately or hasResponded was never set
-        if (!hasResponded) {
-          res.status(200).json({ success: true, message: "Handshake completed." });
         }
-
-        return; 
-
-      } catch (fetchError: any) {
-        console.error("Server: Fetch failure to Modal:", {
-          message: fetchError.message,
-          name: fetchError.name,
-          stack: fetchError.stack
-        });
-        if (fetchError.name === 'AbortError') {
-          throw new Error("Connection to Modal.com timed out (90s). The GPU cluster might be experiencing a cold start or heavy load. Please try again in a moment.");
-        }
-        throw new Error(`Direct Connection Error: ${fetchError.message}`);
       }
+
+      if (!finalResultReceived && gameId) {
+        await supabase
+          .from('games')
+          .update({ 
+            status: 'failed', 
+            last_error: "Stream ended without result payload.",
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', gameId);
+      }
+    } catch (streamError) {
+      console.error("Stream processing loop error", streamError);
     }
-
-    return res.status(200).json({ 
-      success: true, 
-      message: "Modal.com GPU pipeline initiated successfully.",
-      job_id: `modal_job_${Math.random().toString(36).substr(2, 9)}`,
-      normalized_url: normalizedUrl
-    });
-
   } catch (error: any) {
-    console.error("Modal processing error details:", {
-      message: error.message,
-      stack: error.stack,
-      cause: error.cause
-    });
-    return res.status(500).json({ 
-      message: "Failed to communicate with Modal.com",
-      details: error.message 
-    });
+    return res.status(500).json({ message: error.message });
   }
 }
