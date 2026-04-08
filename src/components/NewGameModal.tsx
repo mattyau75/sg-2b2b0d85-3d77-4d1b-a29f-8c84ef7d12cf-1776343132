@@ -22,10 +22,10 @@ import { useToast } from "@/hooks/use-toast";
 interface NewGameModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (jobId: string) => void;
+  onJobStarted: (jobId: string) => void;
 }
 
-export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) {
+export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProps) {
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -90,7 +90,7 @@ export function NewGameModal({ isOpen, onClose, onSuccess }: NewGameModalProps) 
       });
       
       toast({ title: "Analysis Started", description: "GPU Pipeline initiated on Modal.com" });
-      onSuccess(result.job_id);
+      onJobStarted(result.job_id);
       onClose();
     } catch (error: any) {
       toast({ title: "Processing Failed", description: error.message, variant: "destructive" });
