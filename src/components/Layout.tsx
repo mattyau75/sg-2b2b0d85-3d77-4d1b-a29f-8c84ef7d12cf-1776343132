@@ -27,6 +27,7 @@ export function Layout({ children, title, description }: LayoutProps) {
           <nav className="flex-1 space-y-2">
             {[
               { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+              { icon: Trophy, label: "Roster", href: "/roster" },
               { icon: BarChart3, label: "Analytics", href: "/analytics" },
               { icon: PlayCircle, label: "Highlights", href: "/highlights" },
             ].map((item) => (
