@@ -28,14 +28,64 @@ import {
 } from "@/components/ui/table";
 import { ShotChart } from "@/components/ShotChart";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function GameDetailPage() {
   const router = useRouter();
   const { id } = router.query;
   const [activeTab, setActiveTab] = useState("boxscore");
+  const [loading, setLoading] = useState(true);
+  const [gameData, setGameData] = useState<any>(null);
 
-  // Mock data for the demonstration
-  const gameInfo = {
+  useEffect(() => {
+    if (!id) return;
+    
+    const fetchGameData = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("games")
+          .select(`
+            *,
+            home_team:teams!games_home_team_id_fkey(*),
+            away_team:teams!games_away_team_id_fkey(*),
+            play_by_play(*),
+            player_game_stats(
+              *,
+              player:players(*)
+            )
+          `)
+          .eq("id", id)
+          .single();
+
+        if (error) throw error;
+        setGameData(data);
+      } catch (err) {
+        console.error("Error fetching game:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchGameData();
+  }, [id]);
+
+  // Mock shots for the chart
+  const mockShots = [
+    { id: "1", x: 250, y: 52, is_made: true, player_name: "S. Curry", shot_type: "Layup", timestamp: "Q4 0:45" }
+  ];
+
+  // Mock data for the demonstration (fallback if no DB data)
+  const gameInfo = gameData ? {
+    homeTeam: gameData.home_team?.name,
+    awayTeam: gameData.away_team?.name,
+    homeScore: 112, // Calculated from stats in real use
+    awayScore: 108,
+    date: new Date(gameData.date).toLocaleDateString(),
+    status: gameData.status,
+    arena: gameData.venue,
+    attendance: "18,064"
+  } : {
     homeTeam: "Golden State Warriors",
     awayTeam: "LA Lakers",
     homeScore: 112,
@@ -258,7 +308,7 @@ export default function GameDetailPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               <div className="lg:col-span-2">
                 <Card className="bg-card/30 border-border p-8">
-                  <ShotChart />
+                  <ShotChart shots={mockShots} />
                 </Card>
               </div>
               <div className="space-y-6">

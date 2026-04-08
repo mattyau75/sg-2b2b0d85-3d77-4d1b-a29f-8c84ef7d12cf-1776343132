@@ -1,6 +1,6 @@
 ---
 title: Game Analysis Detail Page
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: ["stats", "pbp", "video"]
@@ -13,8 +13,8 @@ position: 11
 Create the definitive view for a single game analysis, bringing together the Boxscore, Play-by-Play, and Shot Chart.
 
 ## Checklist:
-- [ ] Create src/pages/games/[id].tsx with a multi-tab tactical layout
-- [ ] Implement Advanced Boxscore table with sortable metrics
-- [ ] Build the Play-by-Play timeline with video timestamp integration
-- [ ] Add the Game Shot Chart with team-side filtering
-- [ ] Connect to Supabase to fetch game-specific stats and event logs
+- [x] Create src/pages/games/[id].tsx with a multi-tab tactical layout
+- [x] Implement Advanced Boxscore table with sortable metrics
+- [x] Build the Play-by-Play timeline with video timestamp integration
+- [x] Add the Game Shot Chart with team-side filtering
+- [x] Connect to Supabase to fetch game-specific stats and event logs
