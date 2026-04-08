@@ -3,6 +3,7 @@ import { storageService } from "@/services/storageService";
 import { modalService } from "@/services/modalService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 interface UploadTask {
   id: string;
