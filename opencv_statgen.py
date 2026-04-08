@@ -138,10 +138,11 @@ def process_video(video_path: str, home_team: str, away_team: str,
         # Update progress every 10 frames
         if frame_count % 10 == 0:
             progress = 30 + int((frame_count / total_frames) * 65)
-            elapsed = frame_count / fps if fps > 0 else 0
+            # Global timeline sync
+            current_time = (frame_count / fps) + args.offset_seconds
             emit_progress(
                 progress, 
-                f"Frame {frame_count}/{total_frames} ({elapsed:.1f}s elapsed)"
+                f"T+{current_time:.1f}s | Processing chunk {args.chunk_id}"
             )
         
         # TODO: Replace this with your actual YOLO detection and tracking logic

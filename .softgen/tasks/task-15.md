@@ -17,4 +17,4 @@ Implement a robust pipeline for 8GB+ video files. This includes resumable upload
 - [x] Update `NewGameModal.tsx` with chunked upload progress tracking
 - [x] Refactor `modal_worker.py` for Parallel Chunking (A10G swarm)
 - [x] Update `opencv_statgen.py` with `--offset-seconds` for global timeline sync
-- [ ] Implement `merge_results` logic for parallel boxscore aggregation
+- [x] Implement `merge_results` logic for parallel boxscore aggregation
