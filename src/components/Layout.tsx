@@ -75,7 +75,7 @@ export function Layout({ children, title, description }: LayoutProps) {
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right hidden sm:block">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">GPU Bridge Status</p>
+              <p className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">APP BRIDGING STATUS</p>
               <p className="text-xs text-accent font-mono">A100-CONNECTED</p>
             </div>
             <div className="h-10 w-10 rounded-full bg-muted border border-border overflow-hidden" />
