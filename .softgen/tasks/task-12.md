@@ -1,6 +1,6 @@
 ---
 title: Roster Management Enhancements
-status: in_progress
+status: done
 priority: medium
 type: feature
 tags: ["roster", "ui", "database"]

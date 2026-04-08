@@ -3,7 +3,7 @@ import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, Users, MapPin, ChevronRight, Search } from "lucide-react";
+import { Plus, Users, MapPin, ChevronRight, Search, Settings2 } from "lucide-react";
 import Link from "next/link";
 import { rosterService } from "@/services/rosterService";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,6 +25,8 @@ export default function RosterDirectory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [isAddTeamOpen, setIsAddTeamOpen] = useState(false);
+  const [isEditTeamOpen, setIsEditTeamOpen] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<any>(null);
   const [newTeam, setNewTeam] = useState({ 
     name: "", 
     city: "", 
@@ -58,6 +60,22 @@ export default function RosterDirectory() {
       loadTeams();
     } catch (error) {
       toast({ title: "Error", description: "Failed to create team.", variant: "destructive" });
+    }
+  };
+
+  const handleEditTeam = async () => {
+    if (!selectedTeam?.name || !selectedTeam?.id) return;
+    try {
+      await rosterService.updateTeam(selectedTeam.id, {
+        name: selectedTeam.name,
+        city: selectedTeam.city,
+        primary_color: selectedTeam.primary_color,
+      });
+      toast({ title: "Team Updated", description: `${selectedTeam.name} details have been saved.` });
+      setIsEditTeamOpen(false);
+      loadTeams();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update team.", variant: "destructive" });
     }
   };
 
@@ -122,22 +140,6 @@ export default function RosterDirectory() {
                       />
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="scolor">Secondary Color</Label>
-                    <div className="flex items-center gap-3">
-                      <div 
-                        className="h-10 w-10 rounded-lg border border-border shadow-inner flex-shrink-0"
-                        style={{ backgroundColor: newTeam.secondary_color }}
-                      />
-                      <input 
-                        id="scolor"
-                        type="color" 
-                        value={newTeam.secondary_color}
-                        onChange={(e) => setNewTeam({ ...newTeam, secondary_color: e.target.value })}
-                        className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -167,36 +169,51 @@ export default function RosterDirectory() {
         ) : filteredTeams.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredTeams.map((team) => (
-              <Link key={team.id} href={`/roster/${team.id}`}>
-                <Card className="group hover:border-primary/50 transition-all cursor-pointer overflow-hidden bg-card/50 backdrop-blur-sm border-border">
-                  <div 
-                    className="h-1.5 w-full" 
-                    style={{ backgroundColor: team.primary_color || 'var(--primary)' }} 
-                  />
-                  <CardHeader className="flex flex-row items-center gap-4 space-y-0">
-                    <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center border border-border overflow-hidden">
-                      {team.logo_url ? (
-                        <img src={team.logo_url} alt={team.name} className="h-full w-full object-contain" />
-                      ) : (
-                        <Users className="h-6 w-6 text-muted-foreground" />
-                      )}
-                    </div>
-                    <div className="space-y-0.5">
-                      <CardTitle className="text-lg">{team.name}</CardTitle>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {team.city || "Unassigned"}
+              <div key={team.id} className="relative group">
+                <Link href={`/roster/${team.id}`}>
+                  <Card className="group hover:border-primary/50 transition-all cursor-pointer overflow-hidden bg-card/50 backdrop-blur-sm border-border">
+                    <div 
+                      className="h-1.5 w-full" 
+                      style={{ backgroundColor: team.primary_color || 'var(--primary)' }} 
+                    />
+                    <CardHeader className="flex flex-row items-center gap-4 space-y-0">
+                      <div className="h-12 w-12 rounded-lg bg-muted flex items-center justify-center border border-border overflow-hidden">
+                        {team.logo_url ? (
+                          <img src={team.logo_url} alt={team.name} className="h-full w-full object-contain" />
+                        ) : (
+                          <Users className="h-6 w-6 text-muted-foreground" />
+                        )}
                       </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="flex items-center justify-between pt-2">
-                    <Badge variant="secondary" className="bg-white/5 text-[10px] uppercase tracking-wider font-mono">
-                      View Roster
-                    </Badge>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-                  </CardContent>
-                </Card>
-              </Link>
+                      <div className="space-y-0.5">
+                        <CardTitle className="text-lg">{team.name}</CardTitle>
+                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <MapPin className="h-3 w-3" />
+                          {team.city || "Unassigned"}
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="flex items-center justify-between pt-2">
+                      <Badge variant="secondary" className="bg-white/5 text-[10px] uppercase tracking-wider font-mono">
+                        View Roster
+                      </Badge>
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+                    </CardContent>
+                  </Card>
+                </Link>
+                <Button 
+                  size="icon" 
+                  variant="ghost" 
+                  className="absolute top-4 right-4 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity bg-card/80 backdrop-blur hover:bg-primary hover:text-white"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelectedTeam(team);
+                    setIsEditTeamOpen(true);
+                  }}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              </div>
             ))}
           </div>
         ) : (
@@ -205,6 +222,54 @@ export default function RosterDirectory() {
             <p>No teams found matching your search.</p>
           </div>
         )}
+
+        {/* Edit Team Dialog */}
+        <Dialog open={isEditTeamOpen} onOpenChange={setIsEditTeamOpen}>
+          <DialogContent className="bg-card border-border">
+            <DialogHeader>
+              <DialogTitle>Edit Team Details</DialogTitle>
+              <DialogDescription>Modify organizational settings for {selectedTeam?.name}.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-name">Team Name</Label>
+                <Input 
+                  id="edit-name" 
+                  value={selectedTeam?.name || ""}
+                  onChange={(e) => setSelectedTeam({ ...selectedTeam, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-city">City</Label>
+                <Input 
+                  id="edit-city" 
+                  value={selectedTeam?.city || ""}
+                  onChange={(e) => setSelectedTeam({ ...selectedTeam, city: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-color">Primary Color</Label>
+                <div className="flex items-center gap-3">
+                  <div 
+                    className="h-10 w-10 rounded-lg border border-border shadow-inner flex-shrink-0"
+                    style={{ backgroundColor: selectedTeam?.primary_color }}
+                  />
+                  <input 
+                    id="edit-color"
+                    type="color" 
+                    value={selectedTeam?.primary_color || "#FF6B00"}
+                    onChange={(e) => setSelectedTeam({ ...selectedTeam, primary_color: e.target.value })}
+                    className="h-10 w-full bg-background border border-border rounded-lg cursor-pointer px-1 py-1"
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditTeamOpen(false)}>Cancel</Button>
+              <Button onClick={handleEditTeam}>Update Team</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

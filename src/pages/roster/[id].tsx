@@ -8,10 +8,12 @@ import {
   Users, 
   MapPin, 
   ArrowLeft, 
-  Plus, 
   UserPlus, 
   Activity,
-  MoreHorizontal
+  MoreHorizontal,
+  Edit,
+  Trash2,
+  ExternalLink
 } from "lucide-react";
 import Link from "next/link";
 import { rosterService } from "@/services/rosterService";
@@ -49,6 +51,8 @@ export default function TeamRoster() {
   const [team, setTeam] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isAddPlayerOpen, setIsAddPlayerOpen] = useState(false);
+  const [isEditPlayerOpen, setIsEditPlayerOpen] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [newPlayer, setNewPlayer] = useState({ name: "", number: "", position: "" });
   const { toast } = useToast();
 
@@ -83,6 +87,22 @@ export default function TeamRoster() {
       loadTeam();
     } catch (error) {
       toast({ title: "Error", description: "Failed to add player.", variant: "destructive" });
+    }
+  };
+
+  const handleEditPlayer = async () => {
+    if (!selectedPlayer?.name || !selectedPlayer?.id) return;
+    try {
+      await rosterService.updatePlayer(selectedPlayer.id, {
+        name: selectedPlayer.name,
+        number: parseInt(selectedPlayer.number) || 0,
+        position: selectedPlayer.position,
+      });
+      toast({ title: "Player Updated", description: `${selectedPlayer.name} details saved.` });
+      setIsEditPlayerOpen(false);
+      loadTeam();
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update player.", variant: "destructive" });
     }
   };
 
@@ -257,14 +277,20 @@ export default function TeamRoster() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 bg-card border-border">
-                          <DropdownMenuItem className="focus:bg-primary/20 cursor-pointer">
-                            View Profile
+                          <DropdownMenuItem className="focus:bg-primary/20 cursor-pointer flex items-center gap-2">
+                            <ExternalLink className="h-3 w-3" /> View Profile
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="focus:bg-primary/20 cursor-pointer">
-                            Edit Player
+                          <DropdownMenuItem 
+                            className="focus:bg-primary/20 cursor-pointer flex items-center gap-2"
+                            onClick={() => {
+                              setSelectedPlayer(player);
+                              setIsEditPlayerOpen(true);
+                            }}
+                          >
+                            <Edit className="h-3 w-3" /> Edit Player
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive focus:bg-destructive/10 cursor-pointer">
-                            Remove Player
+                          <DropdownMenuItem className="text-destructive focus:bg-destructive/10 cursor-pointer flex items-center gap-2">
+                            <Trash2 className="h-3 w-3" /> Remove Player
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -281,6 +307,49 @@ export default function TeamRoster() {
             </TableBody>
           </Table>
         </Card>
+
+        {/* Edit Player Dialog */}
+        <Dialog open={isEditPlayerOpen} onOpenChange={setIsEditPlayerOpen}>
+          <DialogContent className="bg-card border-border">
+            <DialogHeader>
+              <DialogTitle>Edit Player Details</DialogTitle>
+              <DialogDescription>Modify attributes for {selectedPlayer?.name}.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-pname">Full Name</Label>
+                <Input 
+                  id="edit-pname" 
+                  value={selectedPlayer?.name || ""}
+                  onChange={(e) => setSelectedPlayer({ ...selectedPlayer, name: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-num">Jersey #</Label>
+                  <Input 
+                    id="edit-num" 
+                    type="number" 
+                    value={selectedPlayer?.number || ""}
+                    onChange={(e) => setSelectedPlayer({ ...selectedPlayer, number: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-pos">Position</Label>
+                  <Input 
+                    id="edit-pos" 
+                    value={selectedPlayer?.position || ""}
+                    onChange={(e) => setSelectedPlayer({ ...selectedPlayer, position: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditPlayerOpen(false)}>Cancel</Button>
+              <Button onClick={handleEditPlayer}>Update Player</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

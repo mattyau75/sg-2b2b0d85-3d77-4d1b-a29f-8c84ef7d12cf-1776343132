@@ -32,7 +32,7 @@ export const rosterService = {
     if (teamId) {
       query = query.eq("team_id", teamId);
     }
-    const { data, error } = await query.order("last_name");
+    const { data, error } = await query.order("name");
     if (error) throw error;
     return data;
   },
@@ -49,13 +49,13 @@ export const rosterService = {
     return data;
   },
 
-  createPlayer: async (player: { team_id: string; name: string; number?: string; position?: string; avatar_url?: string }) => {
+  createPlayer: async (player: { team_id: string; name: string; number?: number; position?: string; avatar_url?: string }) => {
     const { data, error } = await supabase.from("players").insert(player).select().single();
     if (error) throw error;
     return data;
   },
 
-  updatePlayer: async (id: string, updates: { name?: string; number?: string; position?: string; avatar_url?: string }) => {
+  updatePlayer: async (id: string, updates: { name?: string; number?: number; position?: string; avatar_url?: string }) => {
     const { data, error } = await supabase.from("players").update(updates).eq("id", id).select().single();
     if (error) throw error;
     return data;
