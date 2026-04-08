@@ -29,6 +29,7 @@ export type Database = {
           processing_metadata: Json | null
           progress_percentage: number | null
           status: string | null
+          updated_at: string | null
           venue: string | null
           youtube_url: string | null
         }
@@ -45,6 +46,7 @@ export type Database = {
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
+          updated_at?: string | null
           venue?: string | null
           youtube_url?: string | null
         }
@@ -61,6 +63,7 @@ export type Database = {
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
+          updated_at?: string | null
           venue?: string | null
           youtube_url?: string | null
         }

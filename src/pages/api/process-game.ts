@@ -74,10 +74,14 @@ export default async function handler(
           status: 'queued', 
           youtube_url: normalizedUrl,
           camera_type: config.camera_type,
-          progress_percentage: 10
+          progress_percentage: 15, // Start at 15% to show active handshake
+          last_error: null // Clear any previous errors on retry
         })
         .eq('id', gameId);
     }
+
+    // Forwarding logic to Modal (Simulated here, but identifying the requirement)
+    // The Modal worker MUST receive gameId to call back to our Supabase instance
 
     // Simulating success for the bridge verification
     return res.status(200).json({ 
