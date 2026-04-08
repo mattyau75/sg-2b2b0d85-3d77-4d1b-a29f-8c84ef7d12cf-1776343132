@@ -1,42 +1,43 @@
-export const storageService = {
-  async uploadVideo(
-    file: File, 
-    gameId: string, 
-    onProgress?: (progress: number) => void
-  ): Promise<string> {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${gameId}/${Math.random().toString(36).substring(2)}.${fileExt}`;
-    
-    // 1. Get presigned URL from our API (secure handover)
-    const response = await fetch("/api/storage/presign", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fileName, contentType: file.type }),
-    });
-    
-    if (!response.ok) throw new Error("Failed to get secure upload gateway");
-    const { uploadUrl } = await response.json();
+import axios from "axios";
 
-    // 2. Upload directly to R2 using XHR for progress tracking
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open("PUT", uploadUrl, true);
-      xhr.setRequestHeader("Content-Type", file.type);
+export const storageService = {
+  async uploadVideo(file: File, onProgress: (progress: number) => void): Promise<string> {
+    try {
+      // 1. Get signed upload URL
+      const { data: { url, key } } = await axios.post("/api/storage/presign", {
+        filename: file.name,
+        contentType: file.type
+      });
+
+      // 2. Upload to R2 with retry logic
+      let attempts = 0;
+      const maxAttempts = 3;
       
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable && onProgress) {
-          onProgress(Math.round((e.loaded / e.total) * 100));
+      while (attempts < maxAttempts) {
+        try {
+          await axios.put(url, file, {
+            headers: { "Content-Type": file.type },
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.total) {
+                const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                onProgress(percentCompleted);
+              }
+            },
+          });
+          return key; // Success
+        } catch (uploadError) {
+          attempts++;
+          console.error(`Upload attempt ${attempts} failed:`, uploadError);
+          if (attempts === maxAttempts) throw uploadError;
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Backoff
         }
-      };
-      
-      xhr.onload = () => {
-        if (xhr.status === 200) resolve(fileName);
-        else reject(new Error(`Storage error: ${xhr.statusText}`));
-      };
-      
-      xhr.onerror = () => reject(new Error("Network error during storage transfer"));
-      xhr.send(file);
-    });
+      }
+      throw new Error("Upload failed after multiple attempts");
+    } catch (error: any) {
+      console.error("Storage Error:", error);
+      const message = error.response?.status === 403 ? "CORS or Permission Denied (403)" : error.message;
+      throw new Error(`Storage Transfer Failed: ${message}`);
+    }
   },
 
   async getSignedUrl(path: string): Promise<string> {
