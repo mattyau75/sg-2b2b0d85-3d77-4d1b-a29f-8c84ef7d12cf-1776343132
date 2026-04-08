@@ -11,4 +11,4 @@ export const r2Client = new S3Client({
   },
 });
 
-export const R2_BUCKET = process.env.R2_BUCKET_NAME || "courtvision-videos";
+export const R2_BUCKET = process.env.R2_BUCKET_NAME || "dribbleai-softgen";
