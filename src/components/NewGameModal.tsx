@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Youtube, Target, Cpu, SlidersHorizontal, Settings2, Palette } from "lucide-react";
+import { Youtube, Target, Cpu, SlidersHorizontal, Settings2, Palette, Camera } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
 import { useToast } from "@/hooks/use-toast";
@@ -37,7 +37,14 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
     awayTeamId: "",
     cameraType: "panning",
     homeColor: "#ff6b00",
-    awayColor: "#0066ff"
+    awayColor: "#0066ff",
+    imgsz: 1280,
+    conf: 0.25,
+    iou: 0.45,
+    tracking: true,
+    agnosticNms: false,
+    rimDetection: true,
+    shotLogic: true
   });
 
   useEffect(() => {
@@ -81,6 +88,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
         away_team_id: formData.awayTeamId,
         home_team_color: formData.homeColor,
         away_team_color: formData.awayColor,
+        camera_type: formData.cameraType,
       });
       
       toast({ title: "Analysis Started", description: "GPU Pipeline initiated on Modal.com" });
@@ -125,18 +133,38 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-8">
-            {/* Step 1: Video */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-sm font-bold">
-                <Youtube className="h-4 w-4 text-red-500" />
-                Video Source
+            {/* Step 1: Video & Camera */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 space-y-4">
+                <div className="flex items-center gap-2 text-sm font-bold">
+                  <Youtube className="h-4 w-4 text-red-500" />
+                  Video Source
+                </div>
+                <Input 
+                  placeholder="Paste YouTube URL..." 
+                  className="bg-background border-border font-mono text-sm"
+                  value={formData.youtubeUrl}
+                  onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
+                />
               </div>
-              <Input 
-                placeholder="Paste YouTube URL..." 
-                className="bg-background border-border font-mono text-sm"
-                value={formData.youtubeUrl}
-                onChange={(e) => setFormData({ ...formData, youtubeUrl: e.target.value })}
-              />
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-bold">
+                  <Camera className="h-4 w-4 text-accent" />
+                  Camera
+                </div>
+                <Select 
+                  value={formData.cameraType} 
+                  onValueChange={(val) => setFormData({...formData, cameraType: val})}
+                >
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue placeholder="Type" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-card border-border">
+                    <SelectItem value="panning">Panning</SelectItem>
+                    <SelectItem value="fixed">Fixed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {/* Step 2: Teams & Colors */}
@@ -144,7 +172,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
               {/* Home Team */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold">
-                  <div className="h-2 w-2 rounded-full bg-accent" />
+                  <div className="h-2 w-2 rounded-full bg-primary" />
                   Home Team
                 </div>
                 <Select onValueChange={handleHomeTeamChange}>
@@ -180,7 +208,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
               {/* Away Team */}
               <div className="space-y-4">
                 <div className="flex items-center gap-2 text-sm font-bold">
-                  <div className="h-2 w-2 rounded-full bg-muted-foreground" />
+                  <div className="h-2 w-2 rounded-full bg-accent" />
                   Away Team
                 </div>
                 <Select onValueChange={handleAwayTeamChange}>
@@ -235,7 +263,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                     min={640} max={1280} step={320}
                     onValueChange={([val]) => setFormData({ ...formData, imgsz: val })}
                   />
-                  <p className="text-[9px] text-muted-foreground italic">Use 1280px for small jersey numbers in wide pans.</p>
+                  <p className="text-[9px] text-muted-foreground italic">Use 1280px for wide pans.</p>
                 </div>
 
                 <div className="space-y-3">
@@ -253,7 +281,7 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-[10px] uppercase text-muted-foreground">ByteTrack</Label>
-                    <p className="text-[9px] text-muted-foreground">ID persistence across pans</p>
+                    <p className="text-[9px] text-muted-foreground">ID persistence</p>
                   </div>
                   <Switch 
                     checked={formData.tracking}
@@ -263,8 +291,8 @@ export function NewGameModal({ isOpen, onClose, onJobStarted }: NewGameModalProp
 
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
-                    <Label className="text-[10px] uppercase text-muted-foreground">Shot Intelligence</Label>
-                    <p className="text-[9px] text-muted-foreground">Rim & Ball trajectory logic</p>
+                    <Label className="text-[10px] uppercase text-muted-foreground">Shot Intel</Label>
+                    <p className="text-[9px] text-muted-foreground">Rim & Ball logic</p>
                   </div>
                   <Switch 
                     checked={formData.rimDetection}
