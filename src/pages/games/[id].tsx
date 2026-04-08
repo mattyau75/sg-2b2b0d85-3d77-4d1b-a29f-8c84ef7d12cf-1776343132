@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { 
-  Trophy, ChevronLeft, RefreshCw, Video, List, LayoutGrid, Users, Target, Play, Edit2, Save, X, Trash2
+  Trophy, ChevronLeft, RefreshCw, Video, List, LayoutGrid, Users, Target, Play
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,9 +28,7 @@ export default function GameDetailPage() {
   const [activeTab, setActiveTab] = useState("boxscore");
   const [loading, setLoading] = useState(true);
   const [gameData, setGameData] = useState<any>(null);
-  const [editingEventId, setEditingEventId] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState(false);
-  const [editedEvent, setEditedEvent] = useState<any>(null);
   const [playerMap, setPlayerMap] = useState<Record<string, string>>({});
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
@@ -104,26 +102,6 @@ export default function GameDetailPage() {
     }
   };
 
-  const handleSaveEvent = async () => {
-    try {
-      const { error } = await supabase
-        .from("play_by_play")
-        .update({
-          player_id: editedEvent.player_id,
-          event_type: editedEvent.event_type,
-          timestamp_seconds: editedEvent.timestamp_seconds,
-          is_make: editedEvent.event_type.startsWith("made")
-        })
-        .eq("id", editedEvent.id);
-
-      if (error) throw error;
-      setEditingEventId(null);
-      await handleSyncStats();
-    } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
-    }
-  };
-
   if (loading) return (
     <Layout title="Loading Game | CourtVision Elite">
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -134,8 +112,6 @@ export default function GameDetailPage() {
   );
 
   if (!gameData) return <Layout title="Not Found"><div>Game Not Found</div></Layout>;
-
-  const players = Object.entries(playerMap).map(([id, name]) => ({ id, name }));
 
   const shotData = gameData.play_by_play
     ?.filter((e: any) => (e.event_type.includes("pt") || e.event_type.includes("shot")) && e.x_coord !== null && e.y_coord !== null)

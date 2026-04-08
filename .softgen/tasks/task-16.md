@@ -15,6 +15,6 @@ Audit the codebase for dead code, unused imports, boilerplate files, and latent 
 ## Checklist:
 - [x] Run comprehensive `check_for_errors` audit
 - [x] Remove boilerplate files (`src/pages/api/hello.ts`)
-- [ ] Fix unused imports and variables in `src/pages/games/[id].tsx` and `src/components/NewGameModal.tsx`
+- [x] Fix unused imports and variables in `src/pages/games/[id].tsx` and `src/components/NewGameModal.tsx`
 - [x] Populate `README.md` with project vision and setup instructions
 - [x] Verify hydration stability in `VideoPlayer.tsx`

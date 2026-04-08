@@ -15,7 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Youtube, Target, Cpu, SlidersHorizontal, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
+import { Youtube, Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { modalService } from "@/services/modalService";
 import { storageService } from "@/services/storageService";
