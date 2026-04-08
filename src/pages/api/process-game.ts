@@ -96,8 +96,15 @@ export default async function handler(
       });
 
       if (!modalResponse.ok) {
-        const errorData = await modalResponse.json();
-        throw new Error(errorData.message || "Modal GPU cluster rejected the request.");
+        let errorInfo = "Modal GPU cluster rejected the request.";
+        try {
+          const errorData = await modalResponse.text();
+          console.error("Modal Raw Error:", errorData);
+          errorInfo = `Modal Error (${modalResponse.status}): ${errorData.substring(0, 200)}`;
+        } catch (e) {
+          console.error("Could not parse Modal error text");
+        }
+        throw new Error(errorInfo);
       }
     }
 
