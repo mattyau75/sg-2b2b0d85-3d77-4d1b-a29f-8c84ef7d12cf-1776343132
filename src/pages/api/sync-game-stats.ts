@@ -8,7 +8,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
-    // 1. Fetch all events for this game
     const { data: events, error: eventsError } = await supabase
       .from("play_by_play")
       .select("*")
@@ -16,7 +15,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (eventsError) throw eventsError;
 
-    // 2. Aggregate Player Stats
     const playerStats: Record<string, any> = {};
     events.forEach(event => {
       if (!event.player_id) return;
@@ -40,7 +38,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (event.event_type === "turnover") stats.turnovers += 1;
     });
 
-    // 3. Upsert into player_game_stats
     const statsArray = Object.values(playerStats);
     if (statsArray.length > 0) {
       const { error: upsertError } = await supabase
@@ -49,16 +46,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (upsertError) throw upsertError;
     }
 
-    // 4. Update Game Score
-    const homeTeamScore = events.filter(e => e.team_id === "home").reduce((sum, e) => sum + (e.event_type === "made_2pt" ? 2 : e.event_type === "made_3pt" ? 3 : 0), 0);
-    const awayTeamScore = events.filter(e => e.team_id === "away").reduce((sum, e) => sum + (e.event_type === "made_2pt" ? 2 : e.event_type === "made_3pt" ? 3 : 0), 0);
+    const homeScore = events.reduce((sum, e) => sum + (e.event_type === "made_2pt" ? 2 : e.event_type === "made_3pt" ? 3 : 0), 0);
 
-    await supabase.from("games").update({ 
-      home_score: homeTeamScore, 
-      away_score: awayTeamScore 
-    }).eq("id", gameId);
+    const { error: gameUpdateError } = await supabase
+      .from("games")
+      .update({ home_score: homeScore } as any)
+      .eq("id", gameId);
 
-    return res.status(200).json({ success: true, homeScore: homeTeamScore, awayScore: awayTeamScore });
+    if (gameUpdateError) throw gameUpdateError;
+
+    return res.status(200).json({ success: true, homeScore });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
   }

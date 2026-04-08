@@ -1,4 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from "next";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Secure server-side handler for Modal.com GPU processing.

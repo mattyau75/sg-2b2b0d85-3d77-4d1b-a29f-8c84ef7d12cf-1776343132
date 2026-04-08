@@ -17,9 +17,11 @@ export type Database = {
     Tables: {
       games: {
         Row: {
+          away_score: number | null
           away_team_id: string | null
           created_at: string | null
           date: string | null
+          home_score: number | null
           home_team_id: string | null
           id: string
           status: string | null
@@ -27,9 +29,11 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          away_score?: number | null
           away_team_id?: string | null
           created_at?: string | null
           date?: string | null
+          home_score?: number | null
           home_team_id?: string | null
           id?: string
           status?: string | null
@@ -37,9 +41,11 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          away_score?: number | null
           away_team_id?: string | null
           created_at?: string | null
           date?: string | null
+          home_score?: number | null
           home_team_id?: string | null
           id?: string
           status?: string | null
