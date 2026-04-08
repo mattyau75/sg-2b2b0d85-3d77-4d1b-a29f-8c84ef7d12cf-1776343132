@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -57,6 +57,78 @@ export type Database = {
           {
             foreignKeyName: "games_home_team_id_fkey"
             columns: ["home_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lineup_stats: {
+        Row: {
+          assists: number | null
+          created_at: string | null
+          fg_attempted: number | null
+          fg_made: number | null
+          game_id: string | null
+          id: string
+          minutes_played: number | null
+          player_ids: string[]
+          points_against: number | null
+          points_for: number | null
+          possessions: number | null
+          rebounds: number | null
+          team_id: string | null
+          three_pa: number | null
+          three_pm: number | null
+          turnovers: number | null
+        }
+        Insert: {
+          assists?: number | null
+          created_at?: string | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          game_id?: string | null
+          id?: string
+          minutes_played?: number | null
+          player_ids: string[]
+          points_against?: number | null
+          points_for?: number | null
+          possessions?: number | null
+          rebounds?: number | null
+          team_id?: string | null
+          three_pa?: number | null
+          three_pm?: number | null
+          turnovers?: number | null
+        }
+        Update: {
+          assists?: number | null
+          created_at?: string | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          game_id?: string | null
+          id?: string
+          minutes_played?: number | null
+          player_ids?: string[]
+          points_against?: number | null
+          points_for?: number | null
+          possessions?: number | null
+          rebounds?: number | null
+          team_id?: string | null
+          three_pa?: number | null
+          three_pm?: number | null
+          turnovers?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lineup_stats_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lineup_stats_team_id_fkey"
+            columns: ["team_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
