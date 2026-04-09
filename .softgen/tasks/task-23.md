@@ -18,7 +18,7 @@ Implementing state-space tracking (Kalman + IOU) to maintain player identities d
 - [x] Add motion prediction (velocity estimation) for pans
 - [x] Integrate tracker into the main processing loop
 - [x] Implement IOU-based identity association logic
-- [ ] Finalize re-identification anchoring via jersey color
+- [x] Finalize re-identification anchoring via jersey color
 ]]>
 
 [Tool result trimmed: kept first 100 chars and last 100 chars of 684 chars.]
