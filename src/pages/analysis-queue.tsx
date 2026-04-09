@@ -36,6 +36,7 @@ const STATUS_CONFIG: Record<string, {label: string;color: string;progress: numbe
 export default function AnalysisQueuePage() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const { activeUploads, cancelUpload } = useUploads();
   const { toast } = useToast();
 
