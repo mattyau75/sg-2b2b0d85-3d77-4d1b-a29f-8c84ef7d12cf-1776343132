@@ -245,12 +245,18 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                     {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover border-border z-[100]" align="start">
+                <PopoverContent 
+                  className="w-auto p-0 bg-popover border-border z-[110]" 
+                  align="start"
+                  onFocusOutside={(e) => e.preventDefault()}
+                >
                   <Calendar 
                     mode="single" 
                     selected={gameDate} 
                     onSelect={(date) => {
-                      if (date) setGameDate(date);
+                      if (date) {
+                        setGameDate(date);
+                      }
                     }} 
                     initialFocus 
                     className="rounded-md border-none" 
