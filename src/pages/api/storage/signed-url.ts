@@ -3,6 +3,16 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { r2Client } from "@/lib/r2Client";
 
+export const r2Client = new S3Client({
+  region: "us-east-1", // Using us-east-1 as a static fallback for R2 compatibility
+  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: process.env.R2_ACCESS_KEY_ID || "",
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY || "",
+  },
+  forcePathStyle: true,
+});
+
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const { path } = req.query;
 
