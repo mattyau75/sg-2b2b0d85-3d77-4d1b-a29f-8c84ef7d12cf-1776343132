@@ -59,6 +59,28 @@ export default function AnalysisQueuePage() {
     }
   };
 
+  const fetchQueue = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("games")
+        .select(`
+          id, 
+          status, 
+          created_at,
+          video_path,
+          home_team:teams!games_home_team_id_fkey(name),
+          away_team:teams!games_away_team_id_fkey(name)
+        `)
+        .in('status', ['pending', 'processing', 'failed'])
+        .order("created_at", { ascending: false });
+    } catch (err) {
+      console.error("Fetch queue error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchJobs();
 
