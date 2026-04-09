@@ -233,7 +233,7 @@ export default function GameDetailPage() {
                 disabled={reRunning || !gameData.video_path}
               >
                 <Cpu className={cn("h-4 w-4", reRunning && "animate-pulse")} />
-                {reRunning ? "Triggering GPU..." : "Re-run AI Analysis"}
+                {reRunning ? "Triggering GPU..." : "Re-analyze Game"}
               </Button>
             )}
           </div>
