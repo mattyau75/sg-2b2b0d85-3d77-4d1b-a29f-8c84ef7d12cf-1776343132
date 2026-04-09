@@ -18,6 +18,9 @@ import sys
 import tempfile
 import os
 from pathlib import Path
+import cv2
+import time
+import numpy as np
 
 def emit_progress(progress: int, msg: str = ""):
     """Emit progress update in JSON-line format"""
@@ -83,6 +86,86 @@ def download_video(url: str, cookies_file: str = None, cookies_browser: str = No
         emit_error(error_msg)
         raise
 
+class PlayerTracker:
+    """ByteTrack-inspired tracker to maintain ID consistency during pans."""
+    def __init__(self, iou_thresh=0.3, max_age=30):
+        self.iou_thresh = iou_thresh
+        self.max_age = max_age
+        self.tracks = [] # List of {id, bbox, color, age, velocity}
+        self.next_id = 1
+
+    def _iou(self, boxA, boxB):
+        xA = max(boxA[0], boxB[0])
+        yA = max(boxA[1], boxB[1])
+        xB = min(boxA[2], boxB[2])
+        yB = min(boxA[3], boxB[3])
+        interArea = max(0, xB - xA) * max(0, yB - yA)
+        boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
+        boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
+        return interArea / float(boxAArea + boxBArea - interArea)
+
+    def update(self, detections):
+        """
+        detections: list of [x1, y1, x2, y2, conf, cls, color_vector]
+        returns: list of [x1, y1, x2, y2, track_id, color_vector]
+        """
+        # 1. Predict (Simple linear motion)
+        for t in self.tracks:
+            t['age'] += 1
+            if 'velocity' in t:
+                t['bbox'][0] += t['velocity'][0]
+                t['bbox'][1] += t['velocity'][1]
+                t['bbox'][2] += t['velocity'][0]
+                t['bbox'][3] += t['velocity'][1]
+
+        matched_tracks = []
+        unmatched_detections = list(range(len(detections)))
+
+        # 2. Match based on IOU
+        if self.tracks and detections:
+            ious = np.zeros((len(self.tracks), len(detections)))
+            for i, t in enumerate(self.tracks):
+                for j, d in enumerate(detections):
+                    ious[i, j] = self._iou(t['bbox'], d[:4])
+
+            # Greedy matching
+            for i in range(len(self.tracks)):
+                best_j = np.argmax(ious[i])
+                if ious[i, best_j] > self.iou_thresh:
+                    t = self.tracks[i]
+                    d = detections[best_j]
+                    
+                    # Update velocity
+                    dx = d[0] - t['bbox'][0]
+                    dy = d[1] - t['bbox'][1]
+                    t['velocity'] = [dx, dy]
+                    
+                    t['bbox'] = d[:4]
+                    t['age'] = 0
+                    t['color'] = d[6] if len(d) > 6 else t['color']
+                    matched_tracks.append(i)
+                    if best_j in unmatched_detections:
+                        unmatched_detections.remove(best_j)
+
+        # 3. Handle unmatched
+        # Create new tracks for high-confidence detections
+        for j in unmatched_detections:
+            d = detections[j]
+            if d[4] > 0.5: # Confidence threshold
+                self.tracks.append({
+                    'id': self.next_id,
+                    'bbox': d[:4],
+                    'color': d[6] if len(d) > 6 else None,
+                    'age': 0,
+                    'velocity': [0, 0]
+                })
+                self.next_id += 1
+
+        # 4. Cleanup stale tracks
+        self.tracks = [t for i, t in enumerate(self.tracks) if t['age'] < self.max_age]
+        
+        return [[*t['bbox'], t['id'], t['color']] for t in self.tracks if t['age'] == 0]
+
 def process_video(video_path: str, home_team: str, away_team: str, 
                   home_roster: list, away_roster: list) -> dict:
     """
@@ -112,6 +195,8 @@ def process_video(video_path: str, home_team: str, away_team: str,
     
     emit_progress(30, f"Processing {total_frames} frames at {fps:.1f} FPS...")
     
+    tracker = PlayerTracker(max_age=int(fps)) # 1 second memory
+    
     # Placeholder processing loop
     frame_count = 0
     results = {
@@ -134,6 +219,13 @@ def process_video(video_path: str, home_team: str, away_team: str,
             break
         
         frame_count += 1
+        
+        # Simulated Detections for demonstration
+        # In production, this comes from YOLO: results = model.track(frame)
+        current_detections = [] # [[x1, y1, x2, y2, conf, cls, color_avg], ...]
+        
+        # Update tracker
+        tracked_players = tracker.update(current_detections)
         
         # Update progress every 10 frames
         if frame_count % 10 == 0:

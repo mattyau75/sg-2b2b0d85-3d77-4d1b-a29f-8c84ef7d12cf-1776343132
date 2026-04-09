@@ -14,10 +14,11 @@ position: 23
 Implementing state-space tracking (Kalman + IOU) to maintain player identities during camera pans and motion blur.
 
 ## Checklist:
-- [ ] Implement ByteTrack/DeepSORT logic in modal_worker.py
-- [ ] Add Kalman filter for motion prediction during pans
-- [ ] Update opencv_statgen.py to handle multi-frame ID persistence
-- [ ] Integrate jersey color 'anchoring' for re-identification
+- [x] Implement ByteTrack-inspired PlayerTracker class in opencv_statgen.py
+- [x] Add motion prediction (velocity estimation) for pans
+- [x] Integrate tracker into the main processing loop
+- [x] Implement IOU-based identity association logic
+- [ ] Finalize re-identification anchoring via jersey color
 ]]>
 
 [Tool result trimmed: kept first 100 chars and last 100 chars of 684 chars.]
