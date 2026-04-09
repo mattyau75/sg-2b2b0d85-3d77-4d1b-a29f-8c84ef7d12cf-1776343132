@@ -8,9 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { 
   Settings2, 
-  Cpu, 
   RefreshCw, 
-  ChevronLeft, 
   Calendar, 
   MapPin, 
   LayoutDashboard,
@@ -18,7 +16,10 @@ import {
   History,
   Activity,
   Lock,
-  ArrowRightCircle
+  ArrowRightCircle,
+  Users,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -27,6 +28,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { storageService } from "@/services/storageService";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import axios from "axios";
 
 export default function GameDetailPage() {
@@ -39,13 +41,17 @@ export default function GameDetailPage() {
   const [shots, setShots] = useState<Shot[]>([]);
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("stats");
+  const [activeTab, setActiveTab] = useState("recognition");
   const [pbp, setPbp] = useState<any[]>([]);
   const [syncing, setSyncing] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  
+  const [detectedPlayers, setDetectedPlayers] = useState<any[]>([]);
+  const [homeRoster, setHomeRoster] = useState<any[]>([]);
+  const [awayRoster, setAwayRoster] = useState<any[]>([]);
+  const [manualMappings, setManualMappings] = useState<Record<string, string>>({});
 
-  // Derive stage completion status
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
 
@@ -54,7 +60,6 @@ export default function GameDetailPage() {
     
     try {
       setLoading(true);
-      // Fetch Game with team details
       const { data: gameData, error: gameError } = await supabase
         .from("games")
         .select(`
@@ -67,8 +72,8 @@ export default function GameDetailPage() {
 
       if (gameError) throw gameError;
       setGame(gameData);
+      setManualMappings(gameData.processing_metadata?.manual_mappings || {});
 
-      // Fetch Player Stats (Module 3 Result)
       const { data: statsData } = await supabase
         .from('player_game_stats')
         .select('*, player:players(*)')
@@ -76,7 +81,6 @@ export default function GameDetailPage() {
       
       setStats(statsData || []);
 
-      // Fetch Shots from Play-by-Play (Module 4)
       const { data: pbpData } = await supabase
         .from("play_by_play")
         .select(`*, player:players(name)`)
@@ -94,7 +98,6 @@ export default function GameDetailPage() {
         })));
       }
 
-      // Fetch Play-by-Play with recognized players (Module 2)
       const { data: pbpData2 } = await supabase
         .from('play_by_play')
         .select('*, player:players(name, number)')
@@ -102,6 +105,32 @@ export default function GameDetailPage() {
         .order('timestamp', { ascending: true });
       
       setPbp(pbpData2 || []);
+
+      // Fetch detected players for mapping tab
+      const { data: detectedData } = await supabase
+        .from('play_by_play')
+        .select('jersey_number, team_id')
+        .eq('game_id', gameId)
+        .not('jersey_number', 'is', null);
+      
+      if (detectedData) {
+        const unique = detectedData.reduce((acc: any[], current: any) => {
+          const x = acc.find(item => item.jersey_number === current.jersey_number && item.team_id === current.team_id);
+          if (!x) return acc.concat([current]);
+          return acc;
+        }, []);
+        setDetectedPlayers(unique);
+      }
+
+      // Fetch rosters
+      if (gameData.home_team_id) {
+        const { data: hr } = await supabase.from('players').select('*').eq('team_id', gameData.home_team_id);
+        setHomeRoster(hr || []);
+      }
+      if (gameData.away_team_id) {
+        const { data: ar } = await supabase.from('players').select('*').eq('team_id', gameData.away_team_id);
+        setAwayRoster(ar || []);
+      }
 
       if (gameData?.video_path) {
         const url = await storageService.getSignedUrl(gameData.video_path);
@@ -117,6 +146,29 @@ export default function GameDetailPage() {
   useEffect(() => {
     if (gameId) fetchGameData();
   }, [gameId]);
+
+  const handleUpdateMapping = async (teamId: string, jersey: number, playerId: string) => {
+    const key = `${teamId}-${jersey}`;
+    const newMappings = { ...manualMappings, [key]: playerId };
+    setManualMappings(newMappings);
+
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({
+          processing_metadata: {
+            ...game.processing_metadata,
+            manual_mappings: newMappings
+          }
+        })
+        .eq('id', game.id);
+      
+      if (error) throw error;
+      toast({ title: "Mapping Updated", description: `Jersey #${jersey} linked to rostered player.` });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Update Failed", description: err.message });
+    }
+  };
 
   const handleModularSync = async () => {
     if (!gameId) return;
@@ -137,7 +189,7 @@ export default function GameDetailPage() {
   return (
     <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'} | DribbleStats AI Elite`}>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-700">
-        {/* Module 1: Identity & Mapping Header */}
+        {/* Module Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl shadow-primary/5">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -154,7 +206,7 @@ export default function GameDetailPage() {
           
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="outline" className="bg-background border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all" onClick={() => setIsEditModalOpen(true)}>
-              <Settings2 className="h-4 w-4 mr-2 text-primary" /> MODULE 1: MATCH ROSTER
+              <Settings2 className="h-4 w-4 mr-2 text-primary" /> EDIT GAME METADATA
             </Button>
             
             {isAnalysisComplete && !isSyncComplete && (
@@ -207,12 +259,103 @@ export default function GameDetailPage() {
 
         {/* Module 3, 4, 5 Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-2 md:grid-cols-4 gap-2 mb-8">
+          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-2 mb-8">
+            <TabsTrigger value="recognition" className="data-[state=active]:bg-primary h-12 font-bold transition-all"><Users className="h-4 w-4 mr-2" /> Identity Mapping</TabsTrigger>
             <TabsTrigger value="stats" className="data-[state=active]:bg-primary h-12 font-bold transition-all"><LayoutDashboard className="h-4 w-4 mr-2" /> Box Score</TabsTrigger>
             <TabsTrigger value="shotchart" className="data-[state=active]:bg-primary h-12 font-bold transition-all"><Activity className="h-4 w-4 mr-2" /> Shot Chart</TabsTrigger>
             <TabsTrigger value="pbp" className="data-[state=active]:bg-primary h-12 font-bold transition-all"><History className="h-4 w-4 mr-2" /> Play-by-Play</TabsTrigger>
             <TabsTrigger value="insights" className="data-[state=active]:bg-primary h-12 font-bold transition-all"><Trophy className="h-4 w-4 mr-2" /> Elite Insights</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="recognition">
+            <Card className="bg-card/40 border-white/5 p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h3 className="text-xl font-bold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-primary" /> Player Recognition Overview
+                  </h3>
+                  <p className="text-sm text-muted-foreground">Verify and map detected jersey numbers to your directory rosters.</p>
+                </div>
+                <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono">
+                  {detectedPlayers.length} IDENTITIES DETECTED
+                </Badge>
+              </div>
+
+              <div className="rounded-xl border border-white/5 overflow-hidden bg-background/20">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="border-white/5 hover:bg-transparent">
+                      <TableHead className="w-32 font-bold text-primary">JERSEY</TableHead>
+                      <TableHead className="w-48 font-bold">DETECTED TEAM</TableHead>
+                      <TableHead className="font-bold">MAPPED ROSTER PLAYER</TableHead>
+                      <TableHead className="w-32 text-center font-bold">STATUS</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {detectedPlayers.length > 0 ? detectedPlayers.map((dp, i) => {
+                      const isHome = dp.team_id === game.home_team_id;
+                      const roster = isHome ? homeRoster : awayRoster;
+                      const key = `${dp.team_id}-${dp.jersey_number}`;
+                      const currentMapping = manualMappings[key];
+                      const autoMatch = roster.find(p => p.number === dp.jersey_number);
+                      const isMapped = !!currentMapping || !!autoMatch;
+
+                      return (
+                        <TableRow key={i} className="border-white/5 hover:bg-white/5">
+                          <TableCell className="font-mono text-2xl font-black text-white italic">#{dp.jersey_number}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline" className={cn("font-bold", isHome ? "border-primary/50 text-primary bg-primary/5" : "border-accent/50 text-accent bg-accent/5")}>
+                              {isHome ? 'HOME TEAM' : 'AWAY TEAM'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell>
+                            <Select 
+                              value={currentMapping || autoMatch?.id || ""} 
+                              onValueChange={(val) => handleUpdateMapping(dp.team_id, dp.jersey_number, val)}
+                            >
+                              <SelectTrigger className="w-full max-w-sm bg-muted/20 border-white/10 h-10">
+                                <SelectValue placeholder="Link to Roster Player" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-popover border-border">
+                                {roster.map(p => (
+                                  <SelectItem key={p.id} value={p.id}>
+                                    #{p.number} {p.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {isMapped ? (
+                              <div className="flex items-center justify-center text-emerald-500 gap-1.5 font-bold text-xs">
+                                <CheckCircle2 className="h-4 w-4" /> VERIFIED
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center text-amber-500 gap-1.5 font-bold text-xs">
+                                <AlertCircle className="h-4 w-4" /> UNMATCHED
+                              </div>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    }) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="h-48 text-center">
+                          <div className="max-w-xs mx-auto space-y-2">
+                            <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mx-auto mb-4">
+                              <Lock className="h-6 w-6 text-muted-foreground" />
+                            </div>
+                            <h4 className="font-bold">Identity Recognition Locked</h4>
+                            <p className="text-xs text-muted-foreground">Run Module 2 AI Analysis to detect jersey identities from video.</p>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="stats">
             {isSyncComplete ? (
