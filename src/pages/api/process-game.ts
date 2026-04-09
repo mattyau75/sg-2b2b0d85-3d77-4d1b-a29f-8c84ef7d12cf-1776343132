@@ -10,10 +10,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
   const bucketName = process.env.R2_BUCKET_NAME;
 
+  if (!bucketName) {
+    return res.status(500).json({ message: "R2_BUCKET_NAME is not defined in environment variables" });
+  }
+
   // Sanitize videoPath: remove leading slash if present
   const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
 
   console.log(`[ProcessGame] Starting analysis for Game: ${gameId}`);
+  console.log(`[ProcessGame] Path: ${sanitizedPath}, Bucket: ${bucketName}`);
   
   try {
     // 1. VERIFY FILE EXISTS IN R2
