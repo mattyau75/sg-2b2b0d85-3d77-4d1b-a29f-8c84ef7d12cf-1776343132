@@ -7,17 +7,17 @@ export interface PlayerStats {
   name: string;
   number: number;
   points: number;
-  fgm: number;
-  fga: number;
-  three_pm: number;
-  three_pa: number;
-  ftm: number;
-  fta: number;
-  ast: number;
-  reb: number;
-  stl: number;
-  blk: number;
-  to: number;
+  fg_made: number;
+  fg_attempted: number;
+  three_made: number;
+  three_attempted: number;
+  ft_made: number;
+  ft_attempted: number;
+  assists: number;
+  rebounds: number;
+  steals: number;
+  blocks: number;
+  turnovers: number;
 }
 
 export function calculateBoxScore(events: any[], players: any[]): PlayerStats[] {
@@ -30,17 +30,17 @@ export function calculateBoxScore(events: any[], players: any[]): PlayerStats[] 
       name: p.name,
       number: p.number,
       points: 0,
-      fgm: 0,
-      fga: 0,
-      three_pm: 0,
-      three_pa: 0,
-      ftm: 0,
-      fta: 0,
-      ast: 0,
-      reb: 0,
-      stl: 0,
-      blk: 0,
-      to: 0
+      fg_made: 0,
+      fg_attempted: 0,
+      three_made: 0,
+      three_attempted: 0,
+      ft_made: 0,
+      ft_attempted: 0,
+      assists: 0,
+      rebounds: 0,
+      steals: 0,
+      blocks: 0,
+      turnovers: 0
     };
   });
 
@@ -54,35 +54,35 @@ export function calculateBoxScore(events: any[], players: any[]): PlayerStats[] 
     if (event.is_make) {
       if (type?.includes('3PT')) {
         p.points += 3;
-        p.three_pm += 1;
-        p.three_pa += 1;
-        p.fgm += 1;
-        p.fga += 1;
+        p.three_made += 1;
+        p.three_attempted += 1;
+        p.fg_made += 1;
+        p.fg_attempted += 1;
       } else if (type?.includes('FT')) {
         p.points += 1;
-        p.ftm += 1;
-        p.fta += 1;
+        p.ft_made += 1;
+        p.ft_attempted += 1;
       } else {
         p.points += 2;
-        p.fgm += 1;
-        p.fga += 1;
+        p.fg_made += 1;
+        p.fg_attempted += 1;
       }
     } else {
       if (type?.includes('3PT')) {
-        p.three_pa += 1;
-        p.fga += 1;
+        p.three_attempted += 1;
+        p.fg_attempted += 1;
       } else if (type?.includes('FT')) {
-        p.fta += 1;
+        p.ft_attempted += 1;
       } else if (type?.includes('SHOT') || type?.includes('2PT')) {
-        p.fga += 1;
+        p.fg_attempted += 1;
       }
     }
     
-    if (type?.includes('ASSIST')) p.ast += 1;
-    if (type?.includes('REBOUND')) p.reb += 1;
-    if (type?.includes('STEAL')) p.stl += 1;
-    if (type?.includes('BLOCK')) p.blk += 1;
-    if (type?.includes('TURNOVER')) p.to += 1;
+    if (type?.includes('ASSIST')) p.assists += 1;
+    if (type?.includes('REBOUND')) p.rebounds += 1;
+    if (type?.includes('STEAL')) p.steals += 1;
+    if (type?.includes('BLOCK')) p.blocks += 1;
+    if (type?.includes('TURNOVER')) p.turnovers += 1;
   });
 
   return Object.values(statsMap).sort((a, b) => b.points - a.points);

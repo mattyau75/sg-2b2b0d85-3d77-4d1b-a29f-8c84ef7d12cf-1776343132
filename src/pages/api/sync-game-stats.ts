@@ -53,7 +53,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // If missing player_id, resolve using jersey number and team context
       if (!playerId && event.jersey_number !== null) {
-        // Use AI team_type or description fallback
         const teamType = (event as any).team_type || (event.description?.toLowerCase().includes('home') ? 'home' : 'away');
         const resolvedTeamId = teamType === 'home' ? game.home_team_id : game.away_team_id;
         
@@ -63,7 +62,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Update the event record with directory identity
       if (playerId || teamId) {
         await supabase.from("play_by_play").update({ 
           player_id: playerId,
@@ -71,7 +69,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }).eq("id", event.id);
       }
 
-      // 3. SCORE CALCULATION (Module 3)
       if (event.is_make) {
         const pts = event.event_type?.toUpperCase().includes('3PT') ? 3 : (event.event_type?.toUpperCase().includes('FT') ? 1 : 2);
         if (teamId === game.home_team_id) homeScore += pts;
@@ -94,13 +91,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         assists: s.assists,
         steals: s.steals,
         blocks: s.blocks,
-        turnovers: s.to,
-        fg_made: s.fgm,
-        fg_attempted: s.fga,
-        three_made: s.three_pm,
-        three_attempted: s.three_pa,
-        ft_made: s.ftm,
-        ft_attempted: s.fta
+        turnovers: s.turnovers,
+        fg_made: s.fg_made,
+        fg_attempted: s.fg_attempted,
+        three_made: s.three_made,
+        three_attempted: s.three_attempted,
+        ft_made: s.ft_made,
+        ft_attempted: s.ft_attempted
       }));
       await supabase.from('player_game_stats').upsert(statsToUpsert, { onConflict: 'game_id,player_id' });
     }
@@ -111,10 +108,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: 'completed'
     }).eq("id", gameId);
 
-    console.log(`[Modular Sync] Finished. Final Score: ${homeScore}-${awayScore}`);
     return res.status(200).json({ success: true, homeScore, awayScore });
   } catch (error: any) {
-    console.error("[Modular Sync Error]", error.message);
     return res.status(500).json({ message: error.message });
   }
 }
