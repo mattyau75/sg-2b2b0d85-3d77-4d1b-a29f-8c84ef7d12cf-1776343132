@@ -86,5 +86,16 @@ export const storageService = {
   async getSignedUrl(path: string): Promise<string> {
     const { data } = await axios.get(`/api/storage/signed-url?path=${encodeURIComponent(path)}`);
     return data.url;
+  },
+
+  async processGame(data: any) {
+    try {
+      console.log(`[StorageService] Triggering GPU analysis for Game: ${data.gameId}`);
+      const response = await axios.post("/api/process-game", data);
+      return response.data;
+    } catch (error: any) {
+      console.error("[StorageService] Process Game Failed:", error.response?.data || error.message);
+      throw new Error(error.response?.data?.message || "Failed to secure access to R2 video file.");
+    }
   }
 };
