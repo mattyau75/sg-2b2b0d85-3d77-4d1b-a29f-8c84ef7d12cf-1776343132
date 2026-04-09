@@ -51,9 +51,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const playerStats: Record<string, any> = {};
 
     for (const event of events) {
-      // Determine the team for this event if not explicit
-      // AI usually tags 'home' or 'away' in metadata/team_type
-      const teamId = event.team_id || (event.team_type === 'home' ? game.home_team_id : game.away_team_id);
+      // Access team_type from metadata if it exists, otherwise fallback to team_id
+      // We use casting here because the database type might not have been refreshed yet
+      const metadata = (event as any).metadata || {};
+      const teamType = (event as any).team_type || metadata.team_type;
+      
+      const teamId = event.team_id || (teamType === 'home' ? game.home_team_id : game.away_team_id);
       
       let playerId = event.player_id;
       if (!playerId && event.jersey_number !== null && teamId) {
@@ -82,8 +85,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           };
         }
         const s = playerStats[playerId];
-        if (pts > 0) { s.points += pts; s.fg_made += 1; s.fg_attempted += 1; }
-        else if (event.event_type?.includes("missed")) { s.fg_attempted += 1; }
+        if (pts > 0) { 
+          s.points += pts; 
+          s.fg_made += 1; 
+          s.fg_attempted += 1; 
+        } else if (event.event_type?.includes("missed")) { 
+          s.fg_attempted += 1; 
+        }
+        
         if (event.event_type === "rebound") s.rebounds += 1;
         if (event.event_type === "assist") s.assists += 1;
       }
