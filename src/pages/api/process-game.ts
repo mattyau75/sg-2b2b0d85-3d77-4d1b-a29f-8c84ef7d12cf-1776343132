@@ -2,7 +2,8 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { r2Client } from "@/lib/r2Client";
 import { modalService } from "@/services/modalService";
-import { HeadObjectCommand } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
@@ -15,77 +16,54 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error("R2_BUCKET_NAME environment variable is missing");
     }
 
-    // Sanitize videoPath: remove leading slash if present
+    // 1. SANITIZE & VERIFY FILE
     const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
-
-    console.log(`[ProcessGame] Starting analysis for Game: ${gameId}`);
-    console.log("[ProcessGame] Triggering analysis with metadata:", {
-      gameId,
-      homeTeam: homeTeamId,
-      awayTeam: awayTeamId,
-      homeColor,
-      awayColor,
-      videoPath
-    });
-
-    if (!videoPath) {
-      console.error("[ProcessGame] Missing videoPath in request body");
-      return res.status(400).json({ message: "Missing video path" });
-    }
     
-    // 1. VERIFY FILE EXISTS IN R2
-    let fileFound = false;
-    let lastR2Error = null;
-
-    for (let i = 0; i < 5; i++) {
-      try {
-        await r2Client.send(new HeadObjectCommand({
-          Bucket: bucketName,
-          Key: sanitizedPath,
-        }));
-        fileFound = true;
-        break;
-      } catch (e: any) {
-        lastR2Error = { name: e.name, message: e.message };
-        await new Promise(resolve => setTimeout(resolve, 3000));
-      }
+    try {
+      await r2Client.send(new HeadObjectCommand({
+        Bucket: bucketName,
+        Key: sanitizedPath,
+      }));
+    } catch (e: any) {
+      return res.status(404).json({ message: "Video file not found in storage", path: sanitizedPath });
     }
 
-    if (!fileFound) {
-      return res.status(500).json({ 
-        message: "R2 Verification Failed", 
-        details: lastR2Error,
-        path: sanitizedPath
-      });
-    }
+    // 2. GENERATE PERSISTENT SIGNED URL (24H)
+    const getCommand = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: sanitizedPath,
+    });
+    const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
-    // 2. TRIGGER GPU ANALYSIS
+    // 3. FETCH ROSTERS FOR DEEP RECOGNITION
+    const [{ data: homeRoster }, { data: awayRoster }] = await Promise.all([
+      supabase.from('players').select('name, number').eq('team_id', homeTeamId),
+      supabase.from('players').select('name, number').eq('team_id', awayTeamId)
+    ]);
+
+    // 4. TRIGGER GPU CLUSTER
     const gpuConfig = {
       gameId,
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
-      home_team_color: homeColor || "#FFFFFF",
-      away_team_color: awayColor || "#0B0F19",
-      is_heavy_file: true,
-      adaptive_sampling: true,
-      gpu_tier: "A100",
-      scouting_mode: "deep_recognition", // Modular Scouting Phase
-      roster_sync: true // Flag to tell GPU to pull jersey #s from directory
+      homeColor,
+      awayColor,
+      home_roster: homeRoster || [],
+      away_roster: awayRoster || [],
+      scouting_mode: "deep_recognition",
+      roster_sync: true
     };
 
-    await modalService.processGame(sanitizedPath, gpuConfig);
+    console.log(`[ProcessGame] Handing off to GPU Swarm for ${gameId}`);
+    await modalService.processGame(signedUrl, gpuConfig);
 
-    // 3. UPDATE DB
+    // 5. UPDATE DB STATUS
     await supabase.from('games').update({ status: 'processing' }).eq('id', gameId);
 
-    return res.status(200).json({ success: true, message: "Analysis started" });
+    return res.status(200).json({ success: true, message: "AI Mapping Started" });
 
   } catch (error: any) {
-    console.error("[ProcessGame] Critical Failure:", error.message);
-    return res.status(500).json({ 
-      message: "Internal Processing Error", 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    });
+    console.error("[ProcessGame] Crash:", error.message);
+    return res.status(500).json({ message: error.message });
   }
 }

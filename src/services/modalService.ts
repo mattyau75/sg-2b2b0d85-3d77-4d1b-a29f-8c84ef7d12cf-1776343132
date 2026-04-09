@@ -24,16 +24,20 @@ export const modalService = {
   /**
    * Server-side: Directly triggers the Modal.com GPU cluster
    */
-  processGame: async (videoPath: string, config: any) => {
+  processGame: async (signedUrl: string, config: any) => {
     try {
-      // Use the 'run' endpoint which triggers the self-provisioning worker
       const modalEndpoint = process.env.MODAL_WEBHOOK_URL;
+      if (!modalEndpoint) throw new Error("MODAL_WEBHOOK_URL is not configured");
       
-      const response = await axios.post(modalEndpoint!, {
-        video_url: videoPath,
+      const response = await axios.post(modalEndpoint, {
+        video_url: signedUrl,
         game_id: config.gameId,
+        home_team: config.home_team_id,
+        away_team: config.away_team_id,
         home_color: config.homeColor || "#FFFFFF",
         away_color: config.awayColor || "#0B0F19",
+        home_roster: config.home_roster || [],
+        away_roster: config.away_roster || [],
         config: {
           ...config,
           temporal_tracking: true,

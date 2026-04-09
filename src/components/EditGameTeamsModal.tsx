@@ -160,8 +160,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           homeTeamId,
           awayTeamId,
           homeColor,
-          awayColor,
-          config: { scouting_mode: "deep_recognition", roster_sync: true }
+          awayColor
         });
         toast({ title: "GPU Engine Restarted", description: "Modular scouting active with calibrated colors." });
       } else {
