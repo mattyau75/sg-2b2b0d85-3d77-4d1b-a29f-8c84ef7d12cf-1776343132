@@ -99,30 +99,40 @@ export default function AnalysisQueuePage() {
   const handleRetry = async (id: string) => {
     setIsRefreshing(true);
     try {
-      // 1. Fetch game data to get teams and colors
+      // 1. Fetch game data with robust team relation mapping
       const { data: game, error: fetchError } = await supabase
         .from('games')
-        .select('*, home_team:teams!games_home_team_id_fkey(*), away_team:teams!games_away_team_id_fkey(*)')
+        .select(`
+          *,
+          home_team:teams!games_home_team_id_fkey(id, name),
+          away_team:teams!games_away_team_id_fkey(id, name)
+        `)
         .eq('id', id)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError || !game) throw fetchError || new Error("Game not found");
 
-      // 2. Trigger the GPU analysis API again
-      await axios.post("/api/process-game", { 
+      // 2. Trigger the GPU analysis API with safe fallbacks
+      const payload = { 
         gameId: id,
         videoPath: game.video_path,
-        homeTeam: game.home_team.name,
-        awayTeam: game.away_team.name,
+        homeTeam: game.home_team?.name || "Home Team",
+        awayTeam: game.away_team?.name || "Away Team",
         homeColor: game.detected_home_color || "#FFFFFF",
         awayColor: game.detected_away_color || "#0B0F19",
         settings: {
           inference_mode: "high_accuracy",
           temporal_tracking: true
         }
-      });
+      };
 
-      toast({ title: "Analysis Re-triggered", description: "The GPU has been re-engaged for this game." });
+      console.log("[Queue] Re-triggering with payload:", payload);
+      await axios.post("/api/process-game", payload);
+
+      toast({ 
+        title: "Analysis Re-triggered", 
+        description: `GPU re-engaged for ${payload.homeTeam} vs ${payload.awayTeam}.` 
+      });
       fetchJobs();
     } catch (err: any) {
       console.error("[Queue] Retry failed:", err);
