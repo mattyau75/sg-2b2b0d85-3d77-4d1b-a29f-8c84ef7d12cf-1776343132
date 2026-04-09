@@ -92,7 +92,7 @@ export default function AnalyticsPage() {
   const hasData = stats.length > 0;
 
   return (
-    <Layout title="Analytics | CourtVision Elite" description="Advanced basketball performance metrics and trends.">
+    <Layout title="Analytics | DribbleStats AI Elite" description="Advanced basketball performance metrics and trends.">
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">

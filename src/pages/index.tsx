@@ -151,7 +151,7 @@ export default function Home() {
   };
 
   return (
-    <Layout title="Dashboard | CourtVision Elite">
+    <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8">
         {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">

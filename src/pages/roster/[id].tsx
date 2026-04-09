@@ -149,7 +149,7 @@ export default function TeamRoster() {
   }
 
   return (
-    <Layout title={`${team.name} Roster | CourtVision Elite`}>
+    <Layout title={`${team.name} Roster | DribbleStats AI Elite`}>
       <div className="space-y-8">
         {/* Header */}
         <div className="flex flex-col gap-6">

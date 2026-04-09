@@ -172,7 +172,7 @@ export default function AnalysisQueuePage() {
   const finishedJobs = jobs.filter((j) => j.status === 'completed' || j.status === 'error');
 
   return (
-    <Layout title="Analysis Queue | CourtVision Elite">
+    <Layout title="Analysis Queue | DribbleStats AI Elite">
       <div className="space-y-8 pb-10">
         <div className="flex flex-col gap-2">
           <h1 className="text-4xl font-bold tracking-tight">Processing Queue</h1>

@@ -65,7 +65,7 @@ export default function HighlightsPage() {
   });
 
   return (
-    <Layout title="Game Highlights | CourtVision Elite">
+    <Layout title="Game Highlights | DribbleStats AI Elite">
       <div className="space-y-8 pb-10">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
           <div className="space-y-2">

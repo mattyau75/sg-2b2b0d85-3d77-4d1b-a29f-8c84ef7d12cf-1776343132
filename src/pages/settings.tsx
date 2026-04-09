@@ -78,7 +78,7 @@ export default function SettingsPage() {
   ];
 
   return (
-    <Layout title="Settings | CourtVision Elite">
+    <Layout title="Settings | DribbleStats AI Elite">
       <div className="space-y-8 max-w-5xl">
         <div className="space-y-2">
           <h1 className="text-4xl font-bold flex items-center gap-3">
