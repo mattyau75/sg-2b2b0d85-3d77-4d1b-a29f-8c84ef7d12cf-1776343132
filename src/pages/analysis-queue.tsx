@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUploads } from "@/contexts/UploadContext";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import axios from "axios";
 
 const STATUS_CONFIG: Record<string, {label: string;color: string;progress: number;}> = {
   'queued': { label: 'In Queue', color: 'text-primary', progress: 15 },
@@ -95,13 +96,38 @@ export default function AnalysisQueuePage() {
   }, []);
 
   const handleRetry = async (id: string) => {
+    setIsRefreshing(true);
     try {
-      const { error } = await supabase.from('games').update({ status: 'queued' }).eq('id', id);
-      if (error) throw error;
-      toast({ title: "Analysis Restarted", description: "The job has been re-added to the queue." });
-      fetchJobs(); // Refresh the list
+      // 1. Fetch game data to get teams and colors
+      const { data: game, error: fetchError } = await supabase
+        .from('games')
+        .select('*, home_team:teams!games_home_team_id_fkey(*), away_team:teams!games_away_team_id_fkey(*)')
+        .eq('id', id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // 2. Trigger the GPU analysis API again
+      await axios.post("/api/process-game", { 
+        gameId: id,
+        videoPath: game.video_path,
+        homeTeam: game.home_team.name,
+        awayTeam: game.away_team.name,
+        homeColor: game.detected_home_color || "#FFFFFF",
+        awayColor: game.detected_away_color || "#0B0F19",
+        settings: {
+          inference_mode: "high_accuracy",
+          temporal_tracking: true
+        }
+      });
+
+      toast({ title: "Analysis Re-triggered", description: "The GPU has been re-engaged for this game." });
+      fetchJobs();
     } catch (err: any) {
-      toast({ title: "Retry Failed", description: err.message, variant: "destructive" });
+      console.error("[Queue] Retry failed:", err);
+      toast({ title: "Re-trigger Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
