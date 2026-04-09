@@ -1,6 +1,6 @@
 ---
 title: Analysis Cancellation System
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [ux, performance]
@@ -17,3 +17,5 @@ Allow users to terminate active 8GB+ uploads and GPU analysis jobs to save resou
 - [x] Update UploadContext.tsx to expose a cancelUpload method
 - [x] Add "Cancel Upload" button to analysis-queue.tsx
 - [x] Implement GPU job termination in modalService.ts (if API supports it)
+- [x] Fix 500 error in process-game.ts GPU handoff
+- [x] Verify end-to-end upload → GPU pipeline flow
