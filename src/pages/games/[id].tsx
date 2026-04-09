@@ -148,7 +148,7 @@ export default function GameDetailPage() {
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground font-mono">
               <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4 text-primary" /> {game?.date ? new Date(game.date).toLocaleDateString() : 'Date'}</span>
-              <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-accent" /> {game?.location || 'DribbleStats Stadium'}</span>
+              <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-accent" /> {game?.venue || 'DribbleStats Stadium'}</span>
             </div>
           </div>
           

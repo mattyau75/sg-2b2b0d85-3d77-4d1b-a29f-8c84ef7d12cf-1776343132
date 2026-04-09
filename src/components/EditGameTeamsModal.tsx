@@ -33,7 +33,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [homeColor, setHomeColor] = useState("#FFFFFF");
   const [awayColor, setAwayColor] = useState("#0B0F19");
   const [gameDate, setGameDate] = useState<Date | undefined>(undefined);
-  const [location, setLocation] = useState("");
+  const [venue, setVenue] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -44,7 +44,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       setHomeColor(game.home_team_color || "#FFFFFF");
       setAwayColor(game.away_team_color || "#0B0F19");
       setGameDate(game.date ? new Date(game.date) : new Date());
-      setLocation(game.location || "DribbleStats Stadium");
+      setVenue(game.venue || "DribbleStats Stadium");
     }
   }, [game, isOpen]);
 
@@ -69,8 +69,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           away_team_id: awayTeamId,
           home_team_color: homeColor,
           away_team_color: awayColor,
-          date: gameDate ? format(gameDate, 'yyyy-MM-dd') : null,
-          location: location,
+          date: gameDate ? gameDate.toISOString() : null,
+          venue: venue,
           status: reAnalyze ? 'pending' : game.status
         })
         .eq('id', game.id);
@@ -114,8 +114,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           <div className="space-y-2">
             <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Game Venue</Label>
             <Input 
-              value={location} 
-              onChange={(e) => setLocation(e.target.value)}
+              value={venue} 
+              onChange={(e) => setVenue(e.target.value)}
               placeholder="e.g. DribbleStats Stadium"
               className="bg-muted/20 border-border h-11"
             />
