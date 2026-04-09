@@ -246,9 +246,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent 
-                  className="w-auto p-0 bg-popover border-border z-[110]" 
+                  className="w-auto p-0 bg-popover border-border z-[150]" 
                   align="start"
-                  onFocusOutside={(e) => e.preventDefault()}
+                  side="bottom"
+                  onInteractOutside={(e) => e.preventDefault()}
                 >
                   <Calendar 
                     mode="single" 
@@ -257,8 +258,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                       if (date) {
                         setGameDate(date);
                       }
-                    }} 
-                    initialFocus 
+                    }}
                     className="rounded-md border-none" 
                   />
                 </PopoverContent>
