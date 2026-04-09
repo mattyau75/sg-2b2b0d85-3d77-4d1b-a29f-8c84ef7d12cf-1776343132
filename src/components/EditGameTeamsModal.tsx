@@ -245,7 +245,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
             </div>
             <div className="space-y-2">
               <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Game Date</Label>
-              <Popover>
+              <Popover modal={true}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-muted/20 border-border h-10 text-sm", !gameDate && "text-muted-foreground")}>
                     <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
@@ -253,7 +253,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent 
-                  className="w-auto p-0 bg-popover border-border z-[150]" 
+                  className="w-auto p-0 bg-popover border-border z-[200] shadow-2xl pointer-events-auto" 
                   align="start"
                   side="bottom"
                   onInteractOutside={(e) => e.preventDefault()}
