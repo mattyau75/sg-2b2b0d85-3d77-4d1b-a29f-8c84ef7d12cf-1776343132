@@ -273,6 +273,13 @@ export default function GameDetailPage() {
           </CardContent>
         </Card>
 
+        {/* Video Player Section */}
+        {videoUrl && (
+          <div className="w-full">
+            <VideoPlayer url={videoUrl} className="w-full shadow-2xl border border-border/50" />
+          </div>
+        )}
+
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="bg-card/30 border border-border mb-6 p-1 h-auto grid grid-cols-2 md:grid-cols-5 gap-1">
             <TabsTrigger value="boxscore" className="gap-2"><LayoutGrid className="h-4 w-4" /> Boxscore</TabsTrigger>
