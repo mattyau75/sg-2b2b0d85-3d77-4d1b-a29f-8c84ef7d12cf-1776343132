@@ -49,6 +49,8 @@ import torch
 from typing import List, Dict, Any
 import time
 from typing import Generator
+import boto3
+from botocore.config import Config
 
 import modal
 
@@ -259,6 +261,7 @@ volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
     image=cuda_image,
     gpu="A100",
     volumes={"/models": volume},
+    secret=modal.Secret.from_name("courtvision-r2-keys"), # Ensure keys are in secrets
     timeout=3600
 )
 def run_analysis(video_url: str, config: dict):

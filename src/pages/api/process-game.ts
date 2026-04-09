@@ -19,6 +19,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
 
     console.log(`[ProcessGame] Starting analysis for Game: ${gameId}`);
+    console.log("[ProcessGame] Triggering analysis with metadata:", {
+      gameId,
+      homeTeam: homeTeamId,
+      awayTeam: awayTeamId,
+      homeColor,
+      awayColor,
+      videoPath
+    });
+
+    if (!videoPath) {
+      return res.status(400).json({ message: "Missing video path" });
+    }
     
     // 1. VERIFY FILE EXISTS IN R2
     let fileFound = false;
