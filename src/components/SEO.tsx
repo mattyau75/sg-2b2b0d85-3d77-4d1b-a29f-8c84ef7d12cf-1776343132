@@ -9,7 +9,7 @@ interface SEOProps {
 
 // SEO elements that can be used in _document.tsx (returns JSX without Head wrapper)
 export function SEOElements({
-  title = "CourtVision Elite | Advanced Basketball Analytics",
+  title = "DribbleStats AI Elite | Advanced Basketball Analytics",
   description = "High-performance scouting and computer-vision powered game analysis.",
   image = "/og-image.png",
   url,
@@ -39,7 +39,7 @@ export function SEOElements({
 // SEO component for use in pages/_app.tsx or individual pages (uses next/head)
 // Note: Flattened structure (no fragment) for better Next.js Head compatibility during hot reload
 export function SEO({
-  title = "CourtVision Elite | Advanced Basketball Analytics",
+  title = "DribbleStats AI Elite | Advanced Basketball Analytics",
   description = "High-performance scouting and computer-vision powered game analysis.",
   image = "/og-image.png",
   url,

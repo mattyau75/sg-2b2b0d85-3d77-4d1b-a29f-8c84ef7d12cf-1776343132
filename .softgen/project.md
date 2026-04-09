@@ -1,4 +1,4 @@
-# CourtVision Elite
+# DribbleStats AI Elite
 
 **Vision:** A high-performance basketball scouting and analytics platform for professional-grade game analysis.
 **Target User:** Coaches, Scouts, and Data-Driven Fans.

@@ -97,7 +97,7 @@ export default function HelpPage() {
             System Documentation
           </Badge>
           <h1 className="text-4xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
-            CourtVision Elite Guide
+            DribbleStats AI Elite Guide
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl">
             Learn how the modular scouting system transforms raw video into professional-grade analytics.
