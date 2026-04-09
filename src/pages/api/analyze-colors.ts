@@ -21,7 +21,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ 
       success: true, 
       message: "Visual calibration started. Identifying jersey colors...",
-      suggestedColors: ["#FFFFFF", "#008000"] // Placeholder: White and Green
+      colors: ["#FFFFFF", "#0B0F19"] // Updated: White and Navy Blue
     });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
