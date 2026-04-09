@@ -19,6 +19,7 @@ import { rosterService } from "@/services/rosterService";
 import { useUploads } from "@/contexts/UploadContext";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
+import axios from "axios";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -84,12 +85,26 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
   const startColorAnalysis = async (file: File) => {
     setAnalyzingColors(true);
     setCalibrationStep("calibrate");
-    // In a real flow, we'd upload a 10s chunk first, but here we'll simulate 
-    // the GPU identifying the primary jersey colors from the stream.
-    setTimeout(() => {
-      setDetectedColors(["#FFFFFF", "#008000"]); // Simulated: White and Green
+    
+    try {
+      // Trigger the real color analysis API
+      const response = await axios.post("/api/analyze-colors", { 
+        videoPath: file.name, // In a real flow, this would be the uploaded temp path
+        gameId: "pending" 
+      });
+      
+      if (response.data.colors && response.data.colors.length > 0) {
+        setDetectedColors(response.data.colors);
+      } else {
+        // Fallback if AI fails to find distinct clusters
+        setDetectedColors(["#FFFFFF", "#0B0F19"]); // Default to White and Navy
+      }
+    } catch (error) {
+      console.error("Color analysis failed, using defaults", error);
+      setDetectedColors(["#FFFFFF", "#0B0F19"]); 
+    } finally {
       setAnalyzingColors(false);
-    }, 3000);
+    }
   };
 
   const handleProcess = async () => {
@@ -258,35 +273,53 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
                 <div className="grid grid-cols-2 gap-8">
                   <div className="space-y-4 p-6 rounded-2xl bg-muted/5 border border-border/50 text-center">
                     <Badge variant="outline" className="mb-2">HOME: {formData.homeTeamData?.name}</Badge>
-                    <div className="flex justify-center gap-4">
-                      {detectedColors.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setFormData({...formData, homeColor: color})}
-                          className={cn(
-                            "h-16 w-16 rounded-full border-2 transition-all",
-                            formData.homeColor === color ? "border-primary scale-110 shadow-lg shadow-primary/20" : "border-transparent opacity-40 hover:opacity-100"
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex justify-center gap-4">
+                        {detectedColors.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setFormData({...formData, homeColor: color})}
+                            className={cn(
+                              "h-16 w-16 rounded-full border-2 transition-all",
+                              formData.homeColor === color ? "border-primary scale-110 shadow-lg shadow-primary/20" : "border-transparent opacity-40 hover:opacity-100"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <input 
+                        type="color" 
+                        value={formData.homeColor || "#FFFFFF"} 
+                        onChange={(e) => setFormData({...formData, homeColor: e.target.value})}
+                        className="h-8 w-16 bg-transparent border-none cursor-pointer"
+                        title="Manual color adjustment"
+                      />
                     </div>
                   </div>
 
                   <div className="space-y-4 p-6 rounded-2xl bg-muted/5 border border-border/50 text-center">
                     <Badge variant="outline" className="mb-2">AWAY: {formData.awayTeamData?.name}</Badge>
-                    <div className="flex justify-center gap-4">
-                      {detectedColors.map(color => (
-                        <button
-                          key={color}
-                          onClick={() => setFormData({...formData, awayColor: color})}
-                          className={cn(
-                            "h-16 w-16 rounded-full border-2 transition-all",
-                            formData.awayColor === color ? "border-accent scale-110 shadow-lg shadow-accent/20" : "border-transparent opacity-40 hover:opacity-100"
-                          )}
-                          style={{ backgroundColor: color }}
-                        />
-                      ))}
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex justify-center gap-4">
+                        {detectedColors.map(color => (
+                          <button
+                            key={color}
+                            onClick={() => setFormData({...formData, awayColor: color})}
+                            className={cn(
+                              "h-16 w-16 rounded-full border-2 transition-all",
+                              formData.awayColor === color ? "border-accent scale-110 shadow-lg shadow-accent/20" : "border-transparent opacity-40 hover:opacity-100"
+                            )}
+                            style={{ backgroundColor: color }}
+                          />
+                        ))}
+                      </div>
+                      <input 
+                        type="color" 
+                        value={formData.awayColor || "#0B0F19"} 
+                        onChange={(e) => setFormData({...formData, awayColor: e.target.value})}
+                        className="h-8 w-16 bg-transparent border-none cursor-pointer"
+                        title="Manual color adjustment"
+                      />
                     </div>
                   </div>
                 </div>
