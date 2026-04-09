@@ -43,6 +43,10 @@ import sys
 import tempfile
 from pathlib import Path
 import math
+import cv2
+import numpy as np
+import torch
+from typing import List, Dict, Any
 
 import modal
 
@@ -203,3 +207,33 @@ def analyze(item: dict):
         yield json.dumps({"__result": final_result}) + "\n"
 
     return StreamingResponse(orchestrate(), media_type="text/plain")
+
+class PlayerTracker:
+    """ByteTrack-inspired tracker to maintain ID consistency during pans."""
+    def __init__(self, det_thresh=0.4, track_thresh=0.3, match_thresh=0.7, frame_rate=30):
+        self.det_thresh = det_thresh
+        self.track_thresh = track_thresh
+        self.match_thresh = match_thresh
+        self.frame_rate = frame_rate
+        self.tracks = {} # ID -> {bbox, color, last_frame, velocity}
+        self.next_id = 0
+
+    def update(self, detections, frame_id):
+        """Update tracks with new detections."""
+        # 1. Prediction (Kalman-lite)
+        for tid in list(self.tracks.keys()):
+            track = self.tracks[tid]
+            # Simple linear prediction for motion during pans
+            if 'velocity' in track:
+                track['bbox'][0] += track['velocity'][0]
+                track['bbox'][1] += track['velocity'][1]
+            
+            # Remove stale tracks
+            if frame_id - track['last_frame'] > self.frame_rate * 2: # 2 seconds
+                del self.tracks[tid]
+
+        # 2. Matching (IOU + Color)
+        # Simplified for worker integration:
+        # Match detections to tracks based on IOU and color consistency
+        ... 
+        return matched_detections
