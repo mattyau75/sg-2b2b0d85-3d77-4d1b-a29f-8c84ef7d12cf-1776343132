@@ -135,7 +135,7 @@ export default function GameDetailPage() {
   if (loading) return <Layout><div className="flex items-center justify-center min-h-[60vh]"><RefreshCw className="h-8 w-8 animate-spin text-primary" /></div></Layout>;
 
   return (
-    <Layout>
+    <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'} | DribbleStats AI Elite`}>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-700">
         {/* Module 1: Identity & Mapping Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl shadow-primary/5">
