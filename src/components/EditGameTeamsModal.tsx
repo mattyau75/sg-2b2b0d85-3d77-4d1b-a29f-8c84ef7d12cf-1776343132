@@ -17,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import axios from "axios";
 
 interface EditGameTeamsModalProps {
   game: any;
@@ -53,52 +54,48 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
     if (isOpen) fetchTeams();
   }, [isOpen]);
 
-  const handleSave = async (reanalyze = false) => {
-    if (!homeTeamId || !awayTeamId) {
-      toast({ title: "Validation Error", description: "Please select both teams.", variant: "destructive" });
-      return;
-    }
-
+  const handleSave = async (reAnalyze = false) => {
+    if (!game?.id) return;
     setLoading(true);
+
     try {
-      const { error } = await supabase
+      // 1. Lock in the metadata in the database
+      const { error: updateError } = await supabase
         .from('games')
         .update({
           home_team_id: homeTeamId,
           away_team_id: awayTeamId,
           home_team_color: homeColor,
           away_team_color: awayColor,
-          date: gameDate?.toISOString(),
-          status: reanalyze ? 'processing' : (game.status || 'completed')
+          date: gameDate ? format(gameDate, 'yyyy-MM-dd') : null,
+          status: reAnalyze ? 'pending' : game.status
         })
         .eq('id', game.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      if (reanalyze) {
-        const response = await fetch('/api/process-game', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            gameId: game.id,
-            videoPath: game.video_path,
-            homeTeamId,
-            awayTeamId,
-            homeColor,
-            awayColor
-          }),
+      // 2. If re-analyzing, trigger the modular scouting pipeline
+      if (reAnalyze) {
+        await axios.post("/api/process-game", {
+          gameId: game.id,
+          homeTeamId,
+          awayTeamId,
+          homeColor,
+          awayColor,
+          config: {
+            scouting_mode: "deep_recognition",
+            roster_sync: true
+          }
         });
-        
-        if (!response.ok) throw new Error("Failed to trigger re-analysis");
-        toast({ title: "Analysis Restarted", description: "GPU is now re-analyzing with updated roster data." });
+        toast({ title: "GPU Engine Restarted", description: "Modular scouting active with new roster mapping." });
       } else {
-        toast({ title: "Success", description: "Game metadata updated successfully." });
+        toast({ title: "Metadata Updated", description: "Game details and team rosters have been linked." });
       }
 
       onUpdated();
       onClose();
-    } catch (err: any) {
-      toast({ title: "Update Failed", description: err.message, variant: "destructive" });
+    } catch (error: any) {
+      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }

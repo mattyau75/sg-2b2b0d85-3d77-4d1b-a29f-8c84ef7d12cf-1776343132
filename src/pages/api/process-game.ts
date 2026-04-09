@@ -68,7 +68,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       is_heavy_file: true,
       adaptive_sampling: true,
       gpu_tier: "A100",
-      scouting_mode: "deep_recognition" // NEW: Force AI to prioritize roster matching
+      scouting_mode: "deep_recognition", // Modular Scouting Phase
+      roster_sync: true // Flag to tell GPU to pull jersey #s from directory
     };
 
     await modalService.processGame(sanitizedPath, gpuConfig);
