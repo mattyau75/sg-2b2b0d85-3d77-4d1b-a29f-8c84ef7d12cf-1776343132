@@ -50,9 +50,12 @@ from typing import List, Dict, Any
 
 import modal
 
+# Define persistent storage for models to avoid Roboflow/Ultralytics download glitches
+models_volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
+
 # ── App ────────────────────────────────────────────────────────────────────────
 
-app = modal.App("dribbleai-stats")
+app = modal.App("courtvision-elite-worker")
 
 # ── Container image ────────────────────────────────────────────────────────────
 # In Modal 1.x, local files are bundled into the image via .add_local_file()
@@ -85,6 +88,25 @@ image = (
         "fastapi[standard]",
     ])
     .add_local_file(_SCRIPT_PATH, remote_path="/app/opencv_statgen.py")
+)
+
+# Define the high-performance GPU image
+cuda_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libgl1", "libglib2.0-0")
+    .pip_install(
+        "ultralytics",
+        "opencv-python-headless",
+        "numpy",
+        "requests",
+        "supabase",
+        "boto3"
+    )
+    .run_commands(
+        # Pre-download the model into the image or volume path
+        "mkdir -p /models",
+        "curl -L https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m.pt -o /models/yolo11m.pt"
+    )
 )
 
 # ── Persistent volume — caches YOLO weight files across cold starts ─────────────
