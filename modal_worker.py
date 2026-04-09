@@ -306,7 +306,7 @@ models_volume = modal.Volume.from_name("courtvision-storage", create_if_missing=
     image=cuda_image,
     gpu="A100",
     volumes={"/data": models_volume},
-    timeout=3600
+    timeout=5400 # Extended to 90 minutes for 6GB/50m games
 )
 def run_analysis(video_url: str, config: dict):
     # Progress starts here
@@ -324,14 +324,17 @@ def run_analysis(video_url: str, config: dict):
     # 3. FOOLPROOF VIDEO LOADING: Download to local disk first
     # This solves the 35% stall permanently
     local_video_path = "/data/temp_game_video.mp4"
-    print("[30%] Downloading video to GPU local SSD (Foolproof Method)...")
+    print(f"[30%] Downloading {config.get('fileSize', '6GB')} video to GPU SSD (Chunked Pipeline)...")
     
-    response = requests.get(video_url, stream=True)
+    # ELITE: Chunked download to handle 6GB without RAM overflow
+    response = requests.get(video_url, stream=True, timeout=300)
     with open(local_video_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=8192):
-            f.write(chunk)
+        for chunk in response.iter_content(chunk_size=1024 * 1024): # 1MB chunks
+            if chunk:
+                f.write(chunk)
     
-    print("[40%] Video downloaded locally. Starting AI Analysis...")
+    print("[40%] Download Complete. Clearing VRAM for Analysis...")
+    torch.cuda.empty_cache() # Ensure 40GB VRAM is fully available
     
     # Now open the LOCAL file (zero network glitches here)
     cap = cv2.VideoCapture(local_video_path)
