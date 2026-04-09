@@ -16,7 +16,9 @@ import {
   LayoutDashboard,
   Trophy,
   History,
-  Activity
+  Activity,
+  Lock,
+  ArrowRightCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -42,6 +44,10 @@ export default function GameDetailPage() {
   const [syncing, setSyncing] = useState(false);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  // Derive stage completion status
+  const isAnalysisComplete = game?.status === 'completed';
+  const isSyncComplete = stats && stats.length > 0;
 
   const fetchGameData = async () => {
     if (!gameId) return;
@@ -150,9 +156,21 @@ export default function GameDetailPage() {
             <Button variant="outline" className="bg-background border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all" onClick={() => setIsEditModalOpen(true)}>
               <Settings2 className="h-4 w-4 mr-2 text-primary" /> MODULE 1: MATCH ROSTER
             </Button>
-            <Button variant="default" className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 font-bold px-8 h-12" onClick={handleModularSync} disabled={syncing}>
-              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} /> {syncing ? "SYNCING..." : "MODULE 3: SYNC BOX SCORE"}
-            </Button>
+            
+            {isAnalysisComplete && !isSyncComplete && (
+              <div className="flex items-center gap-2 animate-bounce-horizontal">
+                <ArrowRightCircle className="h-5 w-5 text-primary" />
+                <Button variant="default" className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 font-bold px-8 h-12" onClick={handleModularSync} disabled={syncing}>
+                  <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} /> {syncing ? "SYNCING..." : "MODULE 3: SYNC BOX SCORE"}
+                </Button>
+              </div>
+            )}
+
+            {isAnalysisComplete && isSyncComplete && (
+               <Button variant="outline" className="bg-emerald-500/10 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/20" onClick={handleModularSync} disabled={syncing}>
+                <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} /> RE-SYNC STATS
+              </Button>
+            )}
           </div>
         </div>
 
@@ -197,42 +215,72 @@ export default function GameDetailPage() {
           </TabsList>
 
           <TabsContent value="stats">
-            <Card className="bg-card/40 border-white/5 overflow-hidden">
-              <Table>
-                <TableHeader className="bg-white/5">
-                  <TableRow className="hover:bg-transparent border-white/5">
-                    <TableHead className="font-bold text-primary">PLAYER</TableHead>
-                    <TableHead className="text-center font-bold">PTS</TableHead>
-                    <TableHead className="text-center font-bold">FG</TableHead>
-                    <TableHead className="text-center font-bold">REB</TableHead>
-                    <TableHead className="text-center font-bold">AST</TableHead>
-                    <TableHead className="text-center font-bold">STL</TableHead>
-                    <TableHead className="text-center font-bold">BLK</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.length > 0 ? stats.map((s) => (
-                    <TableRow key={s.id} className="border-white/5 hover:bg-white/5">
-                      <TableCell className="font-bold">#{s.player?.number} {s.player?.name}</TableCell>
-                      <TableCell className="text-center font-mono font-bold text-white text-lg">{s.points}</TableCell>
-                      <TableCell className="text-center font-mono">{s.fg_made}/{s.fg_attempted}</TableCell>
-                      <TableCell className="text-center font-mono">{s.rebounds}</TableCell>
-                      <TableCell className="text-center font-mono">{s.assists}</TableCell>
-                      <TableCell className="text-center font-mono">{s.steals}</TableCell>
-                      <TableCell className="text-center font-mono">{s.blocks}</TableCell>
+            {isSyncComplete ? (
+              <Card className="bg-card/40 border-white/5 overflow-hidden">
+                <Table>
+                  <TableHeader className="bg-white/5">
+                    <TableRow className="hover:bg-transparent border-white/5">
+                      <TableHead className="font-bold text-primary">PLAYER</TableHead>
+                      <TableHead className="text-center font-bold">PTS</TableHead>
+                      <TableHead className="text-center font-bold">FG</TableHead>
+                      <TableHead className="text-center font-bold">REB</TableHead>
+                      <TableHead className="text-center font-bold">AST</TableHead>
+                      <TableHead className="text-center font-bold">STL</TableHead>
+                      <TableHead className="text-center font-bold">BLK</TableHead>
                     </TableRow>
-                  )) : (
-                    <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Click 'Deep Sync Stats' to resolve directory identities.</TableCell></TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </Card>
+                  </TableHeader>
+                  <TableBody>
+                    {stats.length > 0 ? stats.map((s) => (
+                      <TableRow key={s.id} className="border-white/5 hover:bg-white/5">
+                        <TableCell className="font-bold">#{s.player?.number} {s.player?.name}</TableCell>
+                        <TableCell className="text-center font-mono font-bold text-white text-lg">{s.points}</TableCell>
+                        <TableCell className="text-center font-mono">{s.fg_made}/{s.fg_attempted}</TableCell>
+                        <TableCell className="text-center font-mono">{s.rebounds}</TableCell>
+                        <TableCell className="text-center font-mono">{s.assists}</TableCell>
+                        <TableCell className="text-center font-mono">{s.steals}</TableCell>
+                        <TableCell className="text-center font-mono">{s.blocks}</TableCell>
+                      </TableRow>
+                    )) : (
+                      <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Click 'Deep Sync Stats' to resolve directory identities.</TableCell></TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
+            ) : (
+              <Card className="bg-card/40 border-dashed border-2 border-white/10 p-24 text-center">
+                <div className="max-w-xs mx-auto space-y-4">
+                  <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    {isAnalysisComplete ? <RefreshCw className="h-8 w-8 text-primary" /> : <Lock className="h-8 w-8 text-muted-foreground" />}
+                  </div>
+                  <div className="space-y-1">
+                    <h3 className="text-lg font-bold">{isAnalysisComplete ? "Module 3 Required" : "Module 2 In Progress"}</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isAnalysisComplete 
+                        ? "AI analysis is done. Click 'Sync Box Score' above to map events to your roster."
+                        : "Waiting for AI detection to complete before stats can be synchronized."}
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="shotchart">
-            <Card className="bg-card/40 border-white/5 p-8 flex justify-center">
-              <ShotChart shots={shots} />
-            </Card>
+            {isSyncComplete ? (
+              <Card className="bg-card/40 border-white/5 p-8 flex justify-center">
+                <ShotChart shots={shots} />
+              </Card>
+            ) : (
+              <Card className="bg-card/40 border-dashed border-2 border-white/10 p-24 text-center">
+                <div className="max-w-xs mx-auto space-y-4">
+                  <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <Activity className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                  <h3 className="text-lg font-bold italic uppercase tracking-tighter">Spatial Mapping Locked</h3>
+                  <p className="text-sm text-muted-foreground">Synchronize box score data to enable visual shot analytics.</p>
+                </div>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="pbp">
