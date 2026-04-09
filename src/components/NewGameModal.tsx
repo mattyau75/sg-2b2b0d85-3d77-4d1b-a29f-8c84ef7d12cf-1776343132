@@ -20,6 +20,8 @@ import { useUploads } from "@/contexts/UploadContext";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import { supabase } from "@/lib/supabase";
+import { toast } from "@/sonnerie";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -126,9 +128,27 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
       camera_type: formData.cameraType
     });
 
-    // Immediate UI feedback
+    // 3. Create the game record in pending status
+    const { data: newGame, error: gameError } = await supabase
+      .from('games')
+      .insert({
+        video_path: uploadResult.path,
+        status: 'pending',
+        date: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (gameError) throw gameError;
+
+    toast({ 
+      title: "Footage Uploaded", 
+      description: "Moving to Module 1: Identity & Mapping." 
+    });
+
+    // Redirect to the Game Detail page for modular execution
+    router.push(`/games/${newGame.id}`);
     onClose();
-    router.push('/analysis-queue');
   };
 
   const handleHomeTeamChange = (teamId: string) => {

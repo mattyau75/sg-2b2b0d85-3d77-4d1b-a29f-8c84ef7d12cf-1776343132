@@ -62,20 +62,17 @@ export default function GamesPage() {
       <div className="max-w-7xl mx-auto space-y-8 animate-in fade-in duration-500">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="text-4xl font-black tracking-tight flex items-center gap-3">
-              <Trophy className="h-10 w-10 text-primary" />
-              GAMES <span className="text-primary">DIRECTORY</span>
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+              Games Directory
             </h1>
-            <p className="text-muted-foreground font-mono text-sm uppercase tracking-widest">
-              Review and manage your scouting analysis sessions
-            </p>
+            <p className="text-muted-foreground">Manage your historical footage and modular scouting reports.</p>
           </div>
           <Button 
-            onClick={() => setIsModalOpen(true)}
-            className="bg-primary hover:bg-primary/90 text-white font-bold px-6 h-12 rounded-xl shadow-lg shadow-primary/20 transition-all hover:scale-105 active:scale-95 gap-2"
+            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
+            onClick={() => setIsNewGameModalOpen(true)}
           >
-            <Plus className="h-5 w-5" />
-            ANALYZE NEW GAME
+            <Plus className="h-4 w-4 mr-2" />
+            ADD NEW GAME
           </Button>
         </div>
 
