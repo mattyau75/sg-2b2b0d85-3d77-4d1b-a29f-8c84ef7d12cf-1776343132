@@ -2,7 +2,20 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import { Layout } from "@/components/Layout";
 import { 
-  Trophy, ChevronLeft, RefreshCw, Video, List, LayoutGrid, Users, Target, Play
+  Trophy, 
+  Clock, 
+  MapPin, 
+  Users, 
+  Activity, 
+  RefreshCw, 
+  ChevronRight, 
+  Play, 
+  ArrowLeft,
+  Share2,
+  Download,
+  MoreVertical,
+  Cpu,
+  Video
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,8 +33,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { storageService } from "@/services/storageService";
 import { cn } from "@/lib/utils";
+import axios from "axios";
 
 export default function GameDetailPage() {
+  const [syncing, setSyncing] = useState(false);
+  const [reRunning, setReRunning] = useState(false);
   const router = useRouter();
   const { id } = router.query;
   const { toast } = useToast();
@@ -85,31 +101,44 @@ export default function GameDetailPage() {
   }, [id]);
 
   const handleSyncStats = async () => {
-    setIsSyncing(true);
+    setSyncing(true);
     try {
-      const response = await fetch("/api/sync-game-stats", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ gameId: id })
-      });
-      if (!response.ok) throw new Error("Sync failed");
-      toast({ title: "Stats Re-calculated", description: "Boxscore and scores have been updated." });
-      await fetchGameData();
-    } catch (error: any) {
-      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
+      const response = await axios.post("/api/sync-game-stats", { gameId: id });
+      if (response.data.success) {
+        toast({ title: "Stats Synced", description: "Box score and play-by-play updated." });
+        fetchGameData();
+      }
+    } catch (err: any) {
+      toast({ title: "Sync Failed", description: err.message, variant: "destructive" });
     } finally {
-      setIsSyncing(false);
+      setSyncing(false);
     }
   };
 
-  if (loading) return (
-    <Layout title="Loading Game | CourtVision Elite">
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <div className="h-12 w-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-        <p className="text-muted-foreground font-mono">Syncing Tactical Data...</p>
-      </div>
-    </Layout>
-  );
+  const handleReRunAnalysis = async () => {
+    setReRunning(true);
+    try {
+      const response = await axios.post("/api/process-game", { 
+        gameId: id,
+        videoPath: game.video_path,
+        homeTeamId: game.home_team_id,
+        awayTeamId: game.away_team_id,
+        homeColor: game.home_team_color,
+        awayColor: game.away_team_color
+      });
+      
+      if (response.data.success) {
+        toast({ title: "Analysis Restarted", description: "Redirecting to GPU queue..." });
+        setTimeout(() => router.push("/analysis-queue"), 1500);
+      }
+    } catch (err: any) {
+      toast({ title: "Trigger Failed", description: err.response?.data?.message || err.message, variant: "destructive" });
+    } finally {
+      setReRunning(false);
+    }
+  };
+
+  if (loading) return <Layout><div className="flex items-center justify-center h-96"><RefreshCw className="h-8 w-8 animate-spin text-primary" /></div></Layout>;
 
   if (!gameData) return <Layout title="Not Found"><div>Game Not Found</div></Layout>;
 
@@ -130,7 +159,28 @@ export default function GameDetailPage() {
           <Button variant="ghost" onClick={() => router.push('/')} className="gap-2">
             <ChevronLeft className="h-4 w-4" /> Back
           </Button>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {gameData?.status === 'completed' ? (
+              <Button 
+                variant="outline" 
+                className="gap-2 border-primary/20 hover:bg-primary/5"
+                onClick={handleSyncStats}
+                disabled={syncing}
+              >
+                <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+                {syncing ? "Syncing..." : "Re-sync Stats"}
+              </Button>
+            ) : (
+              <Button 
+                variant="outline" 
+                className="gap-2 border-accent/20 hover:bg-accent/5 text-accent"
+                onClick={handleReRunAnalysis}
+                disabled={reRunning || !gameData?.video_path}
+              >
+                <Cpu className={cn("h-4 w-4", reRunning && "animate-pulse")} />
+                {reRunning ? "Triggering GPU..." : "Re-run AI Analysis"}
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={handleSyncStats} disabled={isSyncing} className="gap-2">
               <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
               Re-sync Stats
