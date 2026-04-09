@@ -1,7 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { r2Client } from "@/lib/r2Client";
-import modalService from "@/services/modalService";
+import { modalService } from "@/services/modalService";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
