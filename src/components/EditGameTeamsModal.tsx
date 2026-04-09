@@ -156,6 +156,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       if (reAnalyze) {
         await axios.post("/api/process-game", {
           gameId: game.id,
+          videoPath: game.video_path,
           homeTeamId,
           awayTeamId,
           homeColor,

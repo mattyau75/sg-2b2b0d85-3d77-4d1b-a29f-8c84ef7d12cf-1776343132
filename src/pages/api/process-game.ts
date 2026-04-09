@@ -29,6 +29,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     if (!videoPath) {
+      console.error("[ProcessGame] Missing videoPath in request body");
       return res.status(400).json({ message: "Missing video path" });
     }
     
