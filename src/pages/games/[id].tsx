@@ -72,7 +72,9 @@ export default function GameDetailPage() {
 
       if (gameError) throw gameError;
       setGame(gameData);
-      setManualMappings(gameData.processing_metadata?.manual_mappings || {});
+      
+      const metadata = gameData.processing_metadata as any;
+      setManualMappings(metadata?.manual_mappings || {});
 
       const { data: statsData } = await supabase
         .from('player_game_stats')
