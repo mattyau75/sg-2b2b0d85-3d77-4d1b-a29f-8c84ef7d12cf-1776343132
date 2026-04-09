@@ -7,9 +7,10 @@ export const modalService = {
   /**
    * Client-side: Triggers the internal Next.js API route which handles security/validation
    */
-  triggerAnalysis: async (videoPath: string, config: any) => {
+  triggerAnalysis: async (gameId: string, videoPath: string, config: any) => {
     try {
       const response = await axios.post("/api/process-game", { 
+        gameId,
         videoPath,
         ...config
       });
@@ -38,7 +39,10 @@ export const modalService = {
       console.log(`[ModalService] Dispatching job to GPU Cluster: ${modalEndpoint}`);
       
       const response = await axios.post(modalEndpoint, {
-        video_url: videoPath, // Modal worker expects video_url (which is the R2 path)
+        video_url: videoPath,
+        game_id: config.gameId,
+        home_color: config.homeColor || "#FFFFFF",
+        away_color: config.awayColor || "#0B0F19",
         config: {
           ...config,
           imgsz: 1280,
