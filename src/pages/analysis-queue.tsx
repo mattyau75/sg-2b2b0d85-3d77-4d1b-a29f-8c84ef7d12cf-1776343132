@@ -84,16 +84,26 @@ export default function AnalysisQueuePage() {
   };
 
   useEffect(() => {
-    fetchJobs();
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'games' },
+        (payload) => {
+          console.log('[Queue] Realtime Update Received:', payload);
+          fetchJobs(); // Refresh the list on any change
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'CLOSED') {
+          console.warn('[Queue] WebSocket closed. Re-subscribing...');
+          setTimeout(() => channel.subscribe(), 1000);
+        }
+      });
 
-    const channel = supabase.
-    channel('queue-updates').
-    on('postgres_changes', { event: '*', schema: 'public', table: 'games' }, () => {
-      fetchJobs();
-    }).
-    subscribe();
-
-    return () => {supabase.removeChannel(channel);};
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const handleRetry = async (id: string) => {

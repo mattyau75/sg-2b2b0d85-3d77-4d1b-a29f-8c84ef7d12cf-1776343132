@@ -59,14 +59,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. TRIGGER GPU ANALYSIS
-    // ELITE AUDIT: Pass optimization hints to the GPU worker for 8GB files
+    // ELITE FIX: Ensure Home/Away IDs are passed to the Modal service
     const gpuConfig = {
       gameId,
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
       home_team_color: homeColor || "#FFFFFF",
       away_team_color: awayColor || "#0B0F19",
-      is_heavy_file: true, // Hint for 8GB optimization
+      is_heavy_file: true,
       adaptive_sampling: true,
       gpu_tier: "A100"
     };
