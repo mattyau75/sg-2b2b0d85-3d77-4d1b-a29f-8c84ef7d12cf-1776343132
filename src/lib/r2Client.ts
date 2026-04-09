@@ -18,4 +18,4 @@ export const r2Client = new S3Client({
   forcePathStyle: true, // Crucial for R2 compatibility with some GPU workers
 });
 
-export const BUCKET_NAME = process.env.R2_BUCKET_NAME || "courtvision-elite";
+export const BUCKET_NAME = process.env.R2_BUCKET_NAME || "dribblestats-ai-elite";

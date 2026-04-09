@@ -8,7 +8,7 @@ created_at: "2026-04-09"
 ---
 
 ## Notes:
-Create a dedicated educational page for the CourtVision Elite platform. Explain the modular scouting system (Identity, Events, Stats, Spatial, Insights) and provide a clear step-by-step workflow for users to get accurate 1-6 scoring and player recognition.
+Create a dedicated educational page for the DribbleStats AI Elite platform. Explain the modular scouting system (Identity, Events, Stats, Spatial, Insights) and provide a clear step-by-step workflow for users to get accurate 1-6 scoring and player recognition.
 
 ## Checklist:
 - [x] Create `src/pages/help.tsx` with a tactical, dark-mode layout.

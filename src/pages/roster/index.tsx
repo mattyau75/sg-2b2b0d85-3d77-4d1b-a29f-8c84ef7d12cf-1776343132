@@ -112,8 +112,8 @@ export default function RosterDirectory() {
             </DialogTrigger>
             <DialogContent className="bg-card border-border">
               <DialogHeader>
-                <DialogTitle>Create New Team</DialogTitle>
-                <DialogDescription>Add a new organization to the CourtVision registry.</DialogDescription>
+                <DialogTitle>Add New Team</DialogTitle>
+                <DialogDescription>Add a new organization to the DribbleStats registry.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-4 py-4">
                 <div className="space-y-2">

@@ -16,7 +16,8 @@ import {
   Trophy,
   ChevronRight,
   Youtube,
-  FileVideo
+  FileVideo,
+  Plus
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -154,27 +155,19 @@ export default function Home() {
     <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8">
         {/* Welcome Section */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-accent/50 text-accent font-mono text-[10px] uppercase tracking-widest px-2">
-                System Status: Ready
-              </Badge>
-              <Badge variant="outline" className="border-primary/50 text-primary font-mono text-[10px] uppercase tracking-widest px-2">
-                YOLOv11m Optimized
-              </Badge>
-            </div>
-            <h1 className="text-4xl md:text-5xl font-bold">Game Analysis</h1>
-            <p className="text-muted-foreground max-w-xl">
-              Advanced tactical scouting powered by computer vision. Define teams and jersey colors for accurate player attribution.
-            </p>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
+              Dashboard Overview
+            </h1>
+            <p className="text-muted-foreground">Welcome back, Scout. Here's your performance snapshot.</p>
           </div>
           <Button 
+            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
             onClick={() => setIsModalOpen(true)}
-            className="h-14 px-8 rounded-xl bg-primary hover:bg-primary/90 text-white shadow-xl shadow-primary/20 transition-all font-bold text-lg"
           >
-            <Video className="mr-2 h-6 w-6" />
-            Analyze New Game
+            <Plus className="h-4 w-4 mr-2" />
+            ADD NEW GAME
           </Button>
         </div>
 
