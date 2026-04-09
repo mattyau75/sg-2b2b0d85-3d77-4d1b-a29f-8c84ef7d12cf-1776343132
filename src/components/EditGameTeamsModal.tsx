@@ -10,8 +10,13 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface EditGameTeamsModalProps {
   game: any;
@@ -22,21 +27,23 @@ interface EditGameTeamsModalProps {
 
 export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGameTeamsModalProps) {
   const [teams, setTeams] = useState<any[]>([]);
-  const [homeTeamId, setHomeTeamId] = useState(game?.home_team_id || "");
-  const [awayTeamId, setAwayTeamId] = useState(game?.away_team_id || "");
-  const [homeColor, setHomeColor] = useState(game?.home_team_color || "#FFFFFF");
-  const [awayColor, setAwayColor] = useState(game?.away_team_color || "#0B0F19");
+  const [homeTeamId, setHomeTeamId] = useState("");
+  const [awayTeamId, setAwayTeamId] = useState("");
+  const [homeColor, setHomeColor] = useState("#FFFFFF");
+  const [awayColor, setAwayColor] = useState("#0B0F19");
+  const [gameDate, setGameDate] = useState<Date | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
-    if (game) {
+    if (game && isOpen) {
       setHomeTeamId(game.home_team_id || "");
       setAwayTeamId(game.away_team_id || "");
       setHomeColor(game.home_team_color || "#FFFFFF");
       setAwayColor(game.away_team_color || "#0B0F19");
+      setGameDate(game.date ? new Date(game.date) : new Date());
     }
-  }, [game]);
+  }, [game, isOpen]);
 
   useEffect(() => {
     async function fetchTeams() {
@@ -48,7 +55,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   const handleSave = async (reanalyze = false) => {
     if (!homeTeamId || !awayTeamId) {
-      toast({ title: "Error", description: "Please select both teams", variant: "destructive" });
+      toast({ title: "Validation Error", description: "Please select both teams.", variant: "destructive" });
       return;
     }
 
@@ -61,7 +68,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           away_team_id: awayTeamId,
           home_team_color: homeColor,
           away_team_color: awayColor,
-          status: reanalyze ? 'processing' : game.status
+          date: gameDate?.toISOString(),
+          status: reanalyze ? 'processing' : (game.status || 'completed')
         })
         .eq('id', game.id);
 
@@ -82,15 +90,15 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
         });
         
         if (!response.ok) throw new Error("Failed to trigger re-analysis");
-        toast({ title: "Analysis Restarted", description: "GPU is now re-analyzing with new rosters." });
+        toast({ title: "Analysis Restarted", description: "GPU is now re-analyzing with updated roster data." });
       } else {
-        toast({ title: "Teams Updated", description: "Game metadata successfully re-allocated." });
+        toast({ title: "Success", description: "Game metadata updated successfully." });
       }
 
       onUpdated();
       onClose();
     } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+      toast({ title: "Update Failed", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -98,65 +106,99 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[425px] bg-card border-border">
+      <DialogContent className="sm:max-w-[450px] bg-card border-border shadow-2xl">
         <DialogHeader>
-          <DialogTitle className="text-primary text-xl font-bold">Re-allocate Teams</DialogTitle>
+          <DialogTitle className="text-primary text-xl font-bold tracking-tight">Game Metadata</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-6 py-4">
-          <div className="space-y-4">
-            <Label className="text-foreground/70 font-medium">Home Team (Directory)</Label>
-            <Select value={homeTeamId} onValueChange={setHomeTeamId}>
-              <SelectTrigger className="bg-muted/30 border-border">
-                <SelectValue placeholder="Select Home Team" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                {teams.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-3 bg-muted/20 p-2 rounded-md border border-border/50">
+        <div className="grid gap-5 py-4">
+          <div className="space-y-2">
+            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Game Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant={"outline"}
+                  className={cn(
+                    "w-full justify-start text-left font-normal bg-muted/20 border-border h-11",
+                    !gameDate && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                  {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
+                <Calendar
+                  mode="single"
+                  selected={gameDate}
+                  onSelect={setGameDate}
+                  initialFocus
+                  className="rounded-md border-none"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-3">
+            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Home Team & Color</Label>
+            <div className="flex gap-2">
+              <Select value={homeTeamId} onValueChange={setHomeTeamId}>
+                <SelectTrigger className="bg-muted/20 border-border h-11 flex-1">
+                  <SelectValue placeholder="Home Team" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input 
                 type="color" 
                 value={homeColor} 
                 onChange={(e) => setHomeColor(e.target.value)}
-                className="w-12 h-10 p-1 border-none bg-transparent cursor-pointer"
+                className="w-14 h-11 p-1 bg-muted/20 border-border cursor-pointer shrink-0"
               />
-              <span className="text-xs text-muted-foreground uppercase font-mono">{homeColor} - Home Jersey</span>
             </div>
           </div>
 
-          <div className="space-y-4">
-            <Label className="text-foreground/70 font-medium">Away Team (Directory)</Label>
-            <Select value={awayTeamId} onValueChange={setAwayTeamId}>
-              <SelectTrigger className="bg-muted/30 border-border">
-                <SelectValue placeholder="Select Away Team" />
-              </SelectTrigger>
-              <SelectContent className="bg-popover border-border">
-                {teams.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <div className="flex items-center gap-3 bg-muted/20 p-2 rounded-md border border-border/50">
+          <div className="space-y-3">
+            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Away Team & Color</Label>
+            <div className="flex gap-2">
+              <Select value={awayTeamId} onValueChange={setAwayTeamId}>
+                <SelectTrigger className="bg-muted/20 border-border h-11 flex-1">
+                  <SelectValue placeholder="Away Team" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover border-border">
+                  {teams.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Input 
                 type="color" 
                 value={awayColor} 
                 onChange={(e) => setAwayColor(e.target.value)}
-                className="w-12 h-10 p-1 border-none bg-transparent cursor-pointer"
+                className="w-14 h-11 p-1 bg-muted/20 border-border cursor-pointer shrink-0"
               />
-              <span className="text-xs text-muted-foreground uppercase font-mono">{awayColor} - Away Jersey</span>
             </div>
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-0">
-          <Button variant="ghost" onClick={onClose} className="hover:bg-muted">Cancel</Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => handleSave(false)} disabled={loading} className="border-border">
-              Save Only
+        <DialogFooter className="gap-2 sm:gap-0 mt-4">
+          <Button variant="ghost" onClick={onClose} className="hover:bg-muted text-muted-foreground">Cancel</Button>
+          <div className="flex gap-2 w-full sm:w-auto">
+            <Button 
+              variant="outline" 
+              onClick={() => handleSave(false)} 
+              disabled={loading} 
+              className="border-border hover:bg-white/5 flex-1 sm:flex-none"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Only"}
             </Button>
-            <Button onClick={() => handleSave(true)} disabled={loading} className="bg-primary hover:bg-primary/90 text-white font-bold">
-              Save & Re-analyze
+            <Button 
+              onClick={() => handleSave(true)} 
+              disabled={loading} 
+              className="bg-primary hover:bg-primary/90 text-white font-bold flex-1 sm:flex-none shadow-lg shadow-primary/20"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & Re-analyze"}
             </Button>
           </div>
         </DialogFooter>
