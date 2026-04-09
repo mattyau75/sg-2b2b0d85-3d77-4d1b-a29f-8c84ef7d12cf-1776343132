@@ -6,6 +6,7 @@ import math
 import requests
 from pathlib import Path
 import modal
+from ultralytics import YOLO
 
 # ── App Definition ────────────────────────────────────────────────────────────
 app = modal.App("courtvision-elite-worker")
@@ -39,6 +40,11 @@ weights_volume = modal.Volume.from_name("dribbleai-yolo-weights", create_if_miss
 WEIGHTS_DIR = "/cache/yolo"
 
 # ── GPU Processing Logic ──────────────────────────────────────────────────────
+
+# Model Configuration
+MODEL_VARIANT = "yolo11m.pt"
+CONFIDENCE_THRESHOLD = 0.25
+IOU_THRESHOLD = 0.45
 
 @app.function(image=image, volumes={WEIGHTS_DIR: weights_volume}, timeout=1800, gpu="A10G")
 def process_chunk(chunk_data: dict, config: dict):
