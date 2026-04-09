@@ -274,7 +274,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Home Team & Tactical Color</Label>
+              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Home Team Assignment</Label>
               <div className="flex gap-2">
                 <Select value={homeTeamId} onValueChange={setHomeTeamId}>
                   <SelectTrigger className="bg-muted/20 border-border h-10 flex-1">
@@ -286,12 +286,16 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                     ))}
                   </SelectContent>
                 </Select>
-                <Input type="color" value={homeColor} onChange={(e) => setHomeColor(e.target.value)} className="w-12 h-10 p-1 bg-muted/20 border-border cursor-pointer shrink-0" />
+                <div 
+                  className="w-10 h-10 rounded border border-border shadow-inner shrink-0" 
+                  style={{ backgroundColor: homeColor }}
+                  title="Assigned Tactical Color"
+                />
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Away Team & Tactical Color</Label>
+              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Away Team Assignment</Label>
               <div className="flex gap-2">
                 <Select value={awayTeamId} onValueChange={setAwayTeamId}>
                   <SelectTrigger className="bg-muted/20 border-border h-10 flex-1">
@@ -303,7 +307,11 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                     ))}
                   </SelectContent>
                 </Select>
-                <Input type="color" value={awayColor} onChange={(e) => setAwayColor(e.target.value)} className="w-12 h-10 p-1 bg-muted/20 border-border cursor-pointer shrink-0" />
+                <div 
+                  className="w-10 h-10 rounded border border-border shadow-inner shrink-0" 
+                  style={{ backgroundColor: awayColor }}
+                  title="Assigned Tactical Color"
+                />
               </div>
             </div>
           </div>
