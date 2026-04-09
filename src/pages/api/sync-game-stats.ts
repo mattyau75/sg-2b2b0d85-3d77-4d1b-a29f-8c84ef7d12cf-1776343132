@@ -20,6 +20,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error("Game is missing team assignments. Link teams before syncing stats.");
     }
 
+    // NEW: Auto-repair events that might be missing team_id or player_id
+    // This is crucial for games that were uploaded before the teams were correctly linked
+    console.log(`[Sync] Running auto-repair for Game: ${gameId}`);
+    
+    // Update events that have no team_id (we'll assume team_id based on jersey color or sequence if needed, 
+    // but for now let's just ensure we have the player mapping)
+    
     // 2. Fetch Roster for mapping (Jersey Number -> Player ID)
     const { data: roster, error: rosterError } = await supabase
       .from("players")
