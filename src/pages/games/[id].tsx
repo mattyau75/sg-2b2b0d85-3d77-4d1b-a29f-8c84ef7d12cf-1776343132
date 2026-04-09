@@ -17,7 +17,11 @@ import {
   Cpu,
   Video,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  ChevronLeft,
+  LayoutGrid,
+  List,
+  Target
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,6 +119,7 @@ export default function GameDetailPage() {
   }, [id]);
 
   const handleSyncStats = async () => {
+    if (!id || typeof id !== "string") return;
     setSyncing(true);
     try {
       const response = await axios.post("/api/sync-game-stats", { gameId: id });
@@ -130,7 +135,7 @@ export default function GameDetailPage() {
   };
 
   const handleReRunAnalysis = async () => {
-    if (!gameData) return;
+    if (!gameData || !id || typeof id !== "string") return;
     setReRunning(true);
     try {
       const response = await axios.post("/api/process-game", { 
@@ -154,6 +159,7 @@ export default function GameDetailPage() {
   };
 
   const handleDeleteGame = async () => {
+    if (!id || typeof id !== "string") return;
     setIsDeleting(true);
     try {
       // 1. Delete associated stats and events (Supabase handles this if ON DELETE CASCADE is set, but we'll be explicit for safety)

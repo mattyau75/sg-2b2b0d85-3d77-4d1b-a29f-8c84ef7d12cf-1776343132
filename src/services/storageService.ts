@@ -100,6 +100,15 @@ export const storageService = {
     return data.url;
   },
 
+  async deleteFile(path: string): Promise<void> {
+    try {
+      await axios.delete(`/api/storage/multipart?path=${encodeURIComponent(path)}`);
+    } catch (error) {
+      console.error("[StorageService] Delete File Failed:", error);
+      throw error;
+    }
+  },
+
   async processGame(data: any) {
     try {
       console.log(`[StorageService] Triggering GPU analysis for Game: ${data.gameId}`);
