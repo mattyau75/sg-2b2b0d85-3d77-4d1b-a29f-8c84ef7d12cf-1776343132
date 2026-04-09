@@ -47,8 +47,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. Resolve missing player_ids via jersey numbers if needed
     const updates = events
-      .filter(e => !e.player_id && e.jersey_number !== null && e.team_id !== null)
-      .map(e => {
+      .filter((e: any) => !e.player_id && e.jersey_number !== null && e.team_id !== null)
+      .map((e: any) => {
         const playerId = playerMap[`${e.team_id}_${e.jersey_number}`];
         if (playerId) return { id: e.id, player_id: playerId };
         return null;

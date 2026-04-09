@@ -168,6 +168,7 @@ export type Database = {
           game_time: string | null
           id: string
           is_make: boolean | null
+          jersey_number: number | null
           player_id: string | null
           team_id: string | null
           timestamp_seconds: number | null
@@ -183,6 +184,7 @@ export type Database = {
           game_time?: string | null
           id?: string
           is_make?: boolean | null
+          jersey_number?: number | null
           player_id?: string | null
           team_id?: string | null
           timestamp_seconds?: number | null
@@ -198,6 +200,7 @@ export type Database = {
           game_time?: string | null
           id?: string
           is_make?: boolean | null
+          jersey_number?: number | null
           player_id?: string | null
           team_id?: string | null
           timestamp_seconds?: number | null
