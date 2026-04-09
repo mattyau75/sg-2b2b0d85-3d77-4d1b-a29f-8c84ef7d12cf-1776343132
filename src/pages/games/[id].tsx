@@ -128,8 +128,8 @@ export default function GameDetailPage() {
         videoPath: gameData.video_path,
         homeTeamId: gameData.home_team_id,
         awayTeamId: gameData.away_team_id,
-        homeColor: gameData.home_team_color,
-        awayColor: gameData.away_team_color
+        homeColor: gameData.home_team_color || gameData.home_team?.primary_color,
+        awayColor: gameData.away_team_color || gameData.away_team?.primary_color
       });
       
       if (response.data.success) {
