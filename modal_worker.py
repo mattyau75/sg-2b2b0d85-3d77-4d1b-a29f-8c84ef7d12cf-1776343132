@@ -47,6 +47,8 @@ import cv2
 import numpy as np
 import torch
 from typing import List, Dict, Any
+import time
+from typing import Generator
 
 import modal
 
@@ -147,6 +149,18 @@ def split_video(video_url: str, chunk_duration: int = 300):
             "chunk_id": i
         })
     return chunks
+
+# Use a global variable to cache the model in VRAM across function calls
+_cached_model = None
+
+def get_model():
+    global _cached_model
+    if _cached_model is None:
+        from ultralytics import YOLO
+        model_path = "/models/yolo11m.pt"
+        _cached_model = YOLO(model_path)
+        print("🔥 Model loaded into VRAM and cached.")
+    return _cached_model
 
 @app.function(
     gpu="A10G",
