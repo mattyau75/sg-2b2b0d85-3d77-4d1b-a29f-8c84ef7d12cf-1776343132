@@ -19,6 +19,8 @@ import { format } from "date-fns";
 import { CalendarIcon, Loader2, Sparkles, HelpCircle, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import axios from "axios";
 
 interface EditGameTeamsModalProps {
@@ -39,6 +41,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [loading, setLoading] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
   const [detectedColors, setDetectedColors] = useState<string[]>([]);
+  const [detectedPlayers, setDetectedPlayers] = useState<any[]>([]);
+  const [manualMappings, setManualMappings] = useState<Record<string, string>>({}); // jersey_number -> player_id
   const { toast } = useToast();
 
   useEffect(() => {
@@ -49,14 +53,53 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       setAwayColor(game.away_team_color || "#0B0F19");
       setGameDate(game.date ? new Date(game.date) : new Date());
       setVenue(game.venue || "DribbleStats Stadium");
+      setManualMappings(game.processing_metadata?.manual_mappings || {});
       
       if (game.detected_home_color && game.detected_away_color) {
         setDetectedColors([game.detected_home_color, game.detected_away_color]);
       } else {
         runCalibration();
       }
+
+      fetchDetectedPlayers();
     }
   }, [game, isOpen]);
+
+  const fetchDetectedPlayers = async () => {
+    if (!game?.id) return;
+    const { data } = await supabase
+      .from('play_by_play')
+      .select('jersey_number, team_id')
+      .eq('game_id', game.id)
+      .not('jersey_number', 'is', null);
+    
+    if (data) {
+      // Get unique jersey numbers per team
+      const unique = data.reduce((acc: any[], current: any) => {
+        const x = acc.find(item => item.jersey_number === current.jersey_number && item.team_id === current.team_id);
+        if (!x) return acc.concat([current]);
+        return acc;
+      }, []);
+      setDetectedPlayers(unique);
+    }
+  };
+
+  const [homeRoster, setHomeRoster] = useState<any[]>([]);
+  const [awayRoster, setAwayRoster] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchRosters() {
+      if (homeTeamId) {
+        const { data } = await supabase.from('players').select('*').eq('team_id', homeTeamId);
+        setHomeRoster(data || []);
+      }
+      if (awayTeamId) {
+        const { data } = await supabase.from('players').select('*').eq('team_id', awayTeamId);
+        setAwayRoster(data || []);
+      }
+    }
+    if (isOpen) fetchRosters();
+  }, [homeTeamId, awayTeamId, isOpen]);
 
   useEffect(() => {
     async function fetchTeams() {
@@ -111,7 +154,11 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           away_team_color: awayColor,
           date: gameDate ? gameDate.toISOString() : null,
           venue: venue,
-          status: reAnalyze ? 'pending' : game.status
+          status: reAnalyze ? 'pending' : game.status,
+          processing_metadata: {
+            ...game.processing_metadata,
+            manual_mappings: manualMappings
+          }
         })
         .eq('id', game.id);
 
@@ -150,7 +197,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           </DialogDescription>
         </DialogHeader>
         
-        <div className="grid gap-6 py-4">
+        <div className="grid gap-6 py-4 max-h-[60vh] overflow-y-auto pr-2">
           {/* Video Color Calibration Section */}
           <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-4 relative overflow-hidden group">
             <div className="flex items-center justify-between">
@@ -199,6 +246,73 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                 RE-RUN VISUAL CALIBRATION
               </Button>
             )}
+          </div>
+
+          {/* Player Recognition Overview Section */}
+          <div className="p-4 rounded-xl bg-accent/5 border border-accent/20 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ArrowLeftRight className="h-4 w-4 text-accent" />
+                <Label className="text-white text-xs font-bold uppercase tracking-widest">Player Recognition Overview</Label>
+              </div>
+              <Badge variant="outline" className="text-[10px] border-accent/20 text-accent uppercase font-mono">
+                {detectedPlayers.length} DETECTED
+              </Badge>
+            </div>
+
+            <div className="rounded-lg border border-white/5 bg-background/50 overflow-hidden">
+              <Table>
+                <TableHeader className="bg-white/5">
+                  <TableRow className="border-white/5">
+                    <TableHead className="text-[10px] font-bold uppercase py-2 h-auto">Jersey</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase py-2 h-auto">Team</TableHead>
+                    <TableHead className="text-[10px] font-bold uppercase py-2 h-auto">Mapped Roster Player</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detectedPlayers.length > 0 ? detectedPlayers.map((dp, i) => {
+                    const isHome = dp.team_id === homeTeamId;
+                    const roster = isHome ? homeRoster : awayRoster;
+                    const autoMatch = roster.find(p => p.number === dp.jersey_number);
+                    const currentMapping = manualMappings[`${dp.team_id}-${dp.jersey_number}`];
+
+                    return (
+                      <TableRow key={i} className="border-white/5">
+                        <TableCell className="py-2 h-auto font-mono font-bold text-white">#{dp.jersey_number}</TableCell>
+                        <TableCell className="py-2 h-auto">
+                          <Badge variant="outline" className={cn("text-[9px] h-4", isHome ? "text-primary border-primary/30" : "text-accent border-accent/30")}>
+                            {isHome ? 'HOME' : 'AWAY'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-2 h-auto">
+                          <Select 
+                            value={currentMapping || autoMatch?.id || ""} 
+                            onValueChange={(val) => setManualMappings(prev => ({ ...prev, [`${dp.team_id}-${dp.jersey_number}`]: val }))}
+                          >
+                            <SelectTrigger className="h-8 text-[11px] bg-muted/20 border-white/5">
+                              <SelectValue placeholder="Select Player" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-popover border-border">
+                              {roster.map(p => (
+                                <SelectItem key={p.id} value={p.id} className="text-xs">
+                                  #{p.number} {p.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }) : (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-6 text-xs text-muted-foreground italic">
+                        No players detected yet. Run Module 2 analysis.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

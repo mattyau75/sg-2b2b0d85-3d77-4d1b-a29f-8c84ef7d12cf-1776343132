@@ -13,8 +13,8 @@ position: 29
 Implement a results overview for player recognition. Allow users to manually match 'unrecognized' detected players to existing rostered players to ensure 100% stat accuracy.
 
 ## Checklist:
-- [ ] Create `RecognitionOverview` component to display detected jersey numbers vs roster names.
-- [ ] Implement mapping logic to link 'ghost' detections to rostered players.
-- [ ] Add 'Manual Match' UI for resolving discrepancies (e.g., jersey #23 detected but not in roster).
-- [ ] Update `EditGameTeamsModal.tsx` or Game Detail page to show recognition results.
-- [ ] Ensure mappings are persisted and used during the Module 3 Sync phase.
+- [x] Create `RecognitionOverview` UI inside `EditGameTeamsModal.tsx` to display detected jersey numbers.
+- [x] Implement manual mapping UI (Select dropdowns) to link detected jerseys to rostered players.
+- [x] Persist `manual_mappings` in the `games.processing_metadata` JSONB column.
+- [x] Update `api/sync-game-stats.ts` to prioritize manual mappings during Module 3 Sync.
+- [x] Ensure "Auto-matching" is the default behavior (Jersey # matches Roster #).

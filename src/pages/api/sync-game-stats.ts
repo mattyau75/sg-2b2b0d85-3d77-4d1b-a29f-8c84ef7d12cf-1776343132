@@ -36,13 +36,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // 2. MAPPING PASS: Resolve PBP identities
+    // Get manual mappings if any
+    const manualMappings = gameData.processing_metadata?.manual_mappings || {};
+
+    // 2. Fetch play-by-play events
     const { data: events, error: eventsError } = await supabase
-      .from("play_by_play")
-      .select("*")
-      .eq("game_id", gameId);
+      .from('play_by_play')
+      .select('*')
+      .eq('game_id', gameId);
 
     if (eventsError) throw eventsError;
+
+    // 3. Update play-by-play player_ids based on jersey numbers and manual mappings
+    const { data: players } = await supabase.from('players').select('*');
+    const playersMap = players?.reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {}) || {};
+
+    const updatedEvents = events.map(event => {
+      const mappingKey = `${event.team_id}-${event.jersey_number}`;
+      const manualPlayerId = manualMappings[mappingKey];
+      
+      let finalPlayerId = event.player_id;
+
+      if (manualPlayerId) {
+        finalPlayerId = manualPlayerId;
+      } else if (event.jersey_number && event.team_id) {
+        const autoMatch = players?.find(p => p.team_id === event.team_id && p.number === event.jersey_number);
+        if (autoMatch) finalPlayerId = autoMatch.id;
+      }
+
+      return { ...event, player_id: finalPlayerId };
+    });
+
+    // Bulk update PBP (for mapping integrity)
+    for (const event of updatedEvents) {
+      if (event.player_id !== events.find(e => e.id === event.id)?.player_id) {
+        await supabase.from('play_by_play').update({ player_id: event.player_id }).eq('id', event.id);
+      }
+    }
 
     let homeScore = 0;
     let awayScore = 0;
