@@ -89,13 +89,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Trigger Modal.com GPU analysis
     console.log("[ProcessGame] Triggering Modal.com GPU pipeline...");
-    await modalService.processGame(sanitizedPath, {
-      gameId,
-      home_team_id: homeTeamId,
-      away_team_id: awayTeamId,
-      home_team_color: homeColor,
-      away_team_color: awayColor
-    });
+    try {
+      await modalService.processGame(sanitizedPath, {
+        gameId,
+        home_team_id: homeTeamId,
+        away_team_id: awayTeamId,
+        home_team_color: homeColor,
+        away_team_color: awayColor
+      });
+    } catch (modalError: any) {
+      console.error("[ProcessGame] Modal.com Trigger Failed:", modalError.message);
+      // Fallback: Even if trigger fails, the record is in R2 and 'processing' in DB
+      // In production, we should probably set status to 'error'
+      await supabase.from('games').update({ status: 'error' }).eq('id', gameId);
+      throw modalError;
+    }
 
     console.log("[ProcessGame] ===== GPU Analysis Triggered Successfully =====");
     return res.status(200).json({ success: true, message: "Analysis started" });

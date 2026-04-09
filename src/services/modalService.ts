@@ -2,44 +2,17 @@ import axios from "axios";
 
 /**
  * Service bridge for Modal.com GPU A100 processing.
- * Updated to use the secure server-side API bridge.
  */
 export const modalService = {
   /**
-   * Triggers the Modal.com GPU pipeline for a YouTube URL via secure API
+   * Client-side: Triggers the internal Next.js API route which handles security/validation
    */
-  processGame: async (youtubeUrl: string, config?: {
-    imgsz?: number;
-    conf?: number;
-    iou?: number;
-    tracking?: boolean;
-    agnostic_nms?: boolean;
-    rim_detection?: boolean;
-    shot_logic?: boolean;
-    camera_type?: "panning" | "fixed";
-    home_team_id?: string;
-    away_team_id?: string;
-    home_team_color?: string;
-    away_team_color?: string;
-    gameId?: string;
-  }) => {
+  triggerAnalysis: async (videoPath: string, config: any) => {
     try {
       const response = await axios.post("/api/process-game", { 
-        youtubeUrl,
-        gameId: config?.gameId,
-        config: {
-          ...config,
-          imgsz: config?.imgsz || 1280,
-          conf: config?.conf || 0.25,
-          iou: config?.iou || 0.45,
-          tracking: config?.tracking ?? true,
-          agnostic_nms: config?.agnostic_nms ?? true,
-          rim_detection: config?.rim_detection ?? true,
-          shot_logic: config?.shot_logic ?? true,
-          camera_type: config?.camera_type || "panning",
-        }
+        videoPath,
+        ...config
       });
-
       return response.data;
     } catch (error: any) {
       const displayMessage = error.response?.data?.message || error.message || "Unknown connection error";
@@ -48,13 +21,46 @@ export const modalService = {
   },
 
   /**
-   * Simulated status check for a running job
+   * Server-side: Directly triggers the Modal.com GPU cluster (Modal.com Webhook)
+   * This is called by the /api/process-game endpoint.
    */
-  getJobStatus: async (_jobId: string) => {
-    return {
-      status: "processing",
-      progress: 45,
-      currentTask: "Detecting shot attempts via YOLOv11m"
-    };
+  processGame: async (videoPath: string, config: any) => {
+    try {
+      // Replace with your actual Modal.com App URL (e.g. https://user--app-name.modal.run)
+      // This MUST be the external URL, not the internal API route
+      const modalEndpoint = process.env.MODAL_WEBHOOK_URL;
+      
+      if (!modalEndpoint) {
+        console.error("[ModalService] Missing MODAL_WEBHOOK_URL in environment variables");
+        throw new Error("Modal.com GPU cluster endpoint not configured");
+      }
+
+      console.log(`[ModalService] Dispatching job to GPU Cluster: ${modalEndpoint}`);
+      
+      const response = await axios.post(modalEndpoint, {
+        video_url: videoPath, // Modal worker expects video_url (which is the R2 path)
+        config: {
+          ...config,
+          imgsz: 1280,
+          conf: 0.25,
+          iou: 0.45,
+          tracking: true,
+          agnostic_nms: true,
+          rim_detection: true,
+          shot_logic: true,
+          camera_type: "panning",
+        }
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Modal-Token': process.env.MODAL_AUTH_TOKEN || ''
+        }
+      });
+
+      return response.data;
+    } catch (error: any) {
+      console.error("[ModalService] GPU Cluster Handoff Failed:", error.response?.data || error.message);
+      throw error;
+    }
   }
 };
