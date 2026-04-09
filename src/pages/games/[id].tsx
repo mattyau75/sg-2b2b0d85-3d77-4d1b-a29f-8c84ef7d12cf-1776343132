@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import Layout from "@/components/Layout";
+import { Layout } from "@/components/Layout";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -13,7 +13,6 @@ import {
   ChevronLeft, 
   Calendar, 
   MapPin, 
-  Clock,
   LayoutDashboard,
   Trophy,
   History,
@@ -31,6 +30,7 @@ import axios from "axios";
 export default function GameDetailPage() {
   const router = useRouter();
   const { id } = router.query;
+  const gameId = typeof id === "string" ? id : undefined;
   const { toast } = useToast();
   
   const [game, setGame] = useState<any>(null);
@@ -42,7 +42,7 @@ export default function GameDetailPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const fetchGameData = async () => {
-    if (!id) return;
+    if (!gameId) return;
     
     try {
       const { data, error } = await supabase
@@ -52,7 +52,7 @@ export default function GameDetailPage() {
           home_team:teams!games_home_team_id_fkey(*),
           away_team:teams!games_away_team_id_fkey(*)
         `)
-        .eq('id', id)
+        .eq('id', gameId)
         .single();
 
       if (error) throw error;
@@ -75,13 +75,14 @@ export default function GameDetailPage() {
   };
 
   useEffect(() => {
-    if (id) fetchGameData();
-  }, [id]);
+    if (gameId) fetchGameData();
+  }, [gameId]);
 
   const handleSyncStats = async () => {
+    if (!gameId) return;
     setSyncing(true);
     try {
-      await axios.post("/api/sync-game-stats", { gameId: id });
+      await axios.post("/api/sync-game-stats", { gameId });
       toast({
         title: "Stats Synced",
         description: "Game statistics have been updated from the latest analysis data."
@@ -99,10 +100,11 @@ export default function GameDetailPage() {
   };
 
   const handleReAnalyze = async () => {
+    if (!gameId || !game) return;
     setReRunning(true);
     try {
       await axios.post("/api/process-game", { 
-        gameId: id,
+        gameId,
         videoPath: game.video_path,
         homeTeamId: game.home_team_id,
         awayTeamId: game.away_team_id,
@@ -308,7 +310,7 @@ export default function GameDetailPage() {
 
           <TabsContent value="shotchart">
             <Card className="bg-card/40 border-white/5 shadow-2xl p-8">
-              <ShotChart gameId={id as string} />
+              <ShotChart />
             </Card>
           </TabsContent>
         </Tabs>
