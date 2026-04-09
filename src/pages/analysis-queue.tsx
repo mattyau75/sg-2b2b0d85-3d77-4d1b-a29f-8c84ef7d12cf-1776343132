@@ -262,9 +262,9 @@ export default function AnalysisQueuePage() {
                         <div className="w-full md:w-64 space-y-2">
                           <div className="flex justify-between text-[10px] font-mono">
                             <span className="text-muted-foreground uppercase">Progress</span>
-                            <span className={cn("font-bold", config.color)}>{config.progress}%</span>
+                            <span className={cn("font-bold", config.color)}>{job.progress_percentage || config.progress}%</span>
                           </div>
-                          <Progress value={config.progress} className="h-1.5" />
+                          <Progress value={job.progress_percentage || config.progress} className="h-1.5" />
                         </div>
 
                         <div className="flex items-center gap-2">

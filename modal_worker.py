@@ -90,31 +90,65 @@ def split_video(video_url: str, chunk_duration: int = 300):
     num_chunks = math.ceil(duration / chunk_duration)
     return [{"url": video_url, "start": i * chunk_duration, "chunk_id": i} for i in range(num_chunks)]
 
+def update_supabase_progress(game_id, progress, status=None):
+    """Callback to update Next.js dashboard via Supabase REST."""
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+    if not (supabase_url and supabase_key and game_id):
+        return
+    
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    payload = {"progress_percentage": progress}
+    if status:
+        payload["status"] = status
+        
+    try:
+        requests.patch(f"{supabase_url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload)
+    except Exception as e:
+        print(f"Failed to sync progress to DB: {e}")
+
 @app.function(image=image, timeout=3600)
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
     """Main entry point for Next.js API calls."""
     from fastapi.responses import StreamingResponse
     import json
+    
+    game_id = item.get("game_id")
 
     def orchestrate():
-        yield json.dumps({"__progress": 10, "__msg": "📡 Handshaking with R2 Storage..."}) + "\n"
+        update_supabase_progress(game_id, 15, "processing")
+        yield json.dumps({"__progress": 15, "__msg": "📡 Handshaking with R2 Storage..."}) + "\n"
         
         chunks = split_video.remote(item["video_url"])
+        update_supabase_progress(game_id, 25, "analyzing")
         yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
         
         # Parallel Execution across multiple GPUs
-        results = list(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True))
+        # We can update progress as chunks complete
+        results = []
+        for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
+            results.append(result)
+            progress = 25 + int((i + 1) / len(chunks) * 60)
+            update_supabase_progress(game_id, progress)
+            yield json.dumps({"__progress": progress, "__msg": f"Analyzing chunk {i+1}/{len(chunks)}..."}) + "\n"
         
-        yield json.dumps({"__progress": 90, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
+        update_supabase_progress(game_id, 95, "finalizing")
+        yield json.dumps({"__progress": 95, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
         
         # Merge logic (simplified)
         final_result = {
-            "game_id": item.get("game_id"),
+            "game_id": game_id,
             "play_by_play": [p for r in results if "play_by_play" in r for p in r["play_by_play"]],
             "stats": {} # Total aggregation
         }
         
+        update_supabase_progress(game_id, 100, "completed")
         yield json.dumps({"__result": final_result}) + "\n"
 
     return StreamingResponse(orchestrate(), media_type="text/plain")
