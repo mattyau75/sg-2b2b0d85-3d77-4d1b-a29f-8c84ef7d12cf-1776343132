@@ -59,7 +59,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. TRIGGER GPU ANALYSIS
-    // ELITE FIX: Ensure Home/Away IDs are passed to the Modal service
     const gpuConfig = {
       gameId,
       home_team_id: homeTeamId,
@@ -68,7 +67,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_team_color: awayColor || "#0B0F19",
       is_heavy_file: true,
       adaptive_sampling: true,
-      gpu_tier: "A100"
+      gpu_tier: "A100",
+      scouting_mode: "deep_recognition" // NEW: Force AI to prioritize roster matching
     };
 
     await modalService.processGame(sanitizedPath, gpuConfig);
