@@ -264,12 +264,13 @@ volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
 def run_analysis(video_url: str, config: dict):
     from ultralytics import YOLO
     
-    # 1. Self-provision weights if missing
+    # 1. Self-provision weights if missing from the volume
     weights_path = "/models/yolo11m.pt"
     if not os.path.exists(weights_path):
         print("📦 First run: Downloading YOLOv11m weights to persistent volume...")
         model = YOLO("yolo11m.pt")
         model.save(weights_path)
+        # Commit ensures the weights are saved for ALL future GPU runs
         volume.commit()
     else:
         model = YOLO(weights_path)
