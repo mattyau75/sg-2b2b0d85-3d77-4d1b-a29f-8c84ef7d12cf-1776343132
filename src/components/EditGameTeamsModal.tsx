@@ -51,7 +51,11 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       setAwayTeamId(game.away_team_id || "");
       setHomeColor(game.home_team_color || "#FFFFFF");
       setAwayColor(game.away_team_color || "#0B0F19");
-      setGameDate(game.date ? new Date(game.date) : new Date());
+      
+      // Safe date parsing
+      const initialDate = game.date ? new Date(game.date) : new Date();
+      setGameDate(isNaN(initialDate.getTime()) ? new Date() : initialDate);
+      
       setVenue(game.venue || "DribbleStats Stadium");
       setManualMappings(game.processing_metadata?.manual_mappings || {});
       
@@ -241,8 +245,16 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                     {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
-                  <Calendar mode="single" selected={gameDate} onSelect={setGameDate} initialFocus className="rounded-md border-none" />
+                <PopoverContent className="w-auto p-0 bg-popover border-border z-[100]" align="start">
+                  <Calendar 
+                    mode="single" 
+                    selected={gameDate} 
+                    onSelect={(date) => {
+                      if (date) setGameDate(date);
+                    }} 
+                    initialFocus 
+                    className="rounded-md border-none" 
+                  />
                 </PopoverContent>
               </Popover>
             </div>
