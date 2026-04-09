@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -23,6 +23,8 @@ export type Database = {
           camera_type: string | null
           created_at: string | null
           date: string | null
+          detected_away_color: string | null
+          detected_home_color: string | null
           home_score: number | null
           home_team_color: string | null
           home_team_id: string | null
@@ -43,6 +45,8 @@ export type Database = {
           camera_type?: string | null
           created_at?: string | null
           date?: string | null
+          detected_away_color?: string | null
+          detected_home_color?: string | null
           home_score?: number | null
           home_team_color?: string | null
           home_team_id?: string | null
@@ -63,6 +67,8 @@ export type Database = {
           camera_type?: string | null
           created_at?: string | null
           date?: string | null
+          detected_away_color?: string | null
+          detected_home_color?: string | null
           home_score?: number | null
           home_team_color?: string | null
           home_team_id?: string | null
