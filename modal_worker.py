@@ -251,3 +251,25 @@ class PlayerTracker:
         # Match detections to tracks based on IOU and color consistency
         ... 
         return matched_detections
+
+# Self-provisioning volume logic
+volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
+
+@app.function(
+    image=cuda_image,
+    gpu="A100",
+    volumes={"/models": volume},
+    timeout=3600
+)
+def run_analysis(video_url: str, config: dict):
+    from ultralytics import YOLO
+    
+    # 1. Self-provision weights if missing
+    weights_path = "/models/yolo11m.pt"
+    if not os.path.exists(weights_path):
+        print("📦 First run: Downloading YOLOv11m weights to persistent volume...")
+        model = YOLO("yolo11m.pt")
+        model.save(weights_path)
+        volume.commit()
+    else:
+        model = YOLO(weights_path)
