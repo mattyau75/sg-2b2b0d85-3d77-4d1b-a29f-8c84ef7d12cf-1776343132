@@ -135,15 +135,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      console.error("[UploadContext] Background Upload Failed:", error);
-      console.error("[UploadContext] Error details:", { 
-        message: error.message, 
-        response: error.response?.data,
-        status: error.response?.status 
+      const serverError = error.response?.data;
+      console.error("[UploadContext] Background Upload Failed!", {
+        message: error.message,
+        serverDetails: serverError
       });
       
       setActiveUploads(prev => prev.map(u => 
-        u.id === uploadId ? { ...u, status: "failed", error: error.message } : u
+        u.id === uploadId ? { ...u, status: "failed", error: serverError?.message || error.message } : u
       ));
       
       toast({

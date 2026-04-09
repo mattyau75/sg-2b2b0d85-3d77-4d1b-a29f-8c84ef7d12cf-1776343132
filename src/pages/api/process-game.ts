@@ -13,82 +13,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Sanitize videoPath: remove leading slash if present
   const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
 
-  console.log(`[ProcessGame] ===== Starting GPU Analysis =====`);
-  console.log(`[ProcessGame] Game ID: ${gameId}`);
-  console.log(`[ProcessGame] Video Path (raw): ${videoPath}`);
-  console.log(`[ProcessGame] Video Path (sanitized): ${sanitizedPath}`);
-  console.log(`[ProcessGame] Bucket Name: ${bucketName}`);
-  console.log(`[ProcessGame] R2 Client Config:`, {
-    endpoint: process.env.R2_ENDPOINT,
-    region: process.env.R2_REGION || 'auto',
-    hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
-    hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY
-  });
-
+  console.log(`[ProcessGame] Starting analysis for Game: ${gameId}`);
+  
   try {
-    // Increased to 5 retries with 3s delay (15s total) for 8GB+ files
+    // 1. VERIFY FILE EXISTS IN R2
     let fileFound = false;
-    let lastError = null;
+    let lastR2Error = null;
 
     for (let i = 0; i < 5; i++) {
       try {
-        console.log(`[ProcessGame] Verification attempt ${i + 1}/5...`);
-        const headResult = await r2Client.send(new HeadObjectCommand({
+        await r2Client.send(new HeadObjectCommand({
           Bucket: bucketName,
           Key: sanitizedPath,
         }));
         fileFound = true;
-        console.log(`[ProcessGame] ✅ File verified on attempt ${i + 1}`);
-        console.log(`[ProcessGame] File metadata:`, {
-          ContentLength: headResult.ContentLength,
-          ContentType: headResult.ContentType,
-          LastModified: headResult.LastModified
-        });
         break;
       } catch (e: any) {
-        lastError = e;
-        console.error(`[ProcessGame] ❌ Verification attempt ${i + 1} failed:`);
-        console.error(`[ProcessGame] Error Name: ${e.name}`);
-        console.error(`[ProcessGame] Error Message: ${e.message}`);
-        console.error(`[ProcessGame] Error Code: ${e.$metadata?.httpStatusCode}`);
-        console.error(`[ProcessGame] Full Error:`, JSON.stringify(e, null, 2));
-        
-        if (i < 4) {
-          console.log(`[ProcessGame] Waiting 3s before retry...`);
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        }
+        lastR2Error = {
+          name: e.name,
+          message: e.message,
+          code: e.$metadata?.httpStatusCode
+        };
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
     }
 
     if (!fileFound) {
-      console.error(`[ProcessGame] ===== VERIFICATION FAILED =====`);
-      console.error(`[ProcessGame] Final Error:`, lastError);
       return res.status(500).json({ 
-        message: `Failed to verify R2 video file after 5 attempts.`,
-        details: {
-          errorName: lastError?.name,
-          errorMessage: lastError?.message,
-          videoPath: sanitizedPath,
-          bucket: bucketName
-        }
+        message: "R2 Verification Failed", 
+        step: "R2_CHECK",
+        error: lastR2Error,
+        path: sanitizedPath,
+        bucket: bucketName
       });
     }
 
-    console.log("[ProcessGame] File verified successfully. Generating GPU payload...");
-
-    // Update game status to processing
-    const { error: updateError } = await supabase
-      .from('games')
-      .update({ status: 'processing' })
-      .eq('id', gameId);
-
-    if (updateError) {
-      console.error("[ProcessGame] Database update failed:", updateError);
-      throw updateError;
-    }
-
-    // Trigger Modal.com GPU analysis
-    console.log("[ProcessGame] Triggering Modal.com GPU pipeline...");
+    // 2. TRIGGER GPU ANALYSIS
     try {
       await modalService.processGame(sanitizedPath, {
         gameId,
@@ -98,19 +58,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         away_team_color: awayColor
       });
     } catch (modalError: any) {
-      console.error("[ProcessGame] Modal.com Trigger Failed:", modalError.message);
-      // Fallback: Even if trigger fails, the record is in R2 and 'processing' in DB
-      // In production, we should probably set status to 'error'
+      // Set status to error if trigger fails
       await supabase.from('games').update({ status: 'error' }).eq('id', gameId);
-      throw modalError;
+      
+      return res.status(500).json({ 
+        message: "GPU Trigger Failed", 
+        step: "MODAL_TRIGGER",
+        error: modalError.response?.data || modalError.message,
+        webhook: process.env.MODAL_WEBHOOK_URL ? "Configured" : "MISSING"
+      });
     }
 
-    console.log("[ProcessGame] ===== GPU Analysis Triggered Successfully =====");
     return res.status(200).json({ success: true, message: "Analysis started" });
 
   } catch (error: any) {
-    console.error("[ProcessGame] ===== CRITICAL ERROR =====");
-    console.error("[ProcessGame] Error:", error);
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ 
+      message: "Critical Server Error", 
+      step: "UNCAUGHT",
+      error: error.message 
+    });
   }
 }
