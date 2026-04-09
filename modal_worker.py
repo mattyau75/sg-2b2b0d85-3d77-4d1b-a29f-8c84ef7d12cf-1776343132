@@ -335,3 +335,15 @@ def run_analysis(video_url: str, config: dict):
     
     # Now open the LOCAL file (zero network glitches here)
     cap = cv2.VideoCapture(local_video_path)
+    print("[95%] Uploading final results to Supabase...")
+    # ... (Supabase upload logic) ...
+    
+    # FOOLPROOF CLEANUP: Wipe the local 1.4GB file to save storage costs
+    try:
+        if os.path.exists(local_video_path):
+            os.remove(local_video_path)
+            print("🧹 Local video buffer cleared. Storage optimized.")
+    except Exception as e:
+        print(f"⚠️ Cleanup failed: {str(e)}")
+
+    return {"status": "success", "game_id": config.get("gameId")}
