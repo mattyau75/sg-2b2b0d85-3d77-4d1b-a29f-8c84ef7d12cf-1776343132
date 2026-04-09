@@ -37,7 +37,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Get manual mappings if any
-    const manualMappings = gameData.processing_metadata?.manual_mappings || {};
+    const manualMappings = game.processing_metadata?.manual_mappings || {};
 
     // 2. Fetch play-by-play events
     const { data: events, error: eventsError } = await supabase
@@ -51,7 +51,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: players } = await supabase.from('players').select('*');
     const playersMap = players?.reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {}) || {};
 
-    const updatedEvents = events.map(event => {
+    const initialEvents = events || [];
+    const eventsToUpdate = initialEvents.map(event => {
       const mappingKey = `${event.team_id}-${event.jersey_number}`;
       const manualPlayerId = manualMappings[mappingKey];
       
@@ -68,8 +69,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Bulk update PBP (for mapping integrity)
-    for (const event of updatedEvents) {
-      if (event.player_id !== events.find(e => e.id === event.id)?.player_id) {
+    for (const event of eventsToUpdate) {
+      if (event.player_id !== initialEvents.find(e => e.id === event.id)?.player_id) {
         await supabase.from('play_by_play').update({ player_id: event.player_id }).eq('id', event.id);
       }
     }
@@ -77,27 +78,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let homeScore = 0;
     let awayScore = 0;
 
-    for (const event of events) {
-      let playerId = event.player_id;
-      let teamId = event.team_id;
-
-      // If missing player_id, resolve using jersey number and team context
-      if (!playerId && event.jersey_number !== null) {
-        const teamType = (event as any).team_type || (event.description?.toLowerCase().includes('home') ? 'home' : 'away');
-        const resolvedTeamId = teamType === 'home' ? game.home_team_id : game.away_team_id;
-        
-        if (resolvedTeamId) {
-          playerId = playerMap[`${resolvedTeamId}_${event.jersey_number}`];
-          teamId = resolvedTeamId;
-        }
-      }
-
-      if (playerId || teamId) {
-        await supabase.from("play_by_play").update({ 
-          player_id: playerId,
-          team_id: teamId 
-        }).eq("id", event.id);
-      }
+    for (const event of eventsToUpdate) {
+      const teamId = event.team_id;
 
       if (event.is_make) {
         const pts = event.event_type?.toUpperCase().includes('3PT') ? 3 : (event.event_type?.toUpperCase().includes('FT') ? 1 : 2);
@@ -107,10 +89,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 4. BOX SCORE PERSISTENCE
-    const { data: updatedEvents } = await supabase.from("play_by_play").select("*").eq("game_id", gameId);
+    const { data: finalEvents } = await supabase.from("play_by_play").select("*").eq("game_id", gameId);
     const { data: fullRoster } = await supabase.from("players").select("*").in("team_id", [game.home_team_id, game.away_team_id]);
     
-    const calculatedStats = calculateBoxScore(updatedEvents || [], fullRoster || []);
+    const calculatedStats = calculateBoxScore(finalEvents || [], fullRoster || []);
     
     if (calculatedStats.length > 0) {
       const statsToUpsert = calculatedStats.map(s => ({

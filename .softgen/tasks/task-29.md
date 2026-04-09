@@ -1,6 +1,6 @@
 ---
 title: "Module 1: Player Recognition & Manual Mapping"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "feature"
 tags: ["ai", "identity", "mapping", "ux"]
