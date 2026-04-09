@@ -8,6 +8,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
+    // 1. Get Game and Team context
     const { data: game, error: gameError } = await supabase
       .from("games")
       .select("home_team_id, away_team_id")
@@ -15,14 +16,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .single();
 
     if (gameError) throw gameError;
+    if (!game.home_team_id || !game.away_team_id) {
+      throw new Error("Game is missing team assignments. Link teams before syncing stats.");
+    }
 
+    // 2. Fetch Roster for mapping (Jersey Number -> Player ID)
+    const { data: roster, error: rosterError } = await supabase
+      .from("players")
+      .select("id, number, team_id")
+      .in("team_id", [game.home_team_id, game.away_team_id]);
+
+    if (rosterError) throw rosterError;
+
+    // Create a mapping: team_id + jersey_number -> player_id
+    const playerMap: Record<string, string> = {};
+    roster.forEach(p => {
+      if (p.number !== null) {
+        playerMap[`${p.team_id}_${p.number}`] = p.id;
+      }
+    });
+
+    // 3. Get all play-by-play events
     const { data: events, error: eventsError } = await supabase
       .from("play_by_play")
-      .select("*, player:players(team_id, name)")
+      .select("*")
       .eq("game_id", gameId)
       .order("timestamp_seconds", { ascending: true });
 
     if (eventsError) throw eventsError;
+
+    // 4. Resolve missing player_ids via jersey numbers if needed
+    const updates = events
+      .filter(e => !e.player_id && e.jersey_number !== null && e.team_id !== null)
+      .map(e => {
+        const playerId = playerMap[`${e.team_id}_${e.jersey_number}`];
+        if (playerId) return { id: e.id, player_id: playerId };
+        return null;
+      })
+      .filter(Boolean);
+
+    if (updates.length > 0) {
+      console.log(`[Sync] Resolving ${updates.length} players via jersey numbers...`);
+      for (const update of updates) {
+        await supabase.from("play_by_play").update({ player_id: update!.player_id }).eq("id", update!.id);
+      }
+    }
+
+    // 5. Re-fetch events with linked player data
+    const { data: linkedEvents, error: linkedError } = await supabase
+      .from("play_by_play")
+      .select("*, player:players(team_id, name)")
+      .eq("game_id", gameId);
+
+    if (linkedError) throw linkedError;
 
     const playerStats: Record<string, any> = {};
     const lineupStats: Record<string, any> = {};
@@ -35,12 +81,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const getLineupKey = (ids: string[]) => [...ids].sort().join(",");
 
-    events.forEach(event => {
+    linkedEvents.forEach(event => {
       const isHome = event.player?.team_id === game.home_team_id;
       const pts = event.event_type === "made_2pt" ? 2 : event.event_type === "made_3pt" ? 3 : 0;
       const duration = event.timestamp_seconds - lastTimestamp;
       
-      // Update tracking sets based on activity (Naive starter inference)
+      // Basic lineup tracking logic
       if (event.player_id) {
         if (isHome) {
           if (currentHomeLineup.size < 5) currentHomeLineup.add(event.player_id);
@@ -49,7 +95,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       }
 
-      // Record interval stats for lineups
+      // Record interval stats
       if (duration > 0) {
         if (currentHomeLineup.size === 5) {
           const key = getLineupKey(Array.from(currentHomeLineup));
@@ -66,15 +112,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // Distribute points
       if (isHome) {
         homeScore += pts;
-        if (currentHomeLineup.size === 5) lineupStats[getLineupKey(Array.from(currentHomeLineup))].points_for += pts;
-        if (currentAwayLineup.size === 5) lineupStats[getLineupKey(Array.from(currentAwayLineup))].points_against += pts;
+        const key = getLineupKey(Array.from(currentHomeLineup));
+        if (currentHomeLineup.size === 5 && lineupStats[key]) lineupStats[key].points_for += pts;
+        const oppKey = getLineupKey(Array.from(currentAwayLineup));
+        if (currentAwayLineup.size === 5 && lineupStats[oppKey]) lineupStats[oppKey].points_against += pts;
       } else {
         awayScore += pts;
-        if (currentAwayLineup.size === 5) lineupStats[getLineupKey(Array.from(currentAwayLineup))].points_for += pts;
-        if (currentHomeLineup.size === 5) lineupStats[getLineupKey(Array.from(currentHomeLineup))].points_against += pts;
+        const key = getLineupKey(Array.from(currentAwayLineup));
+        if (currentAwayLineup.size === 5 && lineupStats[key]) lineupStats[key].points_for += pts;
+        const oppKey = getLineupKey(Array.from(currentHomeLineup));
+        if (currentHomeLineup.size === 5 && lineupStats[oppKey]) lineupStats[oppKey].points_against += pts;
       }
 
-      // Distribute individual stats
+      // Individual stats
       if (event.player_id) {
         if (!playerStats[event.player_id]) {
           playerStats[event.player_id] = { 
@@ -111,10 +161,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await supabase.from("lineup_stats").upsert(lineupsArray, { onConflict: "game_id,player_ids" });
     }
 
-    await supabase.from("games").update({ home_score: homeScore, away_score: awayScore }).eq("id", gameId);
+    await supabase.from("games").update({ 
+      home_score: homeScore, 
+      away_score: awayScore,
+      status: 'completed'
+    }).eq("id", gameId);
 
-    return res.status(200).json({ success: true, homeScore, awayScore });
+    return res.status(200).json({ success: true, homeScore, awayScore, eventsCount: linkedEvents.length });
   } catch (error: any) {
+    console.error("[Sync Error]", error.message);
     return res.status(500).json({ message: error.message });
   }
 }
