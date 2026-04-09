@@ -54,10 +54,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. Resolve missing player_ids via jersey numbers if needed
     const updates = events
-      .filter((e: any) => !e.player_id && e.jersey_number !== null && e.team_id !== null)
+      .filter((e: any) => !e.player_id && e.jersey_number !== null)
       .map((e: any) => {
-        const playerId = playerMap[`${e.team_id}_${e.jersey_number}`];
-        if (playerId) return { id: e.id, player_id: playerId };
+        // If event is missing team_id, we try to infer it from the game context
+        // This handles older events created before the team links were restored
+        const effectiveTeamId = e.team_id || (e.team_type === 'home' ? game.home_team_id : game.away_team_id);
+        if (!effectiveTeamId) return null;
+
+        const playerId = playerMap[`${effectiveTeamId}_${e.jersey_number}`];
+        if (playerId) return { id: e.id, player_id: playerId, team_id: effectiveTeamId };
         return null;
       })
       .filter(Boolean);
@@ -65,7 +70,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (updates.length > 0) {
       console.log(`[Sync] Resolving ${updates.length} players via jersey numbers...`);
       for (const update of updates) {
-        await supabase.from("play_by_play").update({ player_id: update!.player_id }).eq("id", update!.id);
+        await supabase.from("play_by_play").update({ 
+          player_id: update!.player_id,
+          team_id: update!.team_id 
+        }).eq("id", update!.id);
       }
     }
 
