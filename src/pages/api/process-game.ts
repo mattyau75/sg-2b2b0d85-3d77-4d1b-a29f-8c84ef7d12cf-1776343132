@@ -59,27 +59,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 2. TRIGGER GPU ANALYSIS
-    await modalService.processGame(sanitizedPath, {
+    // ELITE AUDIT: Pass optimization hints to the GPU worker for 8GB files
+    const gpuConfig = {
       gameId,
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
-      home_team_color: homeColor,
-      away_team_color: awayColor
-    });
-
-    // ELITE AUDIT: Pass optimization hints to the GPU worker
-    const payload = {
-      video_url: videoPath, // This will be converted to signed URL in the worker or service
-      game_id: gameId,
-      home_color: homeColor || "#FFFFFF",
-      away_color: awayColor || "#0B0F19",
-      config: {
-        ...settings,
-        is_heavy_file: true, // Hint for 8GB optimization
-        adaptive_sampling: true,
-        gpu_tier: "A100"
-      }
+      home_team_color: homeColor || "#FFFFFF",
+      away_team_color: awayColor || "#0B0F19",
+      is_heavy_file: true, // Hint for 8GB optimization
+      adaptive_sampling: true,
+      gpu_tier: "A100"
     };
+
+    await modalService.processGame(sanitizedPath, gpuConfig);
 
     // 3. UPDATE DB
     await supabase.from('games').update({ status: 'processing' }).eq('id', gameId);
