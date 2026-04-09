@@ -16,10 +16,8 @@ import {
   MoreVertical,
   Cpu,
   Video,
-  ChevronLeft,
-  LayoutGrid,
-  List,
-  Target
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -38,10 +36,22 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { storageService } from "@/services/storageService";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export default function GameDetailPage() {
   const [syncing, setSyncing] = useState(false);
   const [reRunning, setReRunning] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const router = useRouter();
   const { id } = router.query;
   const { toast } = useToast();
@@ -143,6 +153,30 @@ export default function GameDetailPage() {
     }
   };
 
+  const handleDeleteGame = async () => {
+    setIsDeleting(true);
+    try {
+      // 1. Delete associated stats and events (Supabase handles this if ON DELETE CASCADE is set, but we'll be explicit for safety)
+      const { error: pbpError } = await supabase.from("play_by_play").delete().eq("game_id", id);
+      if (pbpError) throw pbpError;
+
+      const { error: statsError } = await supabase.from("player_game_stats").delete().eq("game_id", id);
+      if (statsError) throw statsError;
+
+      // 2. Delete the game itself
+      const { error: gameError } = await supabase.from("games").delete().eq("id", id);
+      if (gameError) throw gameError;
+
+      toast({ title: "Game Deleted", description: "All associated data has been removed." });
+      router.push("/games");
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+    }
+  };
+
   if (loading) return <Layout><div className="flex items-center justify-center h-96"><RefreshCw className="h-8 w-8 animate-spin text-primary" /></div></Layout>;
 
   if (!gameData) return <Layout title="Not Found"><div>Game Not Found</div></Layout>;
@@ -165,6 +199,16 @@ export default function GameDetailPage() {
             <ChevronLeft className="h-4 w-4" /> Back
           </Button>
           <div className="flex flex-wrap items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="border-destructive/20 text-destructive hover:bg-destructive/10"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={isDeleting}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            
             {gameData.status === 'completed' ? (
               <Button 
                 variant="outline" 
@@ -377,6 +421,29 @@ export default function GameDetailPage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-destructive" />
+              Delete Game Analysis?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently remove this game, all 142+ play-by-play events, shot charts, and box score stats. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-muted hover:bg-muted/80">Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleDeleteGame}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
+              {isDeleting ? "Deleting..." : "Delete Permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Layout>
   );
 }
