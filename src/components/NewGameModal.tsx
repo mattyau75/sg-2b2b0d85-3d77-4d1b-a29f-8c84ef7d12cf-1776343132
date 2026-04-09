@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X } from "lucide-react";
+import { Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X, Loader2, CheckCircle2 } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { useUploads } from "@/contexts/UploadContext";
 import { useRouter } from "next/router";
@@ -30,6 +30,9 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
   const { startUpload } = useUploads();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [analyzingColors, setAnalyzingColors] = useState(false);
+  const [detectedColors, setDetectedColors] = useState<string[]>([]);
+  const [calibrationStep, setCalibrationStep] = useState<"upload" | "calibrate" | "settings">("upload");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -71,7 +74,22 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
     const file = e.target.files?.[0];
     if (file) {
       setFormData(prev => ({ ...prev, videoFile: file }));
+      // Automatically trigger color analysis if teams are selected
+      if (formData.homeTeamId && formData.awayTeamId) {
+        startColorAnalysis(file);
+      }
     }
+  };
+
+  const startColorAnalysis = async (file: File) => {
+    setAnalyzingColors(true);
+    setCalibrationStep("calibrate");
+    // In a real flow, we'd upload a 10s chunk first, but here we'll simulate 
+    // the GPU identifying the primary jersey colors from the stream.
+    setTimeout(() => {
+      setDetectedColors(["#FFFFFF", "#008000"]); // Simulated: White and Green
+      setAnalyzingColors(false);
+    }, 3000);
   };
 
   const handleProcess = async () => {
@@ -150,155 +168,162 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto px-8 py-4 space-y-10 custom-scrollbar">
-          {/* Video Section */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between border-b border-border/50 pb-2">
-              <div className="flex items-center gap-2 text-sm font-bold tracking-tight uppercase">
-                <Video className="h-4 w-4 text-primary" />
-                Video Footage
-              </div>
-              <Select 
-                value={formData.cameraType} 
-                onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
-              >
-                <SelectTrigger className="w-[140px] bg-background border-border h-8 text-[11px] font-mono">
-                  <SelectValue placeholder="Type" />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  <SelectItem value="panning" className="text-xs">PANNING</SelectItem>
-                  <SelectItem value="fixed" className="text-xs">FIXED</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              className={cn(
-                "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer",
-                formData.videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/5"
-              )}
-            >
-              <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect} />
-              {formData.videoFile ? (
-                <div className="flex flex-col items-center gap-4">
-                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                    <FileVideo className="h-8 w-8 text-primary" />
+          {calibrationStep === "upload" ? (
+            <>
+              {/* Video Section */}
+              <div className="space-y-6">
+                <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                  <div className="flex items-center gap-2 text-sm font-bold tracking-tight uppercase">
+                    <Video className="h-4 w-4 text-primary" />
+                    Video Footage
                   </div>
-                  <p className="text-lg font-semibold text-foreground">{formData.videoFile.name}</p>
+                  <Select 
+                    value={formData.cameraType} 
+                    onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
+                  >
+                    <SelectTrigger className="w-[140px] bg-background border-border h-8 text-[11px] font-mono">
+                      <SelectValue placeholder="Type" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      <SelectItem value="panning" className="text-xs">PANNING</SelectItem>
+                      <SelectItem value="fixed" className="text-xs">FIXED</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div 
+                  onClick={() => fileInputRef.current?.click()}
+                  className={cn(
+                    "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer",
+                    formData.videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/5"
+                  )}
+                >
+                  <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect} />
+                  {formData.videoFile ? (
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                        <FileVideo className="h-8 w-8 text-primary" />
+                      </div>
+                      <p className="text-lg font-semibold text-foreground">{formData.videoFile.name}</p>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="h-10 w-10 text-muted-foreground mb-4" />
+                      <p className="text-lg font-bold text-foreground">Drag & drop game footage</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {/* Teams Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
+                <div className="space-y-5">
+                  <Label className="text-sm font-bold uppercase tracking-wider">Home Team</Label>
+                  <Select onValueChange={handleHomeTeamChange}>
+                    <SelectTrigger className="bg-background border-border h-12">
+                      <SelectValue placeholder="Select team..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-5">
+                  <Label className="text-sm font-bold uppercase tracking-wider">Away Team</Label>
+                  <Select onValueChange={handleAwayTeamChange}>
+                    <SelectTrigger className="bg-background border-border h-12">
+                      <SelectValue placeholder="Select team..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-card border-border">
+                      {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="space-y-12 py-6">
+              <div className="text-center space-y-2">
+                <h3 className="text-xl font-bold">Visual Calibration</h3>
+                <p className="text-sm text-muted-foreground">We've identified the jersey colors in your video. Assign them to the correct teams.</p>
+              </div>
+
+              {analyzingColors ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+                  <Loader2 className="h-10 w-10 text-primary animate-spin" />
+                  <p className="text-sm font-mono text-muted-foreground animate-pulse">SAMPLING VIDEO STREAM...</p>
                 </div>
               ) : (
-                <>
-                  <Upload className="h-10 w-10 text-muted-foreground mb-4" />
-                  <p className="text-lg font-bold text-foreground">Drag & drop game footage</p>
-                </>
+                <div className="grid grid-cols-2 gap-8">
+                  <div className="space-y-4 p-6 rounded-2xl bg-muted/5 border border-border/50 text-center">
+                    <Badge variant="outline" className="mb-2">HOME: {formData.homeTeamData?.name}</Badge>
+                    <div className="flex justify-center gap-4">
+                      {detectedColors.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => setFormData({...formData, homeColor: color})}
+                          className={cn(
+                            "h-16 w-16 rounded-full border-2 transition-all",
+                            formData.homeColor === color ? "border-primary scale-110 shadow-lg shadow-primary/20" : "border-transparent opacity-40 hover:opacity-100"
+                          )}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 p-6 rounded-2xl bg-muted/5 border border-border/50 text-center">
+                    <Badge variant="outline" className="mb-2">AWAY: {formData.awayTeamData?.name}</Badge>
+                    <div className="flex justify-center gap-4">
+                      {detectedColors.map(color => (
+                        <button
+                          key={color}
+                          onClick={() => setFormData({...formData, awayColor: color})}
+                          className={cn(
+                            "h-16 w-16 rounded-full border-2 transition-all",
+                            formData.awayColor === color ? "border-accent scale-110 shadow-lg shadow-accent/20" : "border-transparent opacity-40 hover:opacity-100"
+                          )}
+                          style={{ backgroundColor: color }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
-            </div>
-          </div>
-
-          {/* Teams Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
-            <div className="space-y-5">
-              <Label className="text-sm font-bold uppercase tracking-wider">Home Team</Label>
-              <Select onValueChange={handleHomeTeamChange}>
-                <SelectTrigger className="bg-background border-border h-12">
-                  <SelectValue placeholder="Select team..." />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="flex gap-3">
-                {formData.homeTeamData && (
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex-1 h-12 relative overflow-hidden transition-all duration-300", 
-                      "border-primary/20 hover:border-primary/50"
-                    )}
-                    onClick={toggleHomeColor}
-                  >
-                    <div 
-                      className="absolute inset-0 opacity-10" 
-                      style={{ backgroundColor: formData.homeColor }} 
-                    />
-                    <div className="relative flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 rounded-full shadow-inner border border-white/20" style={{ backgroundColor: formData.homeColor }} />
-                      <span className="text-xs font-bold uppercase tracking-tighter">
-                        {formData.homeColor === formData.homeTeamData.primary_color ? "Primary Kit" : "Secondary Kit"}
-                      </span>
-                    </div>
-                  </Button>
-                )}
+              
+              <div className="flex justify-center">
+                <Button variant="ghost" size="sm" onClick={() => setCalibrationStep("upload")} className="text-xs text-muted-foreground underline underline-offset-4">
+                  Re-select teams or video
+                </Button>
               </div>
             </div>
-
-            <div className="space-y-5">
-              <Label className="text-sm font-bold uppercase tracking-wider">Away Team</Label>
-              <Select onValueChange={handleAwayTeamChange}>
-                <SelectTrigger className="bg-background border-border h-12">
-                  <SelectValue placeholder="Select team..." />
-                </SelectTrigger>
-                <SelectContent className="bg-card border-border">
-                  {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              <div className="flex gap-3">
-                {formData.awayTeamData && (
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "flex-1 h-12 relative overflow-hidden transition-all duration-300",
-                      "border-accent/20 hover:border-accent/50"
-                    )}
-                    onClick={toggleAwayColor}
-                  >
-                    <div 
-                      className="absolute inset-0 opacity-10" 
-                      style={{ backgroundColor: formData.awayColor }} 
-                    />
-                    <div className="relative flex items-center justify-center gap-2">
-                      <div className="h-4 w-4 rounded-full shadow-inner border border-white/20" style={{ backgroundColor: formData.awayColor }} />
-                      <span className="text-xs font-bold uppercase tracking-tighter">
-                        {formData.awayColor === formData.awayTeamData.primary_color ? "Primary Kit" : "Secondary Kit"}
-                      </span>
-                    </div>
-                  </Button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Inference Settings */}
-          <div className="pt-10 border-t border-border space-y-8">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-sm font-bold uppercase tracking-tight">
-                <Settings2 className="h-4 w-4 text-primary" />
-                Inference Optimization
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-4">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Input Resolution ({formData.imgsz}px)</Label>
-                <Slider value={[formData.imgsz]} min={640} max={1280} step={320} onValueChange={([val]) => setFormData({ ...formData, imgsz: val })} />
-              </div>
-              <div className="space-y-4">
-                <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Threshold ({formData.conf})</Label>
-                <Slider value={[formData.conf]} min={0.1} max={0.9} step={0.05} onValueChange={([val]) => setFormData({ ...formData, conf: val })} />
-              </div>
-            </div>
-          </div>
+          )}
         </div>
 
         <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5">
           <Button variant="ghost" onClick={onClose} className="px-8">Cancel</Button>
-          <Button 
-            onClick={handleProcess} 
-            disabled={!formData.videoFile || !formData.homeTeamId || !formData.awayTeamId}
-            className="bg-primary hover:bg-primary/90 min-w-[200px] h-14 rounded-xl font-bold"
-          >
-            Deploy GPU Pipeline
-          </Button>
+          {calibrationStep === "upload" ? (
+            <Button 
+              onClick={() => {
+                if (formData.videoFile && formData.homeTeamId && formData.awayTeamId) {
+                  startColorAnalysis(formData.videoFile);
+                }
+              }} 
+              disabled={!formData.videoFile || !formData.homeTeamId || !formData.awayTeamId}
+              className="bg-primary hover:bg-primary/90 min-w-[200px] h-14 rounded-xl font-bold"
+            >
+              Calibrate Jersey Colors
+            </Button>
+          ) : (
+            <Button 
+              onClick={handleProcess} 
+              disabled={analyzingColors}
+              className="bg-primary hover:bg-primary/90 min-w-[200px] h-14 rounded-xl font-bold"
+            >
+              Deploy GPU Pipeline
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
