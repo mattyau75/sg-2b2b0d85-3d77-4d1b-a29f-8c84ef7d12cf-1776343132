@@ -13,8 +13,8 @@ position: 28
 Implement automated jersey color detection for Module 1 to improve player mapping accuracy.
 
 ## Checklist:
-- [ ] Create/Update `src/pages/api/analyze-colors.ts` to simulate/execute color extraction from video.
-- [ ] Update `EditGameTeamsModal.tsx` to trigger color detection on open.
-- [ ] Add color toggle UI to allocate detected colors to Home/Away teams.
-- [ ] Add Hover "help" tooltip for "Video Color Calibration" context.
-- [ ] Persist detected colors to the `games` table in Supabase.
+- [x] Create/Update `src/pages/api/analyze-colors.ts` to simulate/execute color extraction from video.
+- [x] Update `EditGameTeamsModal.tsx` to trigger color detection on open.
+- [x] Add color toggle UI to allocate detected colors to Home/Away teams.
+- [x] Add Hover "help" tooltip for "Video Color Calibration" context.
+- [x] Persist detected colors to the `games` table in Supabase.

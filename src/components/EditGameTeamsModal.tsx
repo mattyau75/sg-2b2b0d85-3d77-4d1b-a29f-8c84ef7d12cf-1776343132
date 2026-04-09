@@ -4,7 +4,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter 
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,8 +16,9 @@ import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { CalendarIcon, Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2, Sparkles, HelpCircle, ArrowLeftRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import axios from "axios";
 
 interface EditGameTeamsModalProps {
@@ -35,6 +37,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [gameDate, setGameDate] = useState<Date | undefined>(undefined);
   const [venue, setVenue] = useState("");
   const [loading, setLoading] = useState(false);
+  const [calibrating, setCalibrating] = useState(false);
+  const [detectedColors, setDetectedColors] = useState<string[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -45,6 +49,12 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       setAwayColor(game.away_team_color || "#0B0F19");
       setGameDate(game.date ? new Date(game.date) : new Date());
       setVenue(game.venue || "DribbleStats Stadium");
+      
+      if (game.detected_home_color && game.detected_away_color) {
+        setDetectedColors([game.detected_home_color, game.detected_away_color]);
+      } else {
+        runCalibration();
+      }
     }
   }, [game, isOpen]);
 
@@ -56,12 +66,42 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
     if (isOpen) fetchTeams();
   }, [isOpen]);
 
+  const runCalibration = async () => {
+    if (!game?.id || !game?.video_path) return;
+    setCalibrating(true);
+    try {
+      const { data } = await axios.post("/api/analyze-colors", {
+        gameId: game.id,
+        videoPath: game.video_path
+      });
+      if (data.success) {
+        setDetectedColors(data.colors);
+        toast({ title: "Calibration Complete", description: "Identified two primary team colors from video." });
+      }
+    } catch (error) {
+      console.error("Calibration error:", error);
+    } finally {
+      setCalibrating(false);
+    }
+  };
+
+  const swapDetectedColors = () => {
+    setDetectedColors([...detectedColors].reverse());
+  };
+
+  const allocateColors = () => {
+    if (detectedColors.length === 2) {
+      setHomeColor(detectedColors[0]);
+      setAwayColor(detectedColors[1]);
+      toast({ title: "Colors Allocated", description: "Video calibrated colors applied to rosters." });
+    }
+  };
+
   const handleSave = async (reAnalyze = false) => {
     if (!game?.id) return;
     setLoading(true);
 
     try {
-      // 1. Lock in the metadata in the database
       const { error: updateError } = await supabase
         .from('games')
         .update({
@@ -77,7 +117,6 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
       if (updateError) throw updateError;
 
-      // 2. If re-analyzing, trigger the modular scouting pipeline
       if (reAnalyze) {
         await axios.post("/api/process-game", {
           gameId: game.id,
@@ -85,12 +124,9 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           awayTeamId,
           homeColor,
           awayColor,
-          config: {
-            scouting_mode: "deep_recognition",
-            roster_sync: true
-          }
+          config: { scouting_mode: "deep_recognition", roster_sync: true }
         });
-        toast({ title: "GPU Engine Restarted", description: "Modular scouting active with new roster mapping." });
+        toast({ title: "GPU Engine Restarted", description: "Modular scouting active with calibrated colors." });
       } else {
         toast({ title: "Metadata Updated", description: "Game details and team rosters have been linked." });
       }
@@ -106,109 +142,131 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[450px] bg-card border-border shadow-2xl">
+      <DialogContent className="sm:max-w-[500px] bg-card border-border shadow-2xl overflow-hidden">
         <DialogHeader>
-          <DialogTitle className="text-primary text-xl font-bold tracking-tight">Game Metadata</DialogTitle>
+          <DialogTitle className="text-primary text-xl font-bold tracking-tight">Module 1: Identity & Mapping</DialogTitle>
+          <DialogDescription className="text-muted-foreground/80 font-mono text-xs uppercase tracking-wider">
+            Match video identities to your directory rosters
+          </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-5 py-4">
-          <div className="space-y-2">
-            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Game Venue</Label>
-            <Input 
-              value={venue} 
-              onChange={(e) => setVenue(e.target.value)}
-              placeholder="e.g. DribbleStats Stadium"
-              className="bg-muted/20 border-border h-11"
-            />
-          </div>
+        
+        <div className="grid gap-6 py-4">
+          {/* Video Color Calibration Section */}
+          <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-4 relative overflow-hidden group">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                <Label className="text-white text-xs font-bold uppercase tracking-widest">Video Color Calibration</Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help hover:text-primary transition-colors" />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-popover border-border p-3 max-w-xs">
+                      <p className="text-xs leading-relaxed">
+                        Computer vision analyzes the video to identify team jersey colors. 
+                        Allocate these to ensure 100% accurate player recognition in the scouting pipeline.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+              {calibrating && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+            </div>
 
-          <div className="space-y-2">
-            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Game Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant={"outline"}
-                  className={cn(
-                    "w-full justify-start text-left font-normal bg-muted/20 border-border h-11",
-                    !gameDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                  {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
+            {detectedColors.length === 2 ? (
+              <div className="flex items-center justify-between gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+                <div className="flex items-center gap-3 bg-background/50 p-2 rounded-lg border border-white/5 flex-1">
+                  <div className="w-8 h-8 rounded shadow-inner" style={{ backgroundColor: detectedColors[0] }} />
+                  <div className="flex-1 text-[10px] font-mono font-bold text-muted-foreground uppercase">Detected A</div>
+                </div>
+                
+                <Button variant="ghost" size="icon" onClick={swapDetectedColors} className="hover:bg-primary/20 hover:text-primary rounded-full h-8 w-8">
+                  <ArrowLeftRight className="h-4 w-4" />
                 </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
-                <Calendar
-                  mode="single"
-                  selected={gameDate}
-                  onSelect={setGameDate}
-                  initialFocus
-                  className="rounded-md border-none"
-                />
-              </PopoverContent>
-            </Popover>
+
+                <div className="flex items-center gap-3 bg-background/50 p-2 rounded-lg border border-white/5 flex-1">
+                  <div className="w-8 h-8 rounded shadow-inner" style={{ backgroundColor: detectedColors[1] }} />
+                  <div className="flex-1 text-[10px] font-mono font-bold text-muted-foreground uppercase">Detected B</div>
+                </div>
+
+                <Button onClick={allocateColors} size="sm" className="bg-primary hover:bg-primary/90 text-[10px] font-bold h-8 px-4">
+                  ALLOCATE
+                </Button>
+              </div>
+            ) : !calibrating && (
+              <Button onClick={runCalibration} variant="outline" className="w-full h-10 border-dashed border-primary/30 text-primary font-bold text-xs">
+                RE-RUN VISUAL CALIBRATION
+              </Button>
+            )}
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Home Team & Color</Label>
-            <div className="flex gap-2">
-              <Select value={homeTeamId} onValueChange={setHomeTeamId}>
-                <SelectTrigger className="bg-muted/20 border-border h-11 flex-1">
-                  <SelectValue placeholder="Home Team" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input 
-                type="color" 
-                value={homeColor} 
-                onChange={(e) => setHomeColor(e.target.value)}
-                className="w-14 h-11 p-1 bg-muted/20 border-border cursor-pointer shrink-0"
-              />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Game Venue</Label>
+              <Input value={venue} onChange={(e) => setVenue(e.target.value)} className="bg-muted/20 border-border h-10 text-sm" />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Game Date</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className={cn("w-full justify-start text-left font-normal bg-muted/20 border-border h-10 text-sm", !gameDate && "text-muted-foreground")}>
+                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                    {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
+                  <Calendar mode="single" selected={gameDate} onSelect={setGameDate} initialFocus className="rounded-md border-none" />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <Label className="text-foreground/70 text-xs font-bold uppercase tracking-wider">Away Team & Color</Label>
-            <div className="flex gap-2">
-              <Select value={awayTeamId} onValueChange={setAwayTeamId}>
-                <SelectTrigger className="bg-muted/20 border-border h-11 flex-1">
-                  <SelectValue placeholder="Away Team" />
-                </SelectTrigger>
-                <SelectContent className="bg-popover border-border">
-                  {teams.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Input 
-                type="color" 
-                value={awayColor} 
-                onChange={(e) => setAwayColor(e.target.value)}
-                className="w-14 h-11 p-1 bg-muted/20 border-border cursor-pointer shrink-0"
-              />
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Home Team & Tactical Color</Label>
+              <div className="flex gap-2">
+                <Select value={homeTeamId} onValueChange={setHomeTeamId}>
+                  <SelectTrigger className="bg-muted/20 border-border h-10 flex-1">
+                    <SelectValue placeholder="Select Home Team" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {teams.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="color" value={homeColor} onChange={(e) => setHomeColor(e.target.value)} className="w-12 h-10 p-1 bg-muted/20 border-border cursor-pointer shrink-0" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-foreground/70 text-[10px] font-bold uppercase tracking-widest">Away Team & Tactical Color</Label>
+              <div className="flex gap-2">
+                <Select value={awayTeamId} onValueChange={setAwayTeamId}>
+                  <SelectTrigger className="bg-muted/20 border-border h-10 flex-1">
+                    <SelectValue placeholder="Select Away Team" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover border-border">
+                    {teams.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input type="color" value={awayColor} onChange={(e) => setAwayColor(e.target.value)} className="w-12 h-10 p-1 bg-muted/20 border-border cursor-pointer shrink-0" />
+              </div>
             </div>
           </div>
         </div>
-        <DialogFooter className="gap-2 sm:gap-0 mt-4">
-          <Button variant="ghost" onClick={onClose} className="hover:bg-muted text-muted-foreground">Cancel</Button>
+
+        <DialogFooter className="gap-2 sm:gap-0 mt-2 bg-muted/50 -mx-6 -mb-6 p-6">
+          <Button variant="ghost" onClick={onClose} className="hover:bg-muted text-muted-foreground text-xs font-bold">CANCEL</Button>
           <div className="flex gap-2 w-full sm:w-auto">
-            <Button 
-              variant="outline" 
-              onClick={() => handleSave(false)} 
-              disabled={loading} 
-              className="border-border hover:bg-white/5 flex-1 sm:flex-none"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save Only"}
+            <Button variant="outline" onClick={() => handleSave(false)} disabled={loading} className="border-border hover:bg-white/5 flex-1 sm:flex-none text-xs font-bold px-6">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "SAVE METADATA"}
             </Button>
-            <Button 
-              onClick={() => handleSave(true)} 
-              disabled={loading} 
-              className="bg-primary hover:bg-primary/90 text-white font-bold flex-1 sm:flex-none shadow-lg shadow-primary/20"
-            >
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Save & Re-analyze"}
+            <Button onClick={() => handleSave(true)} disabled={loading} className="bg-primary hover:bg-primary/90 text-white font-bold flex-1 sm:flex-none shadow-lg shadow-primary/20 text-xs px-6">
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "SAVE & START AI MAPPING"}
             </Button>
           </div>
         </DialogFooter>

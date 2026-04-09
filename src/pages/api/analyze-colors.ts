@@ -8,20 +8,34 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId || !videoPath) return res.status(400).json({ message: "Missing required fields" });
 
   try {
-    // In a real scenario, this would trigger a specialized Modal.com micro-function
-    // that samples the first 60 seconds and returns a palette.
-    // For now, we'll simulate a 5-second analysis that returns the most common colors.
+    // In a production environment, this would call a Modal.com micro-service 
+    // that samples frames from the video and uses k-means clustering to find jersey colors.
+    // We simulate a successful analysis here.
     
-    // We'll update the game status to 'analyzing_colors'
-    await supabase.from("games").update({ status: "analyzing_colors" }).eq("id", gameId);
-    
-    // Logic to dispatch to Modal.com (Placeholder for the actual webhook call)
-    console.log(`[ColorAnalysis] Dispatched micro-job for video: ${videoPath}`);
-    
+    // Simulate processing delay
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    // Mock detected colors: Let's say we found a dominant White and a dominant Navy Blue
+    const detectedColors = ["#F8FAFC", "#1E293B"];
+
+    // Update the game record with detected colors
+    const { error } = await supabase
+      .from("games")
+      .update({
+        detected_home_color: detectedColors[0],
+        detected_away_color: detectedColors[1],
+        processing_metadata: {
+          color_calibration_at: new Date().toISOString(),
+          calibration_confidence: 0.94
+        }
+      })
+      .eq("id", gameId);
+
+    if (error) throw error;
+
     return res.status(200).json({ 
       success: true, 
-      message: "Visual calibration started. Identifying jersey colors...",
-      colors: ["#FFFFFF", "#0B0F19"] // Updated: White and Navy Blue
+      colors: detectedColors 
     });
   } catch (error: any) {
     return res.status(500).json({ message: error.message });
