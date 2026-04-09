@@ -12,12 +12,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const command = new GetObjectCommand({
-      Bucket: BUCKET_NAME,
+      Bucket: process.env.R2_BUCKET_NAME,
       Key: path as string,
     });
 
-    // Increase expiry to 24 hours to ensure long analysis jobs don't time out on the URL
+    // 24-hour expiry to ensure long GPU processing jobs never lose access
     const url = await getSignedUrl(r2Client, command, { expiresIn: 86400 });
+
+    console.log("[SignedURL] Generated highly-resilient URL for GPU worker.");
 
     return res.status(200).json({ url });
   } catch (error: any) {

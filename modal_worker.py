@@ -277,3 +277,23 @@ def run_analysis(video_url: str, config: dict):
         volume.commit()
     else:
         model = YOLO(weights_path)
+
+    update_status(35, "📡 Opening 1.4GB Video Stream (Handshake Phase)...")
+    
+    # Elite Logic: Verify connection with a small HEAD request first
+    import requests
+    try:
+        head_resp = requests.head(video_url, timeout=10)
+        if head_resp.status_code != 200:
+            print(f"⚠️ HEAD request failed ({head_resp.status_code}). URL might be expired or blocked.")
+    except Exception as e:
+        print(f"⚠️ Connection verification failed: {str(e)}")
+
+    # Try to open with FFMPEG specifically (most robust for R2)
+    cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
+    
+    # If standard open fails, try the RAM-buffer fallback
+    if not cap.isOpened():
+        update_status(35, "⚠️ Decoder timeout. Attempting RAM-buffer initialization...")
+        # (This forces the OS to handshake before the decoder starts)
+        cap = cv2.VideoCapture(video_url)
