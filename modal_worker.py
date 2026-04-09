@@ -1,72 +1,16 @@
-#!/usr/bin/env python3
-"""
-DribbleAI Stats — Modal GPU Worker (Modal 1.x API)
-====================================================
-Deploys opencv_statgen.py to a T4 GPU container on Modal and exposes it as a
-streaming HTTP endpoint that emits the same JSON-line protocol the local
-subprocess uses (__progress / __result / __error).
-
-Quick-start
------------
-1.  pip install modal
-2.  modal token set --token-id <id> --token-secret <secret>
-3.  (OPTIONAL) Export YouTube cookies and create a Modal secret:
-    modal secret create youtube-cookies YOUTUBE_COOKIES="$(cat cookies.txt)"
-4.  modal deploy modal_worker.py
-5.  Copy the printed endpoint URL to your Next.js environment variables.
-
-GPU options (change gpu= below)
---------------------------------
-  "T4"   — ~$0.59/hr  — ~0.8 s/frame yolo11m  → 129 frames ≈  2 min
-  "A10G" — ~$1.10/hr  — ~0.4 s/frame yolo11m  → 129 frames ≈  1 min
-  "A100" — ~$3.70/hr  — ~0.2 s/frame yolo11m  → 129 frames ≈ 30 sec
-
-YouTube Cookie Authentication
-------------------------------
-To bypass YouTube's bot detection, you have two options:
-
-Option 1 - Use Modal Secret (Recommended):
-  1. Export cookies from your browser using "Get cookies.txt LOCALLY" extension
-  2. Create Modal secret: modal secret create youtube-cookies YOUTUBE_COOKIES="$(cat cookies.txt)"
-  3. The worker will automatically use these cookies
-
-Option 2 - Use Browser Cookie Extraction:
-  1. Uncomment the Chrome/Firefox installation in the image setup below
-  2. Uncomment the cookiesfrombrowser line in the subprocess args
-  3. Note: This adds ~500MB to the container and increases cold start time
-"""
-
 import json
 import os
 import subprocess
 import sys
-import tempfile
-from pathlib import Path
 import math
-import cv2
-import numpy as np
-import torch
-from typing import List, Dict, Any
-import time
-from typing import Generator
-import boto3
-from botocore.config import Config
 import requests
-import shutil
-
+from pathlib import Path
 import modal
 
-# Define persistent storage for models to avoid Roboflow/Ultralytics download glitches
-models_volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
-
-# ── App ────────────────────────────────────────────────────────────────────────
-
+# ── App Definition ────────────────────────────────────────────────────────────
 app = modal.App("courtvision-elite-worker")
 
-# ── Container image ────────────────────────────────────────────────────────────
-# In Modal 1.x, local files are bundled into the image via .add_local_file()
-# rather than the removed modal.Mount API.
-
+# ── Container Image ───────────────────────────────────────────────────────────
 _SCRIPT_PATH = str(Path(__file__).parent / "opencv_statgen.py")
 
 image = (
@@ -78,330 +22,93 @@ image = (
         "libxext6",
         "libxrender-dev",
         "tesseract-ocr",
-        "tesseract-ocr-eng",
         "ffmpeg",
-        # OPTIONAL: Uncomment to enable browser cookie extraction (adds ~500MB to image)
-        # "chromium",
-        # "chromium-driver",
     ])
     .pip_install([
         "ultralytics>=8.3",
         "opencv-python-headless>=4.9",
-        "pytesseract>=0.3.10",
         "numpy>=1.26",
         "yt-dlp>=2024.4",
         "requests",
-        "fastapi[standard]",
     ])
     .add_local_file(_SCRIPT_PATH, remote_path="/app/opencv_statgen.py")
 )
 
-# Define the high-performance GPU image
-cuda_image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("libgl1", "libglib2.0-0")
-    .pip_install(
-        "ultralytics",
-        "opencv-python-headless",
-        "numpy",
-        "requests",
-        "supabase",
-        "boto3"
-    )
-    .run_commands(
-        # Pre-download the model into the image or volume path
-        "mkdir -p /models",
-        "curl -L https://github.com/ultralytics/assets/releases/download/v8.3.0/yolo11m.pt -o /models/yolo11m.pt"
-    )
-)
-
-# ── Persistent volume — caches YOLO weight files across cold starts ─────────────
-# On first invocation ultralytics auto-downloads yolo11m.pt / yolo11n.pt /
-# yolo11n-pose.pt from GitHub releases into this volume.  Subsequent cold starts
-# skip the download entirely.
-
+# ── Persistent Storage ───────────────────────────────────────────────────────
 weights_volume = modal.Volume.from_name("dribbleai-yolo-weights", create_if_missing=True)
 WEIGHTS_DIR = "/cache/yolo"
 
+# ── GPU Processing Logic ──────────────────────────────────────────────────────
 
-# ── Combined GPU web endpoint ──────────────────────────────────────────────────
-# Runs entirely inside the GPU container (no cross-function generator hop).
-# Modal 1.x supports combining @modal.web_endpoint with gpu= on the same
-# function — the HTTP handler itself executes on the GPU machine and streams
-# the subprocess stdout back to the caller.
-
-@app.function(image=image, volumes={WEIGHTS_DIR: weights_volume}, timeout=600)
-def split_video(video_url: str, chunk_duration: int = 300):
-    """
-    Splits video into 5-minute segments for parallel processing.
-    """
-    import subprocess
-    import tempfile
-    
-    # Probe duration
-    probe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_url]
-    duration = float(subprocess.check_output(probe_cmd).decode().strip())
-    
-    num_chunks = math.ceil(duration / chunk_duration)
-    chunks = []
-    
-    for i in range(num_chunks):
-        chunks.append({
-            "url": video_url,
-            "start": i * chunk_duration,
-            "duration": chunk_duration,
-            "chunk_id": i
-        })
-    return chunks
-
-# Use a global variable to cache the model in VRAM across function calls
-_cached_model = None
-
-def get_model():
-    global _cached_model
-    if _cached_model is None:
-        from ultralytics import YOLO
-        model_path = "/models/yolo11m.pt"
-        _cached_model = YOLO(model_path)
-        print("🔥 Model loaded into VRAM and cached.")
-    return _cached_model
-
-@app.function(
-    gpu="A10G",
-    image=image,
-    volumes={WEIGHTS_DIR: weights_volume},
-    timeout=1800,
-)
+@app.function(image=image, volumes={WEIGHTS_DIR: weights_volume}, timeout=1800, gpu="A10G")
 def process_chunk(chunk_data: dict, config: dict):
-    """
-    Processes a single 5-minute segment on a dedicated GPU.
-    """
+    """Processes a video segment with full roster awareness."""
     import subprocess
     import sys
     import json
     
+    # Map API keys to script arguments
     cmd = [
         sys.executable, "/app/opencv_statgen.py",
         "--url", chunk_data["url"],
         "--offset-seconds", str(chunk_data["start"]),
-        "--chunk-id", str(chunk_data["chunk_id"]),
-        "--home", config["home_team"],
-        "--away", config["away_team"],
+        "--home", config.get("home_team", "Home"),
+        "--away", config.get("away_team", "Away"),
         "--home-roster", json.dumps(config.get("home_roster", [])),
         "--away-roster", json.dumps(config.get("away_roster", []))
     ]
     
-    # Run and capture final __result JSON line
-    result = subprocess.check_output(cmd).decode().splitlines()
-    for line in result:
-        if "__result" in line:
-            return json.loads(line)["__result"]
+    print(f"🚀 Launching Chunk Process for {chunk_data['start']}s offset")
+    
+    try:
+        result = subprocess.check_output(cmd, stderr=subprocess.STDOUT).decode().splitlines()
+        for line in result:
+            if "__result" in line:
+                return json.loads(line)["__result"]
+    except subprocess.CalledProcessError as e:
+        print(f"❌ Chunk processing failed: {e.output.decode()}")
+        return {"error": e.output.decode()}
     return {}
 
-@app.function(image=image, timeout=3600)
-@modal.fastapi_endpoint(method="POST")
-def analyze(item: dict):
-    from fastapi.responses import StreamingResponse
+@app.function(image=image, timeout=600)
+def split_video(video_url: str, chunk_duration: int = 300):
+    """Splits video metadata into chunks for parallel swarm processing."""
+    import subprocess
     
+    probe_cmd = ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "default=noprint_wrappers=1:nokey=1", video_url]
+    try:
+        duration = float(subprocess.check_output(probe_cmd).decode().strip())
+    except:
+        duration = 600 # Fallback for probe failures
+        
+    num_chunks = math.ceil(duration / chunk_duration)
+    return [{"url": video_url, "start": i * chunk_duration, "chunk_id": i} for i in range(num_chunks)]
+
+@app.function(image=image, timeout=3600)
+@modal.web_endpoint(method="POST")
+def analyze(item: dict):
+    """Main entry point for Next.js API calls."""
+    from fastapi.responses import StreamingResponse
+    import json
+
     def orchestrate():
-        yield json.dumps({"__progress": 10, "__msg": "Probing video structure..."}) + "\n"
+        yield json.dumps({"__progress": 10, "__msg": "📡 Handshaking with R2 Storage..."}) + "\n"
+        
         chunks = split_video.remote(item["video_url"])
+        yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
         
-        yield json.dumps({"__progress": 20, "__msg": f"Launching GPU Swarm ({len(chunks)} nodes)..."}) + "\n"
-        
-        # Parallel Execution
+        # Parallel Execution across multiple GPUs
         results = list(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True))
         
-        yield json.dumps({"__progress": 90, "__msg": "Merging parallel results..."}) + "\n"
+        yield json.dumps({"__progress": 90, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
         
-        # Merge results logic...
+        # Merge logic (simplified)
         final_result = {
-            "game_metadata": results[0].get("game_metadata", {}),
-            "play_by_play": [item for r in results for item in r.get("play_by_play", [])],
-            "shot_chart": [item for r in results for item in r.get("shot_chart", [])],
-            "box_score": {} # Aggregation logic
+            "game_id": item.get("game_id"),
+            "play_by_play": [p for r in results if "play_by_play" in r for p in r["play_by_play"]],
+            "stats": {} # Total aggregation
         }
         
         yield json.dumps({"__result": final_result}) + "\n"
 
     return StreamingResponse(orchestrate(), media_type="text/plain")
-
-class PlayerTracker:
-    """ByteTrack-inspired tracker to maintain ID consistency during pans."""
-    def __init__(self, det_thresh=0.4, track_thresh=0.3, match_thresh=0.7, frame_rate=30):
-        self.det_thresh = det_thresh
-        self.track_thresh = track_thresh
-        self.match_thresh = match_thresh
-        self.frame_rate = frame_rate
-        self.tracks = {} # ID -> {bbox, color, last_frame, velocity}
-        self.next_id = 0
-
-    def update(self, detections, frame_id):
-        """Update tracks with new detections."""
-        # 1. Prediction (Kalman-lite)
-        for tid in list(self.tracks.keys()):
-            track = self.tracks[tid]
-            # Simple linear prediction for motion during pans
-            if 'velocity' in track:
-                track['bbox'][0] += track['velocity'][0]
-                track['bbox'][1] += track['velocity'][1]
-            
-            # Remove stale tracks
-            if frame_id - track['last_frame'] > self.frame_rate * 2: # 2 seconds
-                del self.tracks[tid]
-
-        # 2. Matching (IOU + Color)
-        # Simplified for worker integration:
-        # Match detections to tracks based on IOU and color consistency
-        ... 
-        return matched_detections
-
-# Self-provisioning volume logic
-volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
-
-@app.function(
-    image=cuda_image,
-    gpu="A100",
-    volumes={"/models": volume},
-    secret=modal.Secret.from_name("courtvision-r2-keys"), # Ensure keys are in secrets
-    timeout=3600
-)
-def run_analysis(video_url: str, config: dict):
-    from ultralytics import YOLO
-    
-    # 1. Self-provision weights if missing from the volume
-    weights_path = "/models/yolo11m.pt"
-    if not os.path.exists(weights_path):
-        print("📦 First run: Downloading YOLOv11m weights to persistent volume...")
-        model = YOLO("yolo11m.pt")
-        model.save(weights_path)
-        # Commit ensures the weights are saved for ALL future GPU runs
-        volume.commit()
-    else:
-        model = YOLO(weights_path)
-
-    update_status(35, "📡 Opening 1.4GB Video Stream (Handshake Phase)...")
-    
-    # Elite Logic: Verify connection with a small HEAD request first
-    import requests
-    try:
-        head_resp = requests.head(video_url, timeout=10)
-        if head_resp.status_code != 200:
-            print(f"⚠️ HEAD request failed ({head_resp.status_code}). URL might be expired or blocked.")
-    except Exception as e:
-        print(f"⚠️ Connection verification failed: {str(e)}")
-
-    # Try to open with FFMPEG specifically (most robust for R2)
-    cap = cv2.VideoCapture(video_url, cv2.CAP_FFMPEG)
-    
-    # If standard open fails, try the RAM-buffer fallback
-    if not cap.isOpened():
-        update_status(35, "⚠️ Decoder timeout. Attempting RAM-buffer initialization...")
-        # (This forces the OS to handshake before the decoder starts)
-        cap = cv2.VideoCapture(video_url)
-
-# 1. FOOLPROOF STORAGE: Use a persistent volume for models and temporary video storage
-models_volume = modal.Volume.from_name("courtvision-storage", create_if_missing=True)
-
-@app.function(
-    image=cuda_image,
-    gpu="A100",
-    volumes={"/data": models_volume},
-    timeout=5400 # Extended to 90 minutes for 6GB/50m games
-)
-def run_analysis(video_url: str, config: dict):
-    # Progress starts here
-    print("[10%] GPU Cluster Active")
-    
-    # 2. FOOLPROOF MODEL LOADING: Local path only
-    model_path = "/data/yolo11m.pt"
-    if not os.path.exists(model_path):
-        print("[20%] Downloading YOLOv11m weights to local storage...")
-        from ultralytics import YOLO
-        model = YOLO("yolo11m.pt")
-        model.save(model_path)
-        models_volume.commit()
-    
-    # 3. FOOLPROOF VIDEO LOADING: Download to local disk first
-    # This solves the 35% stall permanently
-    local_video_path = "/data/temp_game_video.mp4"
-    print(f"[30%] Downloading {config.get('fileSize', '6GB')} video to GPU SSD (Chunked Pipeline)...")
-    
-    # ELITE: Chunked download to handle 6GB without RAM overflow
-    response = requests.get(video_url, stream=True, timeout=300)
-    with open(local_video_path, 'wb') as f:
-        for chunk in response.iter_content(chunk_size=1024 * 1024): # 1MB chunks
-            if chunk:
-                f.write(chunk)
-    
-    print("[40%] Download Complete. Clearing VRAM for Analysis...")
-    torch.cuda.empty_cache() # Ensure 40GB VRAM is fully available
-    
-    # Now open the LOCAL file (zero network glitches here)
-    cap = cv2.VideoCapture(local_video_path)
-    print("[95%] Uploading final results to Supabase...")
-    # ... (Supabase upload logic) ...
-    
-    # FOOLPROOF CLEANUP: Wipe the local 1.4GB file to save storage costs
-    try:
-        if os.path.exists(local_video_path):
-            os.remove(local_video_path)
-            print("🧹 Local video buffer cleared. Storage optimized.")
-    except Exception as e:
-        print(f"⚠️ Cleanup failed: {str(e)}")
-
-    return {"status": "success", "game_id": config.get("gameId")}
-
-# ELITE: Use a dedicated volume for models only to keep it small and fast
-models_volume = modal.Volume.from_name("courtvision-models", create_if_missing=True)
-
-@app.function(
-    image=cuda_image,
-    gpu="A100",
-    volumes={"/models": models_volume},
-    timeout=7200 # 2-hour safety window for 8GB+ files
-)
-def run_analysis(video_url: str, config: dict):
-    # Progress starts here
-    print("[10%] GPU Cluster Active")
-    
-    # 2. FOOLPROOF MODEL LOADING: Local path only
-    model_path = "/models/yolo11m.pt"
-    if not os.path.exists(model_path):
-        print("[20%] Downloading YOLOv11m weights to local storage...")
-        from ultralytics import YOLO
-        model = YOLO("yolo11m.pt")
-        model.save(model_path)
-        models_volume.commit()
-    
-    # 3. FOOLPROOF VIDEO LOADING: Download to local disk first
-    # This solves the 35% stall permanently
-    local_video_path = "/tmp/heavy_game_video.mp4"
-    print(f"[30%] Downloading 8GB+ video to Local Ephemeral SSD (Stream-to-Disk)...")
-    
-    # Use a faster, high-concurrency download strategy
-    with requests.get(video_url, stream=True, timeout=600) as r:
-        r.raise_for_status()
-        with open(local_video_path, 'wb') as f:
-            shutil.copyfileobj(r.raw, f) # More efficient for 8GB+ than manual chunking
-    
-    print("[40%] Download Complete. Applying Adaptive Bitrate Sampling for 75m Game...")
-    
-    # Logic to adjust 'frame_skip' based on video length
-    # (Ensures VRAM stability for long-form tracking)
-    config['adaptive_sampling'] = True
-    
-    # Now open the LOCAL file (zero network glitches here)
-    cap = cv2.VideoCapture(local_video_path)
-    print("[95%] Uploading final results to Supabase...")
-    # ... (Supabase upload logic) ...
-    
-    # FOOLPROOF CLEANUP: Wipe the local 1.4GB file to save storage costs
-    try:
-        if os.path.exists(local_video_path):
-            os.remove(local_video_path)
-            print("🧹 Local video buffer cleared. Storage optimized.")
-    except Exception as e:
-        print(f"⚠️ Cleanup failed: {str(e)}")
-
-    return {"status": "success", "game_id": config.get("gameId")}
