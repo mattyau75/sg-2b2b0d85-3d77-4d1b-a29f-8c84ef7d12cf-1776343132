@@ -15,7 +15,11 @@ import {
   Download,
   MoreVertical,
   Cpu,
-  Video
+  Video,
+  ChevronLeft,
+  LayoutGrid,
+  List,
+  Target
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -116,15 +120,16 @@ export default function GameDetailPage() {
   };
 
   const handleReRunAnalysis = async () => {
+    if (!gameData) return;
     setReRunning(true);
     try {
       const response = await axios.post("/api/process-game", { 
         gameId: id,
-        videoPath: game.video_path,
-        homeTeamId: game.home_team_id,
-        awayTeamId: game.away_team_id,
-        homeColor: game.home_team_color,
-        awayColor: game.away_team_color
+        videoPath: gameData.video_path,
+        homeTeamId: gameData.home_team_id,
+        awayTeamId: gameData.away_team_id,
+        homeColor: gameData.home_team_color,
+        awayColor: gameData.away_team_color
       });
       
       if (response.data.success) {
@@ -160,7 +165,7 @@ export default function GameDetailPage() {
             <ChevronLeft className="h-4 w-4" /> Back
           </Button>
           <div className="flex flex-wrap items-center gap-3">
-            {gameData?.status === 'completed' ? (
+            {gameData.status === 'completed' ? (
               <Button 
                 variant="outline" 
                 className="gap-2 border-primary/20 hover:bg-primary/5"
@@ -175,7 +180,7 @@ export default function GameDetailPage() {
                 variant="outline" 
                 className="gap-2 border-accent/20 hover:bg-accent/5 text-accent"
                 onClick={handleReRunAnalysis}
-                disabled={reRunning || !gameData?.video_path}
+                disabled={reRunning || !gameData.video_path}
               >
                 <Cpu className={cn("h-4 w-4", reRunning && "animate-pulse")} />
                 {reRunning ? "Triggering GPU..." : "Re-run AI Analysis"}
