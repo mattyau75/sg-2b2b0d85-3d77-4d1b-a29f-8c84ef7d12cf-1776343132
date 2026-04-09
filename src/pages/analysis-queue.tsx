@@ -114,34 +114,34 @@ export default function AnalysisQueuePage() {
         .from('games')
         .select(`
           *,
-          home_team:teams!games_home_team_id_fkey(id, name),
-          away_team:teams!games_away_team_id_fkey(id, name)
+          home_team:teams!games_home_team_id_fkey(id, name, primary_color),
+          away_team:teams!games_away_team_id_fkey(id, name, primary_color)
         `)
         .eq('id', id)
         .single();
 
       if (fetchError || !game) throw fetchError || new Error("Game not found");
 
-      // 2. Trigger the GPU analysis API with safe fallbacks
+      // 2. Trigger the GPU analysis API with the latest directory metadata
       const payload = { 
         gameId: id,
         videoPath: game.video_path,
-        homeTeam: game.home_team?.name || "Home Team",
-        awayTeam: game.away_team?.name || "Away Team",
-        homeColor: game.detected_home_color || "#FFFFFF",
-        awayColor: game.detected_away_color || "#0B0F19",
-        settings: {
+        homeTeamId: game.home_team_id,
+        awayTeamId: game.away_team_id,
+        homeColor: game.home_team_color || game.home_team?.primary_color || "#FFFFFF",
+        awayColor: game.away_team_color || game.away_team?.primary_color || "#0B0F19",
+        config: {
           inference_mode: "high_accuracy",
-          temporal_tracking: true
+          is_heavy_file: true
         }
       };
 
-      console.log("[Queue] Re-triggering with payload:", payload);
+      console.log("[Queue] Re-triggering analysis with directory metadata:", payload);
       await axios.post("/api/process-game", payload);
 
       toast({ 
         title: "Analysis Re-triggered", 
-        description: `GPU re-engaged for ${payload.homeTeam} vs ${payload.awayTeam}.` 
+        description: `GPU re-engaged for ${game.home_team?.name} vs ${game.away_team?.name}.` 
       });
       fetchJobs();
     } catch (err: any) {
