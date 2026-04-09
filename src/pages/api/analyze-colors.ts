@@ -5,9 +5,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
   
   const { gameId, videoPath } = req.body;
-  if (!gameId || !videoPath) return res.status(400).json({ message: "Missing required fields" });
+  if (!gameId || !videoPath) {
+    console.error("[AnalyzeColors] Missing gameId or videoPath");
+    return res.status(400).json({ message: "Missing required fields" });
+  }
 
   try {
+    console.log(`[AnalyzeColors] Starting calibration for game ${gameId}`);
     // In a production environment, this would call a Modal.com micro-service 
     // that samples frames from the video and uses k-means clustering to find jersey colors.
     // We simulate a successful analysis here.

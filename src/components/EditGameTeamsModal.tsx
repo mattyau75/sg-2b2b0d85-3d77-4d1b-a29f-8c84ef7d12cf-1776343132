@@ -141,8 +141,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           away_team_id: isValidUUID(awayTeamId) ? awayTeamId : null,
           home_team_color: homeColor,
           away_team_color: awayColor,
-          date: gameDate ? gameDate.toISOString() : null,
-          venue: venue,
+          date: gameDate instanceof Date && !isNaN(gameDate.getTime()) ? gameDate.toISOString() : null,
+          venue: venue || "DribbleStats Stadium",
           status: reAnalyze ? 'pending' : game.status,
           processing_metadata: {
             ...game.processing_metadata,
