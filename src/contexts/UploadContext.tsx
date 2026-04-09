@@ -50,28 +50,27 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     });
   }, [activeUploads, toast]);
 
-  const startUpload = useCallback(async (file: File, config: any) => {
+  const startUpload = useCallback(async (file: File, formData: any) => {
     const uploadId = Math.random().toString(36).substring(7);
     const controller = new AbortController();
     abortControllers.current[uploadId] = controller;
     
-    const newTask: UploadTask = {
+    const newUpload: UploadTask = {
       id: uploadId,
       fileName: file.name,
       progress: 0,
       status: "uploading"
     };
 
-    setActiveUploads(prev => [...prev, newTask]);
+    setActiveUploads(prev => [...prev, newUpload]);
 
     try {
       // 1. Create game record
-      const { data: newGame, error: dbError } = await supabase
+      const { data: gameData, error: dbError } = await supabase
         .from('games')
         .insert({
-          home_team_id: config.home_team_id,
-          away_team_id: config.away_team_id,
-          camera_type: config.camera_type,
+          home_team_id: formData.homeTeamId,
+          away_team_id: formData.awayTeamId,
           status: 'scheduled'
         })
         .select()
@@ -79,54 +78,80 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
 
       if (dbError) throw dbError;
 
-      // Update task with gameId for potential deletion
-      setActiveUploads(prev => prev.map(t => 
-        t.id === uploadId ? { ...t, gameId: newGame.id } : t
+      setActiveUploads(prev => prev.map(u => 
+        u.id === uploadId ? { ...u, gameId: gameData.id } : u
       ));
 
-      // 2. Upload with progress and abort signal
-      const videoPath = await storageService.uploadVideo(file, (progress) => {
-        setActiveUploads(prev => prev.map(t => 
-          t.id === uploadId ? { ...t, progress } : t
-        ));
+      console.log(`[UploadContext] Starting multipart upload for: ${file.name}`);
+      
+      // 2. Upload video with progress tracking
+      const videoKey = await storageService.uploadVideo(file, (progress) => {
+        setActiveUploads(prev => prev.map(u => u.id === uploadId ? { ...u, progress } : u));
       }, controller.signal);
 
-      // 3. Update game record
-      await supabase
+      console.log(`[UploadContext] Upload complete! Video key: ${videoKey}`);
+      
+      // 3. Update game record with video path
+      const { error: updateError } = await supabase
         .from('games')
-        .update({ video_path: videoPath, status: 'queued' })
-        .eq('id', newGame.id);
+        .update({ video_path: videoKey, status: 'queued' })
+        .eq('id', gameData.id);
 
-      // 4. Start GPU Processing
-      setActiveUploads(prev => prev.map(t => 
-        t.id === uploadId ? { ...t, status: "processing", progress: 100 } : t
+      if (updateError) throw updateError;
+
+      // 4. Trigger GPU processing
+      setActiveUploads(prev => prev.map(u => 
+        u.id === uploadId ? { ...u, status: "processing" } : u
       ));
 
-      await modalService.processGame(videoPath, {
-        ...config,
-        gameId: newGame.id
+      console.log(`[UploadContext] Triggering GPU analysis for game: ${gameData.id}`);
+      
+      const response = await axios.post("/api/process-game", {
+        gameId: gameData.id,
+        videoPath: videoKey,
+        homeTeamId: formData.homeTeamId,
+        awayTeamId: formData.awayTeamId,
+        homeColor: formData.homeColor,
+        awayColor: formData.awayColor
       });
 
-      toast({ 
-        title: "Upload Complete", 
-        description: `${file.name} is now being analyzed by the GPU swarm.` 
+      if (response.status !== 200) {
+        throw new Error(`GPU Pipeline rejected: ${response.data?.message || 'Unknown error'}`);
+      }
+
+      console.log("[UploadContext] GPU analysis triggered successfully!");
+      
+      toast({
+        title: "Analysis Started",
+        description: "Video uploaded successfully. GPU analysis is now running.",
       });
 
-      setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
+      setActiveUploads(prev => prev.filter(u => u.id !== uploadId));
       delete abortControllers.current[uploadId];
 
     } catch (error: any) {
-      if (error.message === "CANCELLED") return;
+      if (error.message === "CANCELLED") {
+        console.log("[UploadContext] Upload cancelled by user");
+        return;
+      }
 
-      console.error("Background Upload Failed:", error);
-      setActiveUploads(prev => prev.map(t => 
-        t.id === uploadId ? { ...t, status: "failed", error: error.message } : t
-      ));
-      toast({ 
-        title: "Upload Failed", 
-        description: error.message, 
-        variant: "destructive" 
+      console.error("[UploadContext] Background Upload Failed:", error);
+      console.error("[UploadContext] Error details:", { 
+        message: error.message, 
+        response: error.response?.data,
+        status: error.response?.status 
       });
+      
+      setActiveUploads(prev => prev.map(u => 
+        u.id === uploadId ? { ...u, status: "failed", error: error.message } : u
+      ));
+      
+      toast({
+        title: "Upload Failed",
+        description: error.response?.data?.message || error.message,
+        variant: "destructive"
+      });
+      
       delete abortControllers.current[uploadId];
     }
   }, [toast]);
