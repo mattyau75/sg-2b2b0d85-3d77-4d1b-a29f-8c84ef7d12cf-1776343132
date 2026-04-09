@@ -165,7 +165,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Write results
     const playerStatsArray = Object.values(playerStats);
     if (playerStatsArray.length > 0) {
-      await supabase.from("player_game_stats").upsert(playerStatsArray, { onConflict: "game_id,player_id" });
+      const { error: statsError } = await supabase
+        .from('player_game_stats')
+        .upsert(playerStatsArray, { onConflict: 'game_id,player_id' });
+        
+      if (statsError) throw statsError;
     }
 
     const lineupsArray = Object.values(lineupStats).map((l: any) => ({

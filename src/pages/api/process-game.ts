@@ -67,6 +67,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_team_color: awayColor
     });
 
+    // ELITE AUDIT: Pass optimization hints to the GPU worker
+    const payload = {
+      video_url: videoPath, // This will be converted to signed URL in the worker or service
+      game_id: gameId,
+      home_color: homeColor || "#FFFFFF",
+      away_color: awayColor || "#0B0F19",
+      config: {
+        ...settings,
+        is_heavy_file: true, // Hint for 8GB optimization
+        adaptive_sampling: true,
+        gpu_tier: "A100"
+      }
+    };
+
     // 3. UPDATE DB
     await supabase.from('games').update({ status: 'processing' }).eq('id', gameId);
 

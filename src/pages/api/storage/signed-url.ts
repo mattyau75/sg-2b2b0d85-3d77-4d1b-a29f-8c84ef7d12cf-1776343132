@@ -16,10 +16,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       Key: path as string,
     });
 
-    // 24-hour expiry to ensure long GPU processing jobs never lose access
-    const url = await getSignedUrl(r2Client, command, { expiresIn: 86400 });
+    // ELITE AUDIT: Ensure 24-hour window for 8GB processing
+    const url = await getSignedUrl(r2Client, command, { 
+      expiresIn: 86400,
+      signableHeaders: new Set(["host"]) // Minimum headers for maximum GPU compatibility
+    });
 
-    console.log("[SignedURL] Generated highly-resilient URL for GPU worker.");
+    console.log(`[SignedURL] Generated persistent URL for ${path}`);
 
     return res.status(200).json({ url });
   } catch (error: any) {
