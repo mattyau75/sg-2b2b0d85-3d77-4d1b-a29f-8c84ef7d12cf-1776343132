@@ -257,6 +257,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   align="start"
                   side="bottom"
                   onInteractOutside={(e) => e.preventDefault()}
+                  onPointerDownOutside={(e) => e.preventDefault()}
                 >
                   <Calendar 
                     mode="single" 
