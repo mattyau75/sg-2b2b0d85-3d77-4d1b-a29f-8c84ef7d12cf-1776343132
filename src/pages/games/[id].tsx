@@ -236,10 +236,6 @@ export default function GameDetailPage() {
                 {reRunning ? "Triggering GPU..." : "Re-run AI Analysis"}
               </Button>
             )}
-            <Button variant="outline" size="sm" onClick={handleSyncStats} disabled={isSyncing} className="gap-2">
-              <RefreshCw className={`h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />
-              Re-sync Stats
-            </Button>
           </div>
         </div>
 
