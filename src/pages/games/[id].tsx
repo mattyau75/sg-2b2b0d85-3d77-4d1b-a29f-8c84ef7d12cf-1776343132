@@ -443,7 +443,9 @@ export default function GameDetailPage() {
                 <TableBody>
                   {pbp.length > 0 ? pbp.map((event) => (
                     <TableRow key={event.id} className="border-white/5 hover:bg-white/5">
-                      <TableCell className="font-mono text-muted-foreground">{event.timestamp || '0:00'}</TableCell>
+                      <TableCell className="font-mono text-muted-foreground">
+                        {event.timestamp || event.game_time || (event.timestamp_seconds ? `${Math.floor(event.timestamp_seconds / 60)}:${String(event.timestamp_seconds % 60).padStart(2, '0')}` : '0:00')}
+                      </TableCell>
                       <TableCell>
                         <Badge variant="outline" className={cn("text-[10px]", event.team_id === game.home_team_id ? "border-primary/50 text-primary" : "border-accent/50 text-accent")}>
                           {event.team_id === game.home_team_id ? 'HOME' : 'AWAY'}

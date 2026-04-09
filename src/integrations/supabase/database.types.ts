@@ -183,6 +183,7 @@ export type Database = {
           jersey_number: number | null
           player_id: string | null
           team_id: string | null
+          timestamp: string | null
           timestamp_seconds: number | null
           video_url: string | null
           x_coord: number | null
@@ -199,6 +200,7 @@ export type Database = {
           jersey_number?: number | null
           player_id?: string | null
           team_id?: string | null
+          timestamp?: string | null
           timestamp_seconds?: number | null
           video_url?: string | null
           x_coord?: number | null
@@ -215,6 +217,7 @@ export type Database = {
           jersey_number?: number | null
           player_id?: string | null
           team_id?: string | null
+          timestamp?: string | null
           timestamp_seconds?: number | null
           video_url?: string | null
           x_coord?: number | null

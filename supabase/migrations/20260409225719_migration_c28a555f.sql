@@ -1,0 +1,1 @@
+ALTER TABLE play_by_play ADD COLUMN IF NOT EXISTS "timestamp" text NULL;
