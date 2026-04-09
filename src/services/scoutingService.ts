@@ -46,15 +46,18 @@ export const scoutingService = {
     if (!events) return;
 
     for (const event of events) {
-      if (event.jersey_number && event.team_type) {
-        const player = await this.resolvePlayer(gameId, event.team_type as 'home' | 'away', event.jersey_number);
+      // Use team_id directly or fallback to description check if team_type isn't in schema
+      const teamType = (event as any).team_type || (event.description?.toLowerCase().includes('home') ? 'home' : 'away');
+      
+      if (event.jersey_number && teamType) {
+        const player = await this.resolvePlayer(gameId, teamType as 'home' | 'away', event.jersey_number);
         if (player) {
+          const teamId = await this.getGameTeamId(gameId, teamType as 'home' | 'away');
           await supabase
             .from('play_by_play')
             .update({ 
               player_id: player.id,
-              // Also ensure team_id is correctly stamped for easier aggregation
-              team_id: (await this.getGameTeamId(gameId, event.team_type as 'home' | 'away'))
+              team_id: teamId
             })
             .eq('id', event.id);
         }

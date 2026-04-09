@@ -83,7 +83,8 @@ export default function GameDetailPage() {
           x: Number(item.x_coord) || 0,
           y: Number(item.y_coord) || 0,
           is_made: !!item.is_make,
-          player_name: item.player?.name || `Player #${item.jersey_number || '?'}`
+          player_name: item.player?.name || `Player #${item.jersey_number || '?'}`,
+          shot_type: item.event_type?.replace(/_/g, ' ') || 'Shot'
         })));
       }
 
