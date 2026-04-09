@@ -21,7 +21,8 @@ import {
   ChevronLeft,
   LayoutGrid,
   List,
-  Target
+  Target,
+  Settings2
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 
 export default function GameDetailPage() {
   const [syncing, setSyncing] = useState(false);
@@ -65,6 +67,7 @@ export default function GameDetailPage() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [playerMap, setPlayerMap] = useState<Record<string, string>>({});
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   const fetchGameData = async () => {
     if (!id || typeof id !== "string") return;
@@ -453,6 +456,13 @@ export default function GameDetailPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditGameTeamsModal 
+        game={gameData} 
+        isOpen={isEditModalOpen} 
+        onClose={() => setIsEditModalOpen(false)} 
+        onUpdated={fetchGameData} 
+      />
     </Layout>
   );
 }
