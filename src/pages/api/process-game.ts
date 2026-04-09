@@ -91,10 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log("[ProcessGame] Triggering Modal.com GPU pipeline...");
     await modalService.processGame(sanitizedPath, {
       gameId,
-      homeTeamId,
-      awayTeamId,
-      homeColor,
-      awayColor
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      home_team_color: homeColor,
+      away_team_color: awayColor
     });
 
     console.log("[ProcessGame] ===== GPU Analysis Triggered Successfully =====");
