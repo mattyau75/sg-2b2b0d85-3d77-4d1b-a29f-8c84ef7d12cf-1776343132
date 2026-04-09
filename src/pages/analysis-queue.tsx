@@ -11,7 +11,8 @@ import {
   ExternalLink,
   Trash2,
   XCircle,
-  UploadCloud } from
+  UploadCloud,
+  Settings2 } from
 "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { useUploads } from "@/contexts/UploadContext";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 
 const STATUS_CONFIG: Record<string, {label: string;color: string;progress: number;}> = {
   'queued': { label: 'In Queue', color: 'text-primary', progress: 15 },
@@ -35,6 +37,7 @@ const STATUS_CONFIG: Record<string, {label: string;color: string;progress: numbe
 
 export default function AnalysisQueuePage() {
   const [jobs, setJobs] = useState<any[]>([]);
+  const [editingGame, setEditingGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { activeUploads, cancelUpload } = useUploads();
@@ -269,6 +272,14 @@ export default function AnalysisQueuePage() {
                              variant="outline" 
                              size="sm" 
                              className="h-10 border-primary/20 hover:bg-primary/5"
+                             onClick={() => setEditingGame(job)}
+                           >
+                             <Settings2 className="h-4 w-4 mr-2" /> Edit Teams
+                           </Button>
+                           <Button 
+                             variant="outline" 
+                             size="sm" 
+                             className="h-10 border-primary/20 hover:bg-primary/5"
                              onClick={() => handleRetry(job.id)}
                            >
                              <RefreshCw className="h-4 w-4 mr-2" /> Restart
@@ -359,6 +370,13 @@ export default function AnalysisQueuePage() {
           </div>
         </div>
       </div>
+
+      <EditGameTeamsModal 
+        game={editingGame} 
+        isOpen={!!editingGame} 
+        onClose={() => setEditingGame(null)} 
+        onUpdated={fetchJobs} 
+      />
     </Layout>);
 
 }
