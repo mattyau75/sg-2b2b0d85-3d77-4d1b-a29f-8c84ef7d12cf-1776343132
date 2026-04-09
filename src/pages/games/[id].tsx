@@ -31,6 +31,12 @@ import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import axios from "axios";
 
+// Helper for UUID validation
+const isValidUUID = (uuid: string) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
 export default function GameDetailPage() {
   const router = useRouter();
   const { id } = router.query;
@@ -56,7 +62,10 @@ export default function GameDetailPage() {
   const isSyncComplete = stats && stats.length > 0;
 
   const fetchGameData = async () => {
-    if (!gameId) return;
+    if (!gameId || !isValidUUID(gameId)) {
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
@@ -173,7 +182,7 @@ export default function GameDetailPage() {
   };
 
   const handleModularSync = async () => {
-    if (!gameId) return;
+    if (!gameId || !isValidUUID(gameId)) return;
     setSyncing(true);
     try {
       await axios.post("/api/sync-game-stats", { gameId });

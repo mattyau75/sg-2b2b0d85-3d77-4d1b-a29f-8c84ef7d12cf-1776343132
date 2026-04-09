@@ -23,6 +23,12 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import axios from "axios";
 
+// Helper for UUID validation
+const isValidUUID = (uuid: string) => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
 interface EditGameTeamsModalProps {
   game: any;
   isOpen: boolean;
@@ -93,7 +99,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   }, [isOpen]);
 
   const runCalibration = async () => {
-    if (!game?.id || !game?.video_path) return;
+    if (!game?.id || !isValidUUID(game.id) || !game?.video_path) return;
     setCalibrating(true);
     try {
       const { data } = await axios.post("/api/analyze-colors", {
@@ -124,15 +130,15 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   };
 
   const handleSave = async (reAnalyze = false) => {
-    if (!game?.id) return;
+    if (!game?.id || !isValidUUID(game.id)) return;
     setLoading(true);
 
     try {
       const { error: updateError } = await supabase
         .from('games')
         .update({
-          home_team_id: homeTeamId,
-          away_team_id: awayTeamId,
+          home_team_id: isValidUUID(homeTeamId) ? homeTeamId : null,
+          away_team_id: isValidUUID(awayTeamId) ? awayTeamId : null,
           home_team_color: homeColor,
           away_team_color: awayColor,
           date: gameDate ? gameDate.toISOString() : null,
