@@ -1,105 +1,109 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { r2Client } from "@/lib/r2Client";
-import { storageService } from "@/services/storageService";
-import { GetObjectCommand } from "@aws-sdk/client-s3";
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import modalService from "@/services/modalService";
 import { HeadObjectCommand } from "@aws-sdk/client-s3";
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
-  const { youtubeUrl, config, gameId } = req.body;
+  const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
+  const bucketName = process.env.R2_BUCKET_NAME;
 
-  let videoSourceUrl = youtubeUrl;
+  // Sanitize videoPath: remove leading slash if present
+  const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
 
-  // R2 Storage Path Detection
-  if (youtubeUrl && !youtubeUrl.startsWith("http") && !youtubeUrl.includes("youtube") && !youtubeUrl.includes("youtu.be")) {
-    try {
-      const bucketName = process.env.R2_BUCKET_NAME || "dribbleai-softgen";
-      const signedUrl = await storageService.getSignedUrl(youtubeUrl);
-      videoSourceUrl = signedUrl;
-    } catch (err) {
-      console.error("R2 Signing Error:", err);
-      return res.status(500).json({ message: "Failed to secure access to R2 video file." });
-    }
-  }
-
-  const MODAL_TOKEN_ID = process.env.MODAL_TOKEN_ID;
-  const MODAL_TOKEN_SECRET = process.env.MODAL_TOKEN_SECRET;
-  const MODAL_URL = process.env.MODAL_URL;
-
-  if (!MODAL_TOKEN_ID || !MODAL_TOKEN_SECRET) {
-    if (gameId) {
-      await supabase
-        .from("games")
-        .update({ status: "failed", last_error: "Modal credentials missing." })
-        .eq("id", gameId);
-    }
-    return res.status(500).json({ message: "Server configuration error: Modal credentials missing." });
-  }
+  console.log(`[ProcessGame] ===== Starting GPU Analysis =====`);
+  console.log(`[ProcessGame] Game ID: ${gameId}`);
+  console.log(`[ProcessGame] Video Path (raw): ${videoPath}`);
+  console.log(`[ProcessGame] Video Path (sanitized): ${sanitizedPath}`);
+  console.log(`[ProcessGame] Bucket Name: ${bucketName}`);
+  console.log(`[ProcessGame] R2 Client Config:`, {
+    endpoint: process.env.R2_ENDPOINT,
+    region: process.env.R2_REGION || 'auto',
+    hasAccessKey: !!process.env.R2_ACCESS_KEY_ID,
+    hasSecretKey: !!process.env.R2_SECRET_ACCESS_KEY
+  });
 
   try {
-    const { data: homePlayers } = await supabase.from("players").select("id, name, number").eq("team_id", config.home_team_id);
-    const { data: awayPlayers } = await supabase.from("players").select("id, name, number").eq("team_id", config.away_team_id);
-    const { data: homeTeam } = await supabase.from("teams").select("name").eq("id", config.home_team_id).single();
-    const { data: awayTeam } = await supabase.from("teams").select("name").eq("id", config.away_team_id).single();
+    // Increased to 5 retries with 3s delay (15s total) for 8GB+ files
+    let fileFound = false;
+    let lastError = null;
 
-    if (gameId) {
-      await supabase
-        .from("games")
-        .update({ 
-          status: "queued", 
-          youtube_url: null,
-          video_path: youtubeUrl,
-          camera_type: config.camera_type,
-          progress_percentage: 15,
-          last_error: null
-        })
-        .eq("id", gameId);
-    }
-
-    if (!MODAL_URL) {
-      return res.status(200).json({ success: true, message: "Simulation mode: MODAL_URL not set." });
-    }
-
-    const payload = {
-      video_url: videoSourceUrl,
-      game_id: gameId,
-      home_team: homeTeam?.name || "Home Team",
-      away_team: awayTeam?.name || "Away Team",
-      home_roster: (homePlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
-      away_roster: (awayPlayers || []).map(p => ({ id: p.id, name: p.name, number: p.number })),
-      config: {
-        ...config,
-        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    for (let i = 0; i < 5; i++) {
+      try {
+        console.log(`[ProcessGame] Verification attempt ${i + 1}/5...`);
+        const headResult = await r2Client.send(new HeadObjectCommand({
+          Bucket: bucketName,
+          Key: sanitizedPath,
+        }));
+        fileFound = true;
+        console.log(`[ProcessGame] ✅ File verified on attempt ${i + 1}`);
+        console.log(`[ProcessGame] File metadata:`, {
+          ContentLength: headResult.ContentLength,
+          ContentType: headResult.ContentType,
+          LastModified: headResult.LastModified
+        });
+        break;
+      } catch (e: any) {
+        lastError = e;
+        console.error(`[ProcessGame] ❌ Verification attempt ${i + 1} failed:`);
+        console.error(`[ProcessGame] Error Name: ${e.name}`);
+        console.error(`[ProcessGame] Error Message: ${e.message}`);
+        console.error(`[ProcessGame] Error Code: ${e.$metadata?.httpStatusCode}`);
+        console.error(`[ProcessGame] Full Error:`, JSON.stringify(e, null, 2));
+        
+        if (i < 4) {
+          console.log(`[ProcessGame] Waiting 3s before retry...`);
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
       }
-    };
-
-    const modalResponse = await fetch(MODAL_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-
-    if (!modalResponse.ok) {
-      const errorText = await modalResponse.text();
-      return res.status(modalResponse.status).json({ message: `Modal Error: ${errorText.slice(0, 100)}` });
     }
 
-    return res.status(200).json({ 
-      success: true, 
-      message: "Analysis swarm launched.",
-      gameId 
+    if (!fileFound) {
+      console.error(`[ProcessGame] ===== VERIFICATION FAILED =====`);
+      console.error(`[ProcessGame] Final Error:`, lastError);
+      return res.status(500).json({ 
+        message: `Failed to verify R2 video file after 5 attempts.`,
+        details: {
+          errorName: lastError?.name,
+          errorMessage: lastError?.message,
+          videoPath: sanitizedPath,
+          bucket: bucketName
+        }
+      });
+    }
+
+    console.log("[ProcessGame] File verified successfully. Generating GPU payload...");
+
+    // Update game status to processing
+    const { error: updateError } = await supabase
+      .from('games')
+      .update({ status: 'processing' })
+      .eq('id', gameId);
+
+    if (updateError) {
+      console.error("[ProcessGame] Database update failed:", updateError);
+      throw updateError;
+    }
+
+    // Trigger Modal.com GPU analysis
+    console.log("[ProcessGame] Triggering Modal.com GPU pipeline...");
+    await modalService.triggerAnalysis({
+      gameId,
+      videoPath: sanitizedPath,
+      homeTeamId,
+      awayTeamId,
+      homeColor,
+      awayColor
     });
+
+    console.log("[ProcessGame] ===== GPU Analysis Triggered Successfully =====");
+    return res.status(200).json({ success: true, message: "Analysis started" });
 
   } catch (error: any) {
+    console.error("[ProcessGame] ===== CRITICAL ERROR =====");
+    console.error("[ProcessGame] Error:", error);
     return res.status(500).json({ message: error.message });
   }
 }
