@@ -62,16 +62,28 @@ export const storageService = {
 
       // 3. Complete Multipart Upload
       console.log("Upload reached 100%. Finalizing 8GB+ file reassembly...");
+      console.log(`[StorageService] Sending completion request for uploadId: ${uploadId}, key: ${key}`);
+      console.log(`[StorageService] Completion payload:`, { uploadId, key, parts: uploadedParts.length });
+      
       const completeResponse = await axios.post("/api/storage/multipart?action=complete", {
         uploadId,
         key,
         parts: uploadedParts
       }, { signal: abortSignal });
 
+      console.log(`[StorageService] Completion response status: ${completeResponse.status}`);
+      console.log(`[StorageService] Completion response data:`, completeResponse.data);
+
       if (completeResponse.status !== 200) {
         throw new Error("Cloudflare R2 failed to reassemble the video parts.");
       }
 
+      if (!completeResponse.data?.success) {
+        console.error("[StorageService] R2 Completion failed:", completeResponse.data);
+        throw new Error(`R2 reassembly rejected: ${completeResponse.data?.message || 'Unknown error'}`);
+      }
+
+      console.log(`[StorageService] File successfully created at: ${completeResponse.data.location}`);
       return key;
     } catch (error: any) {
       if (axios.isCancel(error) || error.name === 'CanceledError' || abortSignal?.aborted) {

@@ -50,7 +50,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       console.log(`[Multipart] Received ${parts?.length} parts for reassembly`);
 
       if (!parts || !Array.isArray(parts)) {
-        throw new Error("Invalid parts list provided for completion");
+        console.error("[Multipart] Invalid parts list:", parts);
+        return res.status(400).json({ success: false, message: "Invalid parts list provided for completion" });
       }
 
       // Ensure ETags are correctly formatted and parts are sorted by part number
@@ -61,19 +62,36 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           PartNumber: p.partNumber
         }));
 
-      const command = new CompleteMultipartUploadCommand({
-        Bucket: bucketName,
-        Key: key,
-        UploadId: uploadId,
-        MultipartUpload: {
-          Parts: sortedParts
-        }
-      });
+      console.log(`[Multipart] Sorted parts for R2:`, sortedParts);
 
-      const result = await r2Client.send(command);
-      console.log("[Multipart] Reassembly successful:", result.Location);
-      
-      return res.status(200).json({ success: true, location: result.Location });
+      try {
+        const command = new CompleteMultipartUploadCommand({
+          Bucket: bucketName,
+          Key: key,
+          UploadId: uploadId,
+          MultipartUpload: {
+            Parts: sortedParts
+          }
+        });
+
+        const result = await r2Client.send(command);
+        console.log("[Multipart] Reassembly successful:", result.Location);
+        console.log("[Multipart] R2 Result:", { Location: result.Location, Bucket: result.Bucket, Key: result.Key });
+        
+        return res.status(200).json({ 
+          success: true, 
+          location: result.Location,
+          key: result.Key 
+        });
+      } catch (error: any) {
+        console.error("[Multipart] R2 Completion Error:", error);
+        console.error("[Multipart] Error Details:", { name: error.name, message: error.message, code: error.$metadata?.httpStatusCode });
+        return res.status(500).json({ 
+          success: false, 
+          message: `R2 reassembly failed: ${error.message}`,
+          error: error.name 
+        });
+      }
     }
 
     return res.status(400).json({ message: "Invalid action" });
