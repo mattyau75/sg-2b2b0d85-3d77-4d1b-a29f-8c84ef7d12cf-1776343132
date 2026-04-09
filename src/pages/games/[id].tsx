@@ -20,7 +20,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
-import { ShotChart } from "@/components/ShotChart";
+import { ShotChart, type Shot } from "@/components/ShotChart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { storageService } from "@/services/storageService";
@@ -34,6 +34,7 @@ export default function GameDetailPage() {
   const { toast } = useToast();
   
   const [game, setGame] = useState<any>(null);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("stats");
   const [syncing, setSyncing] = useState(false);
@@ -45,7 +46,8 @@ export default function GameDetailPage() {
     if (!gameId) return;
     
     try {
-      const { data, error } = await supabase
+      // Fetch Game
+      const { data: gameData, error: gameError } = await supabase
         .from('games')
         .select(`
           *,
@@ -55,11 +57,20 @@ export default function GameDetailPage() {
         .eq('id', gameId)
         .single();
 
-      if (error) throw error;
-      setGame(data);
+      if (gameError) throw gameError;
+      setGame(gameData);
 
-      if (data?.video_path) {
-        const url = await storageService.getSignedUrl(data.video_path);
+      // Fetch Shots
+      const { data: shotsData } = await supabase
+        .from('shots')
+        .select('*')
+        .eq('game_id', gameId);
+      
+      setShots(shotsData || []);
+
+      // Get Video URL
+      if (gameData?.video_path) {
+        const url = await storageService.getSignedUrl(gameData.video_path);
         setVideoUrl(url);
       }
     } catch (error: any) {
@@ -310,7 +321,7 @@ export default function GameDetailPage() {
 
           <TabsContent value="shotchart">
             <Card className="bg-card/40 border-white/5 shadow-2xl p-8">
-              <ShotChart />
+              <ShotChart shots={shots} />
             </Card>
           </TabsContent>
         </Tabs>
