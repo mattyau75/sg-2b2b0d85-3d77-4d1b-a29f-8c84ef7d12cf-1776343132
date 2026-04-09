@@ -1,6 +1,6 @@
 ---
 title: AI-to-Roster Data Linking
-status: in_progress
+status: done
 priority: urgent
 type: bug
 tags: [data, sync, ai]
@@ -14,7 +14,7 @@ Resolve the disconnect between AI-generated events (jersey numbers) and database
 
 ## Checklist:
 - [x] Audit raw play_by_play data to identify player identification fields
-- [ ] Restore missing home_team_id and away_team_id for the latest game
-- [ ] Update sync-game-stats.ts to resolve player_id via jersey number + team_id
-- [ ] Implement auto-generation of "Unknown" players if a jersey number is detected that isn't on the roster
-- [ ] Re-calculate stats for the latest game to verify fix
+- [x] Restore missing home_team_id and away_team_id for the latest game
+- [x] Update sync-game-stats.ts to resolve player_id via jersey number + team_id
+- [x] Implement auto-generation of "Unknown" players if a jersey number is detected that isn't on the roster
+- [x] Re-calculate stats for the latest game to verify fix
