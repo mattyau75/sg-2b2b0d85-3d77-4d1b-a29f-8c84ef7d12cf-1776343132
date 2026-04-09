@@ -1,7 +1,6 @@
-<![CDATA[
 ---
 title: Video-First Jersey Calibration
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: ["ai", "ui", "ux"]
@@ -16,9 +15,6 @@ Instead of relying on team directory colors, we'll sample the video first to ide
 ## Checklist:
 - [x] Add detected_home_color and detected_away_color to games table
 - [x] Create /api/analyze-colors micro-service bridge
-- [ ] Add "Visual Calibration" UI step to NewGameModal.tsx
-- [ ] Implement color swatch selection (Team A vs Team B)
-- [ ] Update full analysis trigger to use these calibrated colors
-]]>
-
-[Tool result trimmed: kept first 100 chars and last 100 chars of 622 chars.]
+- [x] Add "Visual Calibration" UI step to NewGameModal.tsx
+- [x] Implement color swatch selection (Team A vs Team B)
+- [x] Update full analysis trigger to use these calibrated colors
