@@ -99,6 +99,7 @@ export default function AnalysisQueuePage() {
       const { error } = await supabase.from('games').update({ status: 'queued' }).eq('id', id);
       if (error) throw error;
       toast({ title: "Analysis Restarted", description: "The job has been re-added to the queue." });
+      fetchJobs(); // Refresh the list
     } catch (err: any) {
       toast({ title: "Retry Failed", description: err.message, variant: "destructive" });
     }
@@ -217,6 +218,14 @@ export default function AnalysisQueuePage() {
                         </div>
 
                         <div className="flex items-center gap-2">
+                           <Button 
+                             variant="outline" 
+                             size="sm" 
+                             className="h-10 border-primary/20 hover:bg-primary/5"
+                             onClick={() => handleRetry(job.id)}
+                           >
+                             <RefreshCw className="h-4 w-4 mr-2" /> Restart
+                           </Button>
                            <Button variant="ghost" size="sm" asChild className="h-10 w-10">
                              <Link href={`/games/${job.id}`}>
                                <ExternalLink className="h-4 w-4" />

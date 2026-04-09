@@ -17,9 +17,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       Key: path as string,
     });
 
-    const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
-    res.status(200).json({ url });
+    // Increase expiry to 24 hours to ensure long analysis jobs don't time out on the URL
+    const url = await getSignedUrl(r2Client, command, { expiresIn: 86400 });
+
+    return res.status(200).json({ url });
   } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    console.error("[SignedUrl] Error generating URL:", error);
+    return res.status(500).json({ message: error.message });
   }
 }
