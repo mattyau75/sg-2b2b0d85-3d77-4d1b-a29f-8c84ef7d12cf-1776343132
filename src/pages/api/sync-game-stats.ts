@@ -22,7 +22,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("id", gameId)
       .single();
 
-    if (gameError || !game) throw new Error("Game context missing. Link teams in directory first.");
+    if (gameError || !game) {
+      return res.status(404).json({ error: "Game not found" });
+    }
 
     const { data: roster } = await supabase
       .from("players")
@@ -36,8 +38,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // Get manual mappings if any
-    const manualMappings = game.processing_metadata?.manual_mappings || {};
+    // Get manual mappings if any - cast JSON metadata for type safety
+    const metadata = game.processing_metadata as any;
+    const manualMappings = metadata?.manual_mappings || {};
 
     // 2. Fetch play-by-play events
     const { data: events, error: eventsError } = await supabase
