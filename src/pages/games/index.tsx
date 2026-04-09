@@ -69,7 +69,7 @@ export default function GamesPage() {
           </div>
           <Button 
             className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
-            onClick={() => setIsNewGameModalOpen(true)}
+            onClick={() => setIsModalOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
             ADD NEW GAME

@@ -131,33 +131,32 @@ export default function GameDetailPage() {
   return (
     <Layout>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-700">
-        {/* Header: Identity Management */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        {/* Module 1: Identity & Mapping Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl shadow-primary/5">
           <div className="space-y-2">
-            <Button variant="ghost" size="sm" className="-ml-2 h-8 text-muted-foreground" onClick={() => router.push('/games')}>
-              <ChevronLeft className="mr-1 h-4 w-4" /> Back to Dashboard
-            </Button>
-            <h1 className="text-4xl font-extrabold tracking-tighter text-white">
-              {game?.home_team?.name || "Home"} <span className="text-primary">vs</span> {game?.away_team?.name || "Away"}
-            </h1>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 uppercase font-mono text-[10px]">MODULE 1 ACTIVE</Badge>
+              <h1 className="text-4xl font-extrabold tracking-tighter text-white">
+                {game?.home_team?.name || "Home"} <span className="text-primary italic">vs</span> {game?.away_team?.name || "Away"}
+              </h1>
+            </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground font-mono">
-              <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4" /> {game?.date ? new Date(game.date).toLocaleDateString() : 'Date'}</span>
-              <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4" /> {game?.location || 'CourtVision Elite'}</span>
-              <Badge variant="outline" className="border-primary/20 bg-primary/5 text-primary">MODULAR SCOUTING ACTIVE</Badge>
+              <span className="flex items-center gap-1.5"><Calendar className="h-4 w-4 text-primary" /> {game?.date ? new Date(game.date).toLocaleDateString() : 'Date'}</span>
+              <span className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-accent" /> {game?.location || 'CourtVision Elite'}</span>
             </div>
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" className="bg-card/40 border-primary/20 hover:bg-primary/5" onClick={() => setIsEditModalOpen(true)}>
-              <Settings2 className="h-4 w-4 mr-2" /> Match Roster
+            <Button variant="outline" className="bg-background border-primary/20 hover:bg-primary/5 hover:border-primary/50 transition-all" onClick={() => setIsEditModalOpen(true)}>
+              <Settings2 className="h-4 w-4 mr-2 text-primary" /> MODULE 1: MATCH ROSTER
             </Button>
-            <Button variant="default" className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20" onClick={handleModularSync} disabled={syncing}>
-              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} /> {syncing ? "Syncing..." : "Deep Sync Stats"}
+            <Button variant="default" className="bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 font-bold px-8 h-12" onClick={handleModularSync} disabled={syncing}>
+              <RefreshCw className={cn("h-4 w-4 mr-2", syncing && "animate-spin")} /> {syncing ? "SYNCING..." : "MODULE 3: SYNC BOX SCORE"}
             </Button>
           </div>
         </div>
 
-        {/* Module 2 & 4: Video and Spatial Data */}
+        {/* Video & Scoreboard Dashboard */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8">
             <div className="aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/5 bg-black ring-1 ring-white/10">

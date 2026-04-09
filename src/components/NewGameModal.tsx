@@ -8,20 +8,16 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
-import { Cpu, Settings2, Palette, Camera, Upload, Video, FileVideo, X, Loader2, CheckCircle2 } from "lucide-react";
+import { Video, FileVideo, Upload, Loader2, Cpu } from "lucide-react";
 import { rosterService } from "@/services/rosterService";
 import { useUploads } from "@/contexts/UploadContext";
 import { useRouter } from "next/router";
 import { cn } from "@/lib/utils";
-import axios from "axios";
-import { supabase } from "@/lib/supabase";
-import { toast } from "@/sonnerie";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { storageService } from "@/services/storageService";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -30,30 +26,18 @@ interface NewGameModalProps {
 
 export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const { startUpload } = useUploads();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [analyzingColors, setAnalyzingColors] = useState(false);
-  const [detectedColors, setDetectedColors] = useState<string[]>([]);
-  const [calibrationStep, setCalibrationStep] = useState<"upload" | "calibrate" | "settings">("upload");
+  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     videoFile: null as File | null,
     homeTeamId: "",
     awayTeamId: "",
-    cameraType: "panning" as "panning" | "fixed",
-    homeColor: "#ff6b00",
-    awayColor: "#0066ff",
-    homeTeamData: null as any,
-    awayTeamData: null as any,
-    imgsz: 1280,
-    conf: 0.25,
-    iou: 0.45,
-    tracking: true,
-    agnosticNms: false,
-    rimDetection: true,
-    shotLogic: true
+    cameraType: "panning" as "panning" | "fixed"
   });
 
   useEffect(() => {
@@ -77,306 +61,167 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
     const file = e.target.files?.[0];
     if (file) {
       setFormData(prev => ({ ...prev, videoFile: file }));
-      // Automatically trigger color analysis if teams are selected
-      if (formData.homeTeamId && formData.awayTeamId) {
-        startColorAnalysis(file);
-      }
-    }
-  };
-
-  const startColorAnalysis = async (file: File) => {
-    setAnalyzingColors(true);
-    setCalibrationStep("calibrate");
-    
-    try {
-      // Trigger the real color analysis API
-      const response = await axios.post("/api/analyze-colors", { 
-        videoPath: file.name, // In a real flow, this would be the uploaded temp path
-        gameId: "pending" 
-      });
-      
-      if (response.data.colors && response.data.colors.length > 0) {
-        setDetectedColors(response.data.colors);
-      } else {
-        // Fallback if AI fails to find distinct clusters
-        setDetectedColors(["#FFFFFF", "#0B0F19"]); // Default to White and Navy
-      }
-    } catch (error) {
-      console.error("Color analysis failed, using defaults", error);
-      setDetectedColors(["#FFFFFF", "#0B0F19"]); 
-    } finally {
-      setAnalyzingColors(false);
     }
   };
 
   const handleProcess = async () => {
     if (!formData.videoFile) return;
+    setUploading(true);
     
-    // Hand off to background manager
-    startUpload(formData.videoFile, {
-      imgsz: formData.imgsz,
-      conf: formData.conf,
-      iou: formData.iou,
-      tracking: formData.tracking,
-      agnostic_nms: formData.agnosticNms,
-      rim_detection: formData.rimDetection,
-      shot_logic: formData.shotLogic,
-      home_team_id: formData.homeTeamId,
-      away_team_id: formData.awayTeamId,
-      home_team_color: formData.homeColor,
-      away_team_color: formData.awayColor,
-      camera_type: formData.cameraType
-    });
+    try {
+      // 1. Upload to Storage
+      const fileName = `${Date.now()}-${formData.videoFile.name}`;
+      const uploadPath = `games/${fileName}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(uploadPath, formData.videoFile);
 
-    // 3. Create the game record in pending status
-    const { data: newGame, error: gameError } = await supabase
-      .from('games')
-      .insert({
-        video_path: uploadResult.path,
-        status: 'pending',
-        date: new Date().toISOString()
-      })
-      .select()
-      .single();
+      if (uploadError) throw uploadError;
 
-    if (gameError) throw gameError;
+      // 2. Create the game record in pending status
+      const { data: newGame, error: gameError } = await supabase
+        .from('games')
+        .insert({
+          video_path: uploadPath,
+          status: 'pending',
+          date: new Date().toISOString(),
+          home_team_id: formData.homeTeamId || null,
+          away_team_id: formData.awayTeamId || null,
+          camera_type: formData.cameraType
+        })
+        .select()
+        .single();
 
-    toast({ 
-      title: "Footage Uploaded", 
-      description: "Moving to Module 1: Identity & Mapping." 
-    });
+      if (gameError) throw gameError;
 
-    // Redirect to the Game Detail page for modular execution
-    router.push(`/games/${newGame.id}`);
-    onClose();
-  };
+      toast({ 
+        title: "Footage Registered", 
+        description: "Opening Module 1: Identity & Mapping." 
+      });
 
-  const handleHomeTeamChange = (teamId: string) => {
-    const team = teams.find(t => t.id === teamId);
-    setFormData(prev => ({ 
-      ...prev, 
-      homeTeamId: teamId,
-      homeColor: team?.primary_color || "#ff6b00",
-      homeTeamData: team
-    }));
-  };
-
-  const handleAwayTeamChange = (teamId: string) => {
-    const team = teams.find(t => t.id === teamId);
-    setFormData(prev => ({ 
-      ...prev, 
-      awayTeamId: teamId,
-      awayColor: team?.primary_color || "#0066ff",
-      awayTeamData: team
-    }));
-  };
-
-  const toggleHomeColor = () => {
-    if (!formData.homeTeamData) return;
-    const { primary_color, secondary_color } = formData.homeTeamData;
-    setFormData(prev => ({
-      ...prev,
-      homeColor: prev.homeColor === primary_color ? (secondary_color || primary_color) : primary_color
-    }));
-  };
-
-  const toggleAwayColor = () => {
-    if (!formData.awayTeamData) return;
-    const { primary_color, secondary_color } = formData.awayTeamData;
-    setFormData(prev => ({
-      ...prev,
-      awayColor: prev.awayColor === primary_color ? (secondary_color || primary_color) : primary_color
-    }));
+      // Redirect to the Game Detail page for modular execution
+      router.push(`/games/${newGame.id}`);
+      onClose();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: error.message
+      });
+    } finally {
+      setUploading(false);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl h-[95vh] bg-card border-border p-0 overflow-hidden flex flex-col">
+      <DialogContent className="max-w-2xl bg-card border-border p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-8 pt-8 pb-4">
           <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-            <Cpu className="h-6 w-6 text-primary" />
-            Process New Game
+            <Upload className="h-6 w-6 text-primary" />
+            Add New Game Footage
           </DialogTitle>
           <DialogDescription className="text-muted-foreground text-sm">
-            Analyze high-performance basketball footage. Local video uploads ensure maximum precision.
+            Upload your game video to begin the modular scouting pipeline.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-y-auto px-8 py-4 space-y-10 custom-scrollbar">
-          {calibrationStep === "upload" ? (
-            <>
-              {/* Video Section */}
-              <div className="space-y-6">
-                <div className="flex items-center justify-between border-b border-border/50 pb-2">
-                  <div className="flex items-center gap-2 text-sm font-bold tracking-tight uppercase">
-                    <Video className="h-4 w-4 text-primary" />
-                    Video Footage
-                  </div>
-                  <Select 
-                    value={formData.cameraType} 
-                    onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
-                  >
-                    <SelectTrigger className="w-[140px] bg-background border-border h-8 text-[11px] font-mono">
-                      <SelectValue placeholder="Type" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      <SelectItem value="panning" className="text-xs">PANNING</SelectItem>
-                      <SelectItem value="fixed" className="text-xs">FIXED</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className={cn(
-                    "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer",
-                    formData.videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/5"
-                  )}
-                >
-                  <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect} />
-                  {formData.videoFile ? (
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                        <FileVideo className="h-8 w-8 text-primary" />
-                      </div>
-                      <p className="text-lg font-semibold text-foreground">{formData.videoFile.name}</p>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="h-10 w-10 text-muted-foreground mb-4" />
-                      <p className="text-lg font-bold text-foreground">Drag & drop game footage</p>
-                    </>
-                  )}
-                </div>
+        <div className="flex-1 overflow-y-auto px-8 py-4 space-y-8 custom-scrollbar">
+          {/* Video Section */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between border-b border-border/50 pb-2">
+              <div className="flex items-center gap-2 text-sm font-bold tracking-tight uppercase">
+                <Video className="h-4 w-4 text-primary" />
+                Footage Selection
               </div>
+              <Select 
+                value={formData.cameraType} 
+                onValueChange={(val: "panning" | "fixed") => setFormData({...formData, cameraType: val})}
+              >
+                <SelectTrigger className="w-[140px] bg-background border-border h-8 text-[11px] font-mono">
+                  <SelectValue placeholder="Type" />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  <SelectItem value="panning" className="text-xs">PANNING</SelectItem>
+                  <SelectItem value="fixed" className="text-xs">FIXED</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-              {/* Teams Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-12 pt-4">
-                <div className="space-y-5">
-                  <Label className="text-sm font-bold uppercase tracking-wider">Home Team</Label>
-                  <Select onValueChange={handleHomeTeamChange}>
-                    <SelectTrigger className="bg-background border-border h-12">
-                      <SelectValue placeholder="Select team..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-5">
-                  <Label className="text-sm font-bold uppercase tracking-wider">Away Team</Label>
-                  <Select onValueChange={handleAwayTeamChange}>
-                    <SelectTrigger className="bg-background border-border h-12">
-                      <SelectValue placeholder="Select team..." />
-                    </SelectTrigger>
-                    <SelectContent className="bg-card border-border">
-                      {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="space-y-12 py-6">
-              <div className="text-center space-y-2">
-                <h3 className="text-xl font-bold">Visual Calibration</h3>
-                <p className="text-sm text-muted-foreground">We've identified the jersey colors in your video. Assign them to the correct teams.</p>
-              </div>
-
-              {analyzingColors ? (
-                <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div 
+              onClick={() => !uploading && fileInputRef.current?.click()}
+              className={cn(
+                "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer",
+                formData.videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/5",
+                uploading && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect} />
+              {uploading ? (
+                <div className="flex flex-col items-center gap-4">
                   <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                  <p className="text-sm font-mono text-muted-foreground animate-pulse">SAMPLING VIDEO STREAM...</p>
+                  <p className="text-lg font-semibold text-foreground">Uploading footage...</p>
+                </div>
+              ) : formData.videoFile ? (
+                <div className="flex flex-col items-center gap-4">
+                  <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
+                    <FileVideo className="h-8 w-8 text-primary" />
+                  </div>
+                  <p className="text-lg font-semibold text-foreground text-center line-clamp-1">{formData.videoFile.name}</p>
+                  <p className="text-xs text-muted-foreground">Click to change file</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-8">
-                  <div className="space-y-4 p-6 rounded-2xl bg-muted/5 border border-border/50 text-center">
-                    <Badge variant="outline" className="mb-2">HOME: {formData.homeTeamData?.name}</Badge>
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="flex justify-center gap-4">
-                        {detectedColors.map(color => (
-                          <button
-                            key={color}
-                            onClick={() => setFormData({...formData, homeColor: color})}
-                            className={cn(
-                              "h-16 w-16 rounded-full border-2 transition-all",
-                              formData.homeColor === color ? "border-primary scale-110 shadow-lg shadow-primary/20" : "border-transparent opacity-40 hover:opacity-100"
-                            )}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                      <input 
-                        type="color" 
-                        value={formData.homeColor || "#FFFFFF"} 
-                        onChange={(e) => setFormData({...formData, homeColor: e.target.value})}
-                        className="h-8 w-16 bg-transparent border-none cursor-pointer"
-                        title="Manual color adjustment"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-4 p-6 rounded-2xl bg-muted/5 border border-border/50 text-center">
-                    <Badge variant="outline" className="mb-2">AWAY: {formData.awayTeamData?.name}</Badge>
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="flex justify-center gap-4">
-                        {detectedColors.map(color => (
-                          <button
-                            key={color}
-                            onClick={() => setFormData({...formData, awayColor: color})}
-                            className={cn(
-                              "h-16 w-16 rounded-full border-2 transition-all",
-                              formData.awayColor === color ? "border-accent scale-110 shadow-lg shadow-accent/20" : "border-transparent opacity-40 hover:opacity-100"
-                            )}
-                            style={{ backgroundColor: color }}
-                          />
-                        ))}
-                      </div>
-                      <input 
-                        type="color" 
-                        value={formData.awayColor || "#0B0F19"} 
-                        onChange={(e) => setFormData({...formData, awayColor: e.target.value})}
-                        className="h-8 w-16 bg-transparent border-none cursor-pointer"
-                        title="Manual color adjustment"
-                      />
-                    </div>
-                  </div>
-                </div>
+                <>
+                  <Upload className="h-10 w-10 text-muted-foreground mb-4" />
+                  <p className="text-lg font-bold text-foreground">Drag & drop game footage</p>
+                  <p className="text-sm text-muted-foreground">Support MP4, MOV, AVI</p>
+                </>
               )}
-              
-              <div className="flex justify-center">
-                <Button variant="ghost" size="sm" onClick={() => setCalibrationStep("upload")} className="text-xs text-muted-foreground underline underline-offset-4">
-                  Re-select teams or video
-                </Button>
-              </div>
             </div>
-          )}
+          </div>
+
+          {/* Preliminary Team Info (Optional at this step) */}
+          <div className="grid grid-cols-2 gap-6 pt-4 border-t border-border/30">
+            <div className="space-y-3">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Home Team (Optional)</Label>
+              <Select value={formData.homeTeamId} onValueChange={(val) => setFormData(prev => ({ ...prev, homeTeamId: val }))}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue placeholder="Select team..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-3">
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Away Team (Optional)</Label>
+              <Select value={formData.awayTeamId} onValueChange={(val) => setFormData(prev => ({ ...prev, awayTeamId: val }))}>
+                <SelectTrigger className="bg-background border-border">
+                  <SelectValue placeholder="Select team..." />
+                </SelectTrigger>
+                <SelectContent className="bg-card border-border">
+                  {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </div>
 
         <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5">
-          <Button variant="ghost" onClick={onClose} className="px-8">Cancel</Button>
-          {calibrationStep === "upload" ? (
-            <Button 
-              onClick={() => {
-                if (formData.videoFile && formData.homeTeamId && formData.awayTeamId) {
-                  startColorAnalysis(formData.videoFile);
-                }
-              }} 
-              disabled={!formData.videoFile || !formData.homeTeamId || !formData.awayTeamId}
-              className="bg-primary hover:bg-primary/90 min-w-[200px] h-14 rounded-xl font-bold"
-            >
-              Calibrate Jersey Colors
-            </Button>
-          ) : (
-            <Button 
-              onClick={handleProcess} 
-              disabled={analyzingColors}
-              className="bg-primary hover:bg-primary/90 min-w-[200px] h-14 rounded-xl font-bold"
-            >
-              Deploy GPU Pipeline
-            </Button>
-          )}
+          <Button variant="ghost" onClick={onClose} disabled={uploading}>Cancel</Button>
+          <Button 
+            onClick={handleProcess} 
+            disabled={!formData.videoFile || uploading}
+            className="bg-primary hover:bg-primary/90 min-w-[200px] h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
+          >
+            {uploading ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registering...</>
+            ) : (
+              <><Cpu className="h-4 w-4 mr-2" /> Start Modular Analysis</>
+            )}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
