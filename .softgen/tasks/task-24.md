@@ -1,6 +1,6 @@
 ---
 title: Streamline Analysis Pipeline
-status: completed
+status: done
 priority: high
 type: chore
 tags: ["performance", "gpu", "optimization"]
