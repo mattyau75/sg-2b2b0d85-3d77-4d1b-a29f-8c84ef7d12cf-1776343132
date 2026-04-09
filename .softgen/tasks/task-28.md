@@ -1,6 +1,6 @@
 ---
 title: "Module 1: Video Color Calibration"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "feature"
 tags: ["ai", "ui", "calibration"]
