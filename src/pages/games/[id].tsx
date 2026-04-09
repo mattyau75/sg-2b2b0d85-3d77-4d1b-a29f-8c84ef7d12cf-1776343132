@@ -46,29 +46,49 @@ export default function GameDetailPage() {
     if (!gameId) return;
     
     try {
-      // Fetch Game
+      // Fetch Game with team details
       const { data: gameData, error: gameError } = await supabase
-        .from('games')
+        .from("games")
         .select(`
           *,
           home_team:teams!games_home_team_id_fkey(*),
           away_team:teams!games_away_team_id_fkey(*)
         `)
-        .eq('id', gameId)
+        .eq("id", gameId)
         .single();
 
       if (gameError) throw gameError;
       setGame(gameData);
 
-      // Fetch Shots
-      const { data: shotsData } = await supabase
-        .from('shots')
-        .select('*')
-        .eq('game_id', gameId);
+      // Fetch Shots from Play-by-Play
+      const { data: pbpData, error: pbpError } = await supabase
+        .from("play_by_play")
+        .select(`
+          id,
+          x_coord,
+          y_coord,
+          is_make,
+          event_type,
+          game_time,
+          player:players(name)
+        `)
+        .eq("game_id", gameId)
+        .not("x_coord", "is", null);
       
-      setShots(shotsData || []);
+      if (!pbpError && pbpData) {
+        const formattedShots: Shot[] = pbpData.map((item: any) => ({
+          id: item.id,
+          x: Number(item.x_coord) || 0,
+          y: Number(item.y_coord) || 0,
+          is_made: !!item.is_make,
+          player_name: item.player?.name || "Unknown Player",
+          shot_type: item.event_type,
+          timestamp: item.game_time
+        }));
+        setShots(formattedShots);
+      }
 
-      // Get Video URL
+      // Get Video URL from R2
       if (gameData?.video_path) {
         const url = await storageService.getSignedUrl(gameData.video_path);
         setVideoUrl(url);
@@ -172,7 +192,7 @@ export default function GameDetailPage() {
                   "border-primary/20 bg-primary/5 text-primary",
                   game?.status === 'completed' && "border-emerald-500/20 bg-emerald-500/5 text-emerald-400"
                 )}>
-                  {game?.status?.toUpperCase() || 'PENDING'}
+                  {(game?.status || 'PENDING').toUpperCase()}
                 </Badge>
               </div>
             </div>
