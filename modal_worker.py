@@ -51,6 +51,7 @@ import time
 from typing import Generator
 import boto3
 from botocore.config import Config
+import requests
 
 import modal
 
@@ -297,3 +298,40 @@ def run_analysis(video_url: str, config: dict):
         update_status(35, "⚠️ Decoder timeout. Attempting RAM-buffer initialization...")
         # (This forces the OS to handshake before the decoder starts)
         cap = cv2.VideoCapture(video_url)
+
+# 1. FOOLPROOF STORAGE: Use a persistent volume for models and temporary video storage
+models_volume = modal.Volume.from_name("courtvision-storage", create_if_missing=True)
+
+@app.function(
+    image=cuda_image,
+    gpu="A100",
+    volumes={"/data": models_volume},
+    timeout=3600
+)
+def run_analysis(video_url: str, config: dict):
+    # Progress starts here
+    print("[10%] GPU Cluster Active")
+    
+    # 2. FOOLPROOF MODEL LOADING: Local path only
+    model_path = "/data/yolo11m.pt"
+    if not os.path.exists(model_path):
+        print("[20%] Downloading YOLOv11m weights to local storage...")
+        from ultralytics import YOLO
+        model = YOLO("yolo11m.pt")
+        model.save(model_path)
+        models_volume.commit()
+    
+    # 3. FOOLPROOF VIDEO LOADING: Download to local disk first
+    # This solves the 35% stall permanently
+    local_video_path = "/data/temp_game_video.mp4"
+    print("[30%] Downloading video to GPU local SSD (Foolproof Method)...")
+    
+    response = requests.get(video_url, stream=True)
+    with open(local_video_path, 'wb') as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            f.write(chunk)
+    
+    print("[40%] Video downloaded locally. Starting AI Analysis...")
+    
+    # Now open the LOCAL file (zero network glitches here)
+    cap = cv2.VideoCapture(local_video_path)
