@@ -90,11 +90,13 @@ def split_video(video_url: str, chunk_duration: int = 300):
     num_chunks = math.ceil(duration / chunk_duration)
     return [{"url": video_url, "start": i * chunk_duration, "chunk_id": i} for i in range(num_chunks)]
 
-def update_supabase_progress(game_id, progress, status=None):
+def update_supabase_progress(game_id, progress, status=None, credentials=None):
     """Callback to update Next.js dashboard via Supabase REST."""
-    supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_ANON_KEY")
+    supabase_url = credentials.get("url") if credentials else os.environ.get("SUPABASE_URL")
+    supabase_key = credentials.get("key") if credentials else os.environ.get("SUPABASE_ANON_KEY")
+    
     if not (supabase_url and supabase_key and game_id):
+        print(f"⚠️ Skipping progress sync: Missing config for game {game_id}")
         return
     
     headers = {
@@ -120,13 +122,17 @@ def analyze(item: dict):
     import json
     
     game_id = item.get("game_id")
+    creds = {
+        "url": item.get("supabase_url"),
+        "key": item.get("supabase_key")
+    }
 
     def orchestrate():
-        update_supabase_progress(game_id, 15, "processing")
+        update_supabase_progress(game_id, 15, "processing", credentials=creds)
         yield json.dumps({"__progress": 15, "__msg": "📡 Handshaking with R2 Storage..."}) + "\n"
         
         chunks = split_video.remote(item["video_url"])
-        update_supabase_progress(game_id, 25, "analyzing")
+        update_supabase_progress(game_id, 25, "analyzing", credentials=creds)
         yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
         
         # Parallel Execution across multiple GPUs
@@ -135,10 +141,10 @@ def analyze(item: dict):
         for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
             results.append(result)
             progress = 25 + int((i + 1) / len(chunks) * 60)
-            update_supabase_progress(game_id, progress)
+            update_supabase_progress(game_id, progress, credentials=creds)
             yield json.dumps({"__progress": progress, "__msg": f"Analyzing chunk {i+1}/{len(chunks)}..."}) + "\n"
         
-        update_supabase_progress(game_id, 95, "finalizing")
+        update_supabase_progress(game_id, 95, "finalizing", credentials=creds)
         yield json.dumps({"__progress": 95, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
         
         # Merge logic (simplified)
@@ -148,7 +154,7 @@ def analyze(item: dict):
             "stats": {} # Total aggregation
         }
         
-        update_supabase_progress(game_id, 100, "completed")
+        update_supabase_progress(game_id, 100, "completed", credentials=creds)
         yield json.dumps({"__result": final_result}) + "\n"
 
     return StreamingResponse(orchestrate(), media_type="text/plain")

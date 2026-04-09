@@ -38,6 +38,8 @@ export const modalService = {
         away_color: config.awayColor || "#0B0F19",
         home_roster: config.home_roster || [],
         away_roster: config.away_roster || [],
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         config: {
           ...config,
           temporal_tracking: true,
