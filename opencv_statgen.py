@@ -57,6 +57,32 @@ class TemporalIdentityEngine:
                 return self.confirmed_identities.get(track_id)
         return None
 
+def map_identities_to_roster(detected_numbers, rosters):
+    """
+    STRICT MAPPING ENGINE: 
+    Only matches detected jersey numbers against the pre-populated roster.
+    """
+    home_numbers = [str(p['number']) for p in rosters.get('home', [])]
+    away_numbers = [str(p['number']) for p in rosters.get('away', [])]
+    
+    results = {
+        "home": [],
+        "away": [],
+        "unknown": []
+    }
+    
+    for num in detected_numbers:
+        if num in home_numbers:
+            player = next(p for p in rosters['home'] if str(p['number']) == num)
+            results["home"].append({"number": num, "player_id": player['id'], "name": player['name']})
+        elif num in away_numbers:
+            player = next(p for p in rosters['away'] if str(p['number']) == num)
+            results["away"].append({"number": num, "player_id": player['id'], "name": player['name']})
+        else:
+            results["unknown"].append(num)
+            
+    return results
+
 def process_video_elite(args):
     emit_progress(10, "Initializing Elite AI Vision Engines...")
     

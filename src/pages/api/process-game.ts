@@ -62,20 +62,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: activeGame } = await supabase.from('games').select('id').eq('id', gameId).single();
     if (!activeGame) throw new Error("Game record lost during ignition sequence");
 
-    // 1. Mark as 'igniting'
+    // 1. DIRECT PULSE INJECTION: Force 25% progress locally before calling GPU
+    // This ensures the user sees 'Ignition' even during the GPU warm-up phase.
     await supabase
       .from('games')
       .update({ 
         status: 'analyzing', 
-        progress_percentage: 20,
-        ignition_status: 'igniting',
+        progress_percentage: 25,
+        ignition_status: 'ignited',
         updated_at: new Date().toISOString()
       })
       .eq('id', gameId);
 
-    // 2. DETACHED TRIGGER: Fire the request without 'awaiting' the long-running process
-    // This prevents the Next.js API from timing out after 60 seconds
-    modalService.processGame(signedUrl, gpuConfig).catch(err => {
+    console.log(`[ProcessGame] Local Pulse Injected. Dispatching to GPU Swarm...`);
+
+    // 2. DETACHED GPU TRIGGER: Don't 'await' the long process
+    modalService.processGame(signedUrl, {
+      game_id: gameId,
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      homeColor,
+      awayColor,
+      home_roster: homeRoster || [],
+      away_roster: awayRoster || [],
+      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
       supabase.from('games').update({ 
         status: 'error', 
