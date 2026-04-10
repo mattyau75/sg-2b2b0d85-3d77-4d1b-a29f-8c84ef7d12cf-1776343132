@@ -1,0 +1,1 @@
+ALTER TABLE ai_player_mappings ADD COLUMN IF NOT EXISTS snapshot_url TEXT;

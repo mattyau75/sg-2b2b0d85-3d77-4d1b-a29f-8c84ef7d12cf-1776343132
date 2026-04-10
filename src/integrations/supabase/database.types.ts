@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -29,6 +29,7 @@ export type Database = {
           is_manual_override: boolean | null
           jersey_number: number | null
           real_player_id: string | null
+          snapshot_url: string | null
           team_side: string | null
           updated_at: string | null
         }
@@ -45,6 +46,7 @@ export type Database = {
           is_manual_override?: boolean | null
           jersey_number?: number | null
           real_player_id?: string | null
+          snapshot_url?: string | null
           team_side?: string | null
           updated_at?: string | null
         }
@@ -61,6 +63,7 @@ export type Database = {
           is_manual_override?: boolean | null
           jersey_number?: number | null
           real_player_id?: string | null
+          snapshot_url?: string | null
           team_side?: string | null
           updated_at?: string | null
         }
