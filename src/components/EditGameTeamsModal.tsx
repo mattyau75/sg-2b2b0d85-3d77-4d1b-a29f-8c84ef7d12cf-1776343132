@@ -173,16 +173,22 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl bg-card border-border p-0 overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
-        <DialogHeader className="px-8 pt-8 pb-4 border-b border-border/50">
-          <DialogTitle className="text-2xl font-black flex items-center gap-3 tracking-tight">
-            <Sparkles className="h-6 w-6 text-primary animate-pulse" />
-            Step 2: Elite Metadata & Calibration
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-widest">
-            Configure ground truth for the AI discovery pipeline
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-5xl bg-[#0B0E14] border-white/5 p-0 overflow-hidden shadow-2xl shadow-black/50 max-h-[90vh] flex flex-col">
+        <div className="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent shrink-0">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight text-white uppercase">
+                Step 2: Elite Game Metadata & Video Color Calibration
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em]">
+              AI Roster Mapping Engine • Personnel Discovery Prep
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
         <div className="flex-1 overflow-y-auto px-8 py-6 space-y-10 custom-scrollbar">
           {/* Visual Color Calibration */}
