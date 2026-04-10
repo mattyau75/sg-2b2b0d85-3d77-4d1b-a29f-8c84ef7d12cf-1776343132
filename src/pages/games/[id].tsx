@@ -312,7 +312,7 @@ export default function GameDetailPage() {
                   <p className="text-sm text-muted-foreground">Module 2: Verify and map detected identities to rostered directory players.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {game?.status !== 'processing' && game?.status !== 'analyzing' && (
+                  {(game?.status !== 'processing' && game?.status !== 'analyzing') && (
                     <Button 
                       onClick={handleStartMapping} 
                       disabled={analyzing || !isRosterPrepopulated} 
@@ -324,7 +324,7 @@ export default function GameDetailPage() {
                       )}
                     >
                       {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      {analyzing ? "PREPARING..." : isAnalysisComplete ? "RE-RUN AI ENGINE" : "PREPARE AI ENGINE"}
+                      {analyzing ? "PREPARING..." : (game?.status === 'completed' || game?.status === 'error') ? "RE-RUN AI ENGINE" : "PREPARE AI ENGINE"}
                     </Button>
                   )}
                   <Badge variant="outline" className={cn(
