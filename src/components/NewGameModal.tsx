@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { storageService } from "@/services/storageService";
+import { Progress } from "@/components/ui/progress";
 
 interface NewGameModalProps {
   isOpen: boolean;
@@ -27,10 +28,10 @@ interface NewGameModalProps {
 export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { startUpload } = useUploads();
+  const { startUpload, activeUploads } = useUploads();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [uploading, setUploading] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
@@ -39,6 +40,11 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
     awayTeamId: "",
     cameraType: "panning" as "panning" | "fixed"
   });
+
+  // Find if there's an active upload for the selected file
+  const currentUpload = activeUploads.find(u => u.fileName === formData.videoFile?.name);
+  const isUploading = !!currentUpload && currentUpload.status === "uploading";
+  const uploadProgress = currentUpload?.progress || 0;
 
   useEffect(() => {
     if (isOpen) {
@@ -66,51 +72,27 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
 
   const handleProcess = async () => {
     if (!formData.videoFile) return;
-    setUploading(true);
+    setIsStarting(true);
     
     try {
-      // 1. Upload to Storage
-      const fileName = `${Date.now()}-${formData.videoFile.name}`;
-      const uploadPath = `games/${fileName}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(uploadPath, formData.videoFile);
-
-      if (uploadError) throw uploadError;
-
-      // 2. Create the game record in pending status
-      const { data: newGame, error: gameError } = await supabase
-        .from('games')
-        .insert({
-          video_path: uploadPath,
-          status: 'pending',
-          date: new Date().toISOString(),
-          home_team_id: formData.homeTeamId || null,
-          away_team_id: formData.awayTeamId || null,
-          camera_type: formData.cameraType
-        })
-        .select()
-        .single();
-
-      if (gameError) throw gameError;
-
-      toast({ 
-        title: "Footage Registered", 
-        description: "Opening Module 1: Identity & Mapping." 
+      // Use the centralized UploadContext for multipart progress-tracked upload
+      await startUpload(formData.videoFile, {
+        homeTeamId: formData.homeTeamId || null,
+        awayTeamId: formData.awayTeamId || null,
+        cameraType: formData.cameraType
       });
 
-      // Redirect to the Game Detail page for modular execution
-      router.push(`/games/${newGame.id}`);
+      // The context handles redirect or toast upon completion/start
+      // But for this modal, we can close it once the upload is 'handed off'
       onClose();
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Upload Failed",
+        title: "Initialization Failed",
         description: error.message
       });
     } finally {
-      setUploading(false);
+      setIsStarting(false);
     }
   };
 
@@ -150,18 +132,34 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
             </div>
 
             <div 
-              onClick={() => !uploading && fileInputRef.current?.click()}
+              onClick={() => !isStarting && !isUploading && fileInputRef.current?.click()}
               className={cn(
                 "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-12 transition-all cursor-pointer",
                 formData.videoFile ? "border-primary bg-primary/5" : "border-border hover:border-primary/50 hover:bg-muted/5",
-                uploading && "opacity-50 cursor-not-allowed"
+                (isStarting || isUploading) && "opacity-80 cursor-not-allowed"
               )}
             >
               <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect} />
-              {uploading ? (
+              
+              {isUploading ? (
+                <div className="flex flex-col items-center gap-6 w-full max-w-sm">
+                  <div className="relative h-16 w-16">
+                    <Loader2 className="h-16 w-16 text-primary animate-spin absolute inset-0 opacity-20" />
+                    <div className="absolute inset-0 flex items-center justify-center font-mono text-xs font-bold text-primary">
+                      {Math.round(uploadProgress)}%
+                    </div>
+                  </div>
+                  <div className="w-full space-y-2">
+                    <Progress value={uploadProgress} className="h-2 bg-primary/10" />
+                    <p className="text-center text-sm font-medium text-muted-foreground italic animate-pulse">
+                      Streaming footage to elite cloud storage...
+                    </p>
+                  </div>
+                </div>
+              ) : isStarting ? (
                 <div className="flex flex-col items-center gap-4">
                   <Loader2 className="h-10 w-10 text-primary animate-spin" />
-                  <p className="text-lg font-semibold text-foreground">Uploading footage...</p>
+                  <p className="text-lg font-semibold text-foreground italic">Initializing AI discovery swarm...</p>
                 </div>
               ) : formData.videoFile ? (
                 <div className="flex flex-col items-center gap-4">
@@ -210,14 +208,14 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
         </div>
 
         <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5">
-          <Button variant="ghost" onClick={onClose} disabled={uploading}>Cancel</Button>
+          <Button variant="ghost" onClick={onClose} disabled={isStarting || isUploading}>Cancel</Button>
           <Button 
             onClick={handleProcess} 
-            disabled={!formData.videoFile || uploading}
+            disabled={!formData.videoFile || isStarting || isUploading}
             className="bg-primary hover:bg-primary/90 min-w-[200px] h-12 rounded-xl font-bold shadow-lg shadow-primary/20"
           >
-            {uploading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Registering...</>
+            {isStarting || isUploading ? (
+              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {isUploading ? 'Uploading...' : 'Starting...'}</>
             ) : (
               <><Cpu className="h-4 w-4 mr-2" /> Start Modular Analysis</>
             )}

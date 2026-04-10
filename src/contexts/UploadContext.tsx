@@ -4,6 +4,7 @@ import { modalService } from "@/services/modalService";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
+import { useRouter } from "next/router";
 
 interface UploadTask {
   id: string;
@@ -26,6 +27,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [activeUploads, setActiveUploads] = useState<UploadTask[]>([]);
   const abortControllers = useRef<Record<string, AbortController>>({});
   const { toast } = useToast();
+  const router = useRouter();
 
   const cancelUpload = useCallback(async (uploadId: string) => {
     const task = activeUploads.find(t => t.id === uploadId);
@@ -98,6 +100,9 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         .eq('id', gameData.id);
 
       if (updateError) throw updateError;
+
+      // Navigate to the game page immediately so they can see logs/progress there too
+      router.push(`/games/${gameData.id}`);
 
       // 4. Trigger GPU processing
       setActiveUploads(prev => prev.map(u => 
