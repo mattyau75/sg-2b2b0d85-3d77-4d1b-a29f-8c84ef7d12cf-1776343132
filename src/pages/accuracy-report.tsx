@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
 import { Brain, CheckCircle2, AlertTriangle, Target, BarChart3, Search, Play, ZoomIn } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { cn } from "@/lib/utils";
@@ -61,7 +62,7 @@ export default function AccuracyReport() {
               <CardTitle className="text-4xl font-mono text-white">94.2%</CardTitle>
             </CardHeader>
             <CardContent>
-              <Progress value={94.2} className="h-1 bg-white/5" indicatorClassName="bg-primary" />
+              <Progress value={94.2} className="h-1 bg-white/5" />
               <p className="text-xs text-muted-foreground mt-3">+2.4% vs previous build (v8s)</p>
             </CardContent>
           </Card>
@@ -74,7 +75,7 @@ export default function AccuracyReport() {
               <CardTitle className="text-4xl font-mono text-white">3.2x</CardTitle>
             </CardHeader>
             <CardContent>
-              <Progress value={85} className="h-1 bg-white/5" indicatorClassName="bg-accent" />
+              <Progress value={85} className="h-1 bg-white/5" />
               <p className="text-xs text-muted-foreground mt-3">Resolution multiplier for small numbers</p>
             </CardContent>
           </Card>
@@ -87,7 +88,7 @@ export default function AccuracyReport() {
               <CardTitle className="text-4xl font-mono text-white">42ms</CardTitle>
             </CardHeader>
             <CardContent>
-              <Progress value={90} className="h-1 bg-white/5" indicatorClassName="bg-emerald-400" />
+              <Progress value={90} className="h-1 bg-white/5" />
               <p className="text-xs text-muted-foreground mt-3">Average time to identity lock</p>
             </CardContent>
           </Card>
