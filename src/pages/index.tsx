@@ -48,7 +48,6 @@ const STATUS_PROGRESS: Record<string, number> = {
 
 export default function Dashboard() {
   const router = useRouter();
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [statsSummary, setStatsSummary] = useState({
@@ -152,11 +151,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  const handleNewJob = (jobId: string) => {
-    // Note: The realtime subscription will now handle the status updates automatically
-    // once the database record is created/updated by the Modal bridge.
-  };
-
   const handleUploadSuccess = async (gameId: string) => {
     setIsNewGameModalOpen(false);
     
@@ -200,7 +194,7 @@ export default function Dashboard() {
             </Button>
             <Button 
               className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
-              onClick={() => setIsModalOpen(true)}
+              onClick={() => setIsNewGameModalOpen(true)}
             >
               <Plus className="h-4 w-4 mr-2" />
               ADD NEW GAME
@@ -209,8 +203,8 @@ export default function Dashboard() {
         </div>
 
         <NewGameModal 
-          isOpen={isModalOpen} 
-          onClose={() => setIsModalOpen(false)} 
+          isOpen={isNewGameModalOpen} 
+          onClose={() => setIsNewGameModalOpen(false)} 
           onUploadSuccess={handleUploadSuccess}
         />
 
@@ -294,7 +288,7 @@ export default function Dashboard() {
                         <p className="text-sm font-medium text-muted-foreground">No recent analysis found</p>
                         <p className="text-xs text-muted-foreground/70">Start by analyzing a new game video</p>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
+                      <Button variant="outline" size="sm" onClick={() => setIsNewGameModalOpen(true)}>
                         Analyze First Game
                       </Button>
                     </div>

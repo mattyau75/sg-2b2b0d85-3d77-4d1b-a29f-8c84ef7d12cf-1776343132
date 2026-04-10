@@ -39,6 +39,7 @@ interface EditGameTeamsModalProps {
 }
 
 export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGameTeamsModalProps) {
+  const [mounted, setMounted] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
   const [venues, setVenues] = useState<any[]>([]);
   const [homeTeamId, setHomeTeamId] = useState("");
@@ -57,6 +58,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [detectedColors, setDetectedColors] = useState<string[]>([]);
   
   const { toast } = useToast();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (game && isOpen) {
@@ -314,17 +319,21 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
                 <div className="space-y-2">
                   <Label className="text-[10px] font-bold text-muted-foreground uppercase">Game Date</Label>
-                  <Popover modal={true}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="w-full justify-start text-left font-normal bg-muted/20 border-border h-11 text-sm">
-                        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                        {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 bg-popover border-border z-[200]">
-                      <Calendar mode="single" selected={gameDate} onSelect={setGameDate} initialFocus />
-                    </PopoverContent>
-                  </Popover>
+                  {mounted ? (
+                    <Popover modal={true}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal bg-muted/20 border-border h-11 text-sm">
+                          <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                          {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-popover border-border z-[200]">
+                        <Calendar mode="single" selected={gameDate} onSelect={setGameDate} initialFocus />
+                      </PopoverContent>
+                    </Popover>
+                  ) : (
+                    <div className="h-11 w-full bg-muted/20 border border-border rounded-md animate-pulse" />
+                  )}
                 </div>
               </div>
             </div>

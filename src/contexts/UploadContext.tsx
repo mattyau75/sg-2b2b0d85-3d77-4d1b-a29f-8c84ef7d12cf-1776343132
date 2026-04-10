@@ -88,6 +88,9 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         ));
       }, abortController.signal);
 
+      // Clean up controller after successful upload
+      delete abortControllers.current[uploadId];
+
       // 3. Update game record with video path
       const { error: updateError } = await supabase
         .from('games')
@@ -104,6 +107,9 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       return gameData.id;
 
     } catch (error: any) {
+      // Clean up controller on failure
+      delete abortControllers.current[uploadId];
+
       if (error.message === "CANCELLED") {
         console.log("[UploadContext] Upload cancelled by user");
         return;
@@ -125,8 +131,6 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         description: error.response?.data?.message || error.message,
         variant: "destructive"
       });
-      
-      delete abortControllers.current[uploadId];
     }
   }, [toast]);
 
