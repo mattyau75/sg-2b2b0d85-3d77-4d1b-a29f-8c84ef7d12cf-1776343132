@@ -150,9 +150,12 @@ export default function GameDetailPage() {
     if (!gameId) return;
     const updateKey = `m${moduleId}_complete`;
     try {
+      // Use an explicit cast to bypass the strict index signature error on the update object
+      const updateData = { [updateKey]: true } as any;
+      
       const { error } = await supabase
         .from('games')
-        .update({ [updateKey]: true })
+        .update(updateData)
         .eq('id', gameId);
       
       if (error) throw error;
