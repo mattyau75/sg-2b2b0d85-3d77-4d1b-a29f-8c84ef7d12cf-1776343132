@@ -62,7 +62,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       progress_percentage: 10 
     }).eq('id', gameId);
 
-    // Trigger but don't wait for completion to allow background execution
+    // TRIGGER & DETACH: Don't await the modalService call to prevent 504 timeouts
     modalService.processGame(signedUrl, gpuConfig).catch(err => {
       console.error("[ProcessGame] Background GPU Trigger Failed:", err.message);
       supabase.from('games').update({ 
@@ -71,7 +71,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }).eq('id', gameId);
     });
 
-    return res.status(200).json({ success: true, message: "AI Mapping Started in Background" });
+    // Return 202 Accepted immediately
+    return res.status(202).json({ 
+      success: true, 
+      message: "AI Mapping Accepted & Queued",
+      jobId: gameId 
+    });
 
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
