@@ -1,6 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Module 1: Roster Preparation API
+ * Ensures the player_game_stats table is populated with the rosters for both teams.
+ * This is additive: it only adds players that don't already exist for this game.
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
@@ -11,20 +16,48 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: "Missing required IDs" });
     }
 
-    // 1. Fetch all players for both teams
-    const { data: homePlayers, error: homeError } = await supabase.from('players').select('id, team_id').eq('team_id', homeTeamId);
-    const { data: awayPlayers, error: awayError } = await supabase.from('players').select('id, team_id').eq('team_id', awayTeamId);
+    // 1. Fetch current rosters from the directory for both teams
+    const { data: homePlayers, error: homeError } = await supabase
+      .from('players')
+      .select('id, team_id')
+      .eq('team_id', homeTeamId);
+      
+    const { data: awayPlayers, error: awayError } = await supabase
+      .from('players')
+      .select('id, team_id')
+      .eq('team_id', awayTeamId);
 
-    if (homeError || awayError) throw new Error("Failed to fetch rosters");
+    if (homeError || awayError) throw new Error("Failed to fetch directory rosters");
 
-    const allPlayers = [...(homePlayers || []), ...(awayPlayers || [])];
+    const fullRoster = [...(homePlayers || []), ...(awayPlayers || [])];
 
-    if (allPlayers.length === 0) {
-      return res.status(200).json({ success: true, message: "No players found to pre-populate", count: 0 });
+    if (fullRoster.length === 0) {
+      return res.status(200).json({ success: true, message: "No players found in directory to prepare", count: 0 });
     }
 
-    // 2. Pre-populate player_game_stats placeholders for mapping
-    const statsEntries = allPlayers.map(p => ({
+    // 2. Fetch players already in the game's stats table to avoid duplication
+    const { data: existingStats, error: existingError } = await supabase
+      .from('player_game_stats')
+      .select('player_id')
+      .eq('game_id', gameId);
+
+    if (existingError) throw new Error("Failed to check existing game stats");
+
+    const existingPlayerIds = new Set(existingStats?.map(s => s.player_id) || []);
+
+    // 3. Filter only NEW players that aren't already in the game
+    const newPlayers = fullRoster.filter(p => !existingPlayerIds.has(p.id));
+
+    if (newPlayers.length === 0) {
+      return res.status(200).json({ 
+        success: true, 
+        message: "Rosters are already up to date. No new players were added.",
+        count: 0 
+      });
+    }
+
+    // 4. Prepare entries for new players only
+    const statsEntries = newPlayers.map(p => ({
       game_id: gameId,
       player_id: p.id,
       team_id: p.team_id,
@@ -34,22 +67,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       steals: 0,
       blocks: 0,
       fg_made: 0,
-      fg_attempted: 0
+      fg_attempted: 0,
+      minutes: 0
     }));
 
-    // Upsert based on the (game_id, player_id) unique constraint
-    const { error: statsError } = await supabase
+    // Use upsert as a safety measure, though filtering already handled deduplication
+    const { error: insertError } = await supabase
       .from('player_game_stats')
       .upsert(statsEntries, { onConflict: 'game_id,player_id' });
 
-    if (statsError) {
-      console.error("[PrepareMapping] Upsert Error:", statsError);
-      throw statsError;
+    if (insertError) {
+      console.error("[PrepareMapping] Insert Error:", insertError);
+      throw insertError;
     }
 
     return res.status(200).json({ 
       success: true, 
-      message: "Rosters pre-populated for Mapping Module",
+      message: `Successfully added ${statsEntries.length} new players to the mapping queue.`,
       count: statsEntries.length 
     });
 
