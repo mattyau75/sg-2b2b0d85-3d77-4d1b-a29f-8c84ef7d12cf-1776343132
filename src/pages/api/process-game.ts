@@ -74,7 +74,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', gameId);
 
-    // 2. DETACHED GPU TRIGGER
+    // 2. DETACHED GPU TRIGGER: Fire and forget to prevent timeouts
     console.log(`[ProcessGame] Dispatching to GPU Swarm...`);
     modalService.processGame(signedUrl, {
       game_id: gameId,
@@ -91,10 +91,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabase.from('games').update({ 
         status: 'error', 
         last_error: `GPU Connection Failed: ${err.message}` 
-      }).eq('id', gameId).then(() => {});
+      }).eq('id', gameId);
     });
 
-    // 3. Return immediately to the UI
+    // 3. IMMEDIATE RETURN: Confirm handoff to UI
     return res.status(202).json({ 
       success: true, 
       message: "Ignition Sequence Started",

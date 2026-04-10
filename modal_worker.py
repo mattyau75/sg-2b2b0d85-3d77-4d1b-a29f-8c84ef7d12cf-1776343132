@@ -207,15 +207,8 @@ def analyze(item: dict):
     }
     
     print(f"🔥 Ignition Sequence Started for Game: {game_id}")
-    # Force 25% progress immediately to confirm handshake
-    from supabase import create_client
-    sb = create_client(creds["url"], creds["key"])
-    sb.table("games").update({
-        "status": "analyzing",
-        "progress_percentage": 25,
-        "ignition_status": "ignited",
-        "last_error": None
-    }).eq("id", game_id).execute()
+    # Call the stored procedure to bypass RLS and report status immediately
+    report_ignition(game_id, creds, status_msg="GPU Swarm Connection Established (A10G Active)")
 
     # 2. HEAVY IMPORTS START HERE
     import torch
