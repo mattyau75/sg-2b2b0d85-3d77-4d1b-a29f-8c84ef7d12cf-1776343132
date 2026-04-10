@@ -56,31 +56,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`[ProcessGame] Handing off to GPU Swarm for ${gameId}`);
     
-    // Update status to processing immediately before triggering
+    // 1. EAGER UPDATE: Mark as analyzing/15% immediately to signal successful dispatch
     await supabase.from('games').update({ 
-      status: 'processing',
-      progress_percentage: 10 
+      status: 'analyzing',
+      progress_percentage: 15,
+      processing_metadata: {
+        ...(req.body.processing_metadata || {}),
+        gpu_triggered_at: new Date().toISOString()
+      }
     }).eq('id', gameId);
 
-    // TRIGGER & DETACH: Don't await the modalService call to prevent 504 timeouts
+    // 2. TRIGGER & DETACH: Fire the request without awaiting the stream
+    // This prevents the API from hanging for 10+ minutes on the worker's StreamingResponse
     modalService.processGame(signedUrl, gpuConfig).then(() => {
-      console.log(`[ProcessGame] GPU Swarm Acknowledged for ${gameId}`);
-      supabase.from('games').update({ 
-        progress_percentage: 15,
-        status: 'analyzing'
-      }).eq('id', gameId).then(() => {});
+      console.log(`[ProcessGame] GPU Job Completed for ${gameId}`);
     }).catch(err => {
-      console.error("[ProcessGame] Background GPU Trigger Failed:", err.message);
-      supabase.from('games').update({ 
-        status: 'error', 
-        last_error: `GPU Handoff Failed: ${err.message}` 
-      }).eq('id', gameId);
+      console.error("[ProcessGame] GPU Handoff or Execution Failed:", err.message);
+      // Only update to error if we're not already marked as completed by the worker
+      supabase.from('games').select('status').eq('id', gameId).single().then(({ data }) => {
+        if (data?.status !== 'completed') {
+          supabase.from('games').update({ 
+            status: 'error', 
+            last_error: `AI Engine Error: ${err.message}` 
+          }).eq('id', gameId).then(() => {});
+        }
+      });
     });
 
-    // Return 202 Accepted immediately
+    // 3. Return 202 Accepted immediately
     return res.status(202).json({ 
       success: true, 
-      message: "AI Mapping Accepted & Queued",
+      message: "AI Mapping Ignited",
       jobId: gameId 
     });
 

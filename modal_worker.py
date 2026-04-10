@@ -123,39 +123,45 @@ def analyze(item: dict):
     import json
     
     game_id = item.get("game_id")
+    # Ensure we use the correct keys from config
     creds = {
         "url": item.get("supabase_url"),
         "key": item.get("supabase_key")
     }
 
     def orchestrate():
-        update_supabase_progress(game_id, 15, "processing", credentials=creds)
-        yield json.dumps({"__progress": 15, "__msg": "📡 Handshaking with R2 Storage..."}) + "\n"
+        # Initial heartbeat to confirm worker is alive and reporting
+        update_supabase_progress(game_id, 20, "analyzing", credentials=creds)
+        yield json.dumps({"__progress": 20, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
         
-        chunks = split_video.remote(item["video_url"])
-        update_supabase_progress(game_id, 25, "analyzing", credentials=creds)
-        yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
-        
-        # Parallel Execution across multiple GPUs
-        # We can update progress as chunks complete
-        results = []
-        for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
-            results.append(result)
-            progress = 25 + int((i + 1) / len(chunks) * 60)
-            update_supabase_progress(game_id, progress, credentials=creds)
-            yield json.dumps({"__progress": progress, "__msg": f"Analyzing chunk {i+1}/{len(chunks)}..."}) + "\n"
-        
-        update_supabase_progress(game_id, 95, "finalizing", credentials=creds)
-        yield json.dumps({"__progress": 95, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
-        
-        # Merge logic (simplified)
-        final_result = {
-            "game_id": game_id,
-            "play_by_play": [p for r in results if "play_by_play" in r for p in r["play_by_play"]],
-            "stats": {} # Total aggregation
-        }
-        
-        update_supabase_progress(game_id, 100, "completed", credentials=creds)
-        yield json.dumps({"__result": final_result}) + "\n"
+        try:
+            chunks = split_video.remote(item["video_url"])
+            update_supabase_progress(game_id, 25, credentials=creds)
+            yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
+            
+            # Parallel Execution across multiple GPUs
+            # We can update progress as chunks complete
+            results = []
+            for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
+                results.append(result)
+                progress = 25 + int((i + 1) / len(chunks) * 60)
+                update_supabase_progress(game_id, progress, credentials=creds)
+                yield json.dumps({"__progress": progress, "__msg": f"Analyzing chunk {i+1}/{len(chunks)}..."}) + "\n"
+            
+            update_supabase_progress(game_id, 95, "finalizing", credentials=creds)
+            yield json.dumps({"__progress": 95, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
+            
+            # Merge logic (simplified)
+            final_result = {
+                "game_id": game_id,
+                "play_by_play": [p for r in results if "play_by_play" in r for p in r["play_by_play"]],
+                "stats": {} # Total aggregation
+            }
+            
+            update_supabase_progress(game_id, 100, "completed", credentials=creds)
+            yield json.dumps({"__result": final_result}) + "\n"
+        except Exception as e:
+            update_supabase_progress(game_id, 100, "error", credentials=creds)
+            yield json.dumps({"__error": str(e)}) + "\n"
 
     return StreamingResponse(orchestrate(), media_type="text/plain")
