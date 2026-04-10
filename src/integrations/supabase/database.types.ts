@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -106,6 +106,7 @@ export type Database = {
           status: string | null
           updated_at: string | null
           venue: string | null
+          venue_id: string | null
           video_path: string | null
           youtube_url: string | null
         }
@@ -130,6 +131,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           venue?: string | null
+          venue_id?: string | null
           video_path?: string | null
           youtube_url?: string | null
         }
@@ -154,6 +156,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           venue?: string | null
+          venue_id?: string | null
           video_path?: string | null
           youtube_url?: string | null
         }
@@ -170,6 +173,13 @@ export type Database = {
             columns: ["home_team_id"]
             isOneToOne: false
             referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -499,6 +509,27 @@ export type Database = {
           name?: string
           primary_color?: string | null
           secondary_color?: string | null
+        }
+        Relationships: []
+      }
+      venues: {
+        Row: {
+          created_at: string | null
+          id: string
+          location: string | null
+          name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          location?: string | null
+          name?: string
         }
         Relationships: []
       }
