@@ -70,7 +70,7 @@ export default function GameDetailPage() {
     try {
       const { data: gameData, error: gameError } = await supabase
         .from("games")
-        .select(`*, home_team:teams!games_home_team_id_fkey(*), away_team:teams!games_away_team_id_fkey(*)`)
+        .select(`*, home_team:teams!games_home_team_id_fkey(*), away_team:teams!games_away_team_id_fkey(*), venue:venues(*)`)
         .eq("id", gameId)
         .single();
 
@@ -228,7 +228,7 @@ export default function GameDetailPage() {
           </div>
           
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="outline" className="bg-background border-primary/20" onClick={() => setIsEditModalOpen(true)}><Settings2 className="h-4 w-4 mr-2 text-primary" /> EDIT SETUP</Button>
+            <Button variant="outline" className="bg-background border-primary/20" onClick={() => setIsEditModalOpen(true)}><Settings2 className="h-4 w-4 mr-2 text-primary" /> EDIT GAME & RE-CALIBRATE</Button>
           </div>
         </div>
 
@@ -308,7 +308,7 @@ export default function GameDetailPage() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Venue</span>
-                      <span className="font-mono text-white">{game?.venue || 'Not set'}</span>
+                      <span className="font-mono text-white">{game?.venue?.name || 'Not set'}</span>
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Video Stream</span>
@@ -343,7 +343,7 @@ export default function GameDetailPage() {
                   </div>
                 </div>
                 <Button variant="outline" onClick={() => setIsEditModalOpen(true)} className="bg-background border-primary/20">
-                  RE-CALIBRATE <Settings2 className="h-4 w-4 ml-2" />
+                  EDIT GAME & RE-CALIBRATE <Settings2 className="h-4 w-4 ml-2" />
                 </Button>
               </div>
             </Card>
