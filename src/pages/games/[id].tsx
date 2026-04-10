@@ -312,13 +312,17 @@ export default function GameDetailPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {game?.status !== 'processing' && game?.status !== 'analyzing' && (
-                    <Button onClick={handleStartMapping} disabled={analyzing} className="bg-primary hover:bg-primary/90 font-bold h-10 px-8 shadow-xl shadow-primary/30 uppercase tracking-tighter">
+                    <Button 
+                      onClick={handleStartMapping} 
+                      disabled={analyzing} 
+                      className="bg-primary hover:bg-primary/90 font-bold h-10 px-8 shadow-xl shadow-primary/30 uppercase tracking-tighter"
+                    >
                       {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      PREPARE AI ENGINE
+                      {analyzing ? "PREPARING..." : "PREPARE AI ENGINE"}
                     </Button>
                   )}
                   <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10 uppercase tracking-tighter font-black">
-                    {detectedPlayers.length > 0 ? `${detectedPlayers.length} IDENTITIES DETECTED` : "PREPARING AI ENGINE"}
+                    {detectedPlayers.length > 0 ? `${detectedPlayers.length} IDENTITIES DETECTED` : "READY FOR ENGINE"}
                   </Badge>
                 </div>
               </div>
