@@ -43,7 +43,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 4. TRIGGER GPU CLUSTER
     const gpuConfig = {
-      game_id: gameId, // Match the key expected by modal_worker.py
+      game_id: gameId, 
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
       homeColor,
@@ -51,18 +51,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       home_roster: homeRoster || [],
       away_roster: awayRoster || [],
       scouting_mode: "deep_recognition",
-      roster_sync: true
+      roster_sync: true,
+      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     };
 
-    console.log(`[ProcessGame] Handing off to GPU Swarm for ${gameId}`);
+    console.log(`[ProcessGame] Dispatching Ignition Signal for ${gameId}`);
     
-    // 0. CLEAN SLATE: Delete previous events and stats for this game to prevent duplicates
-    await Promise.all([
-      supabase.from('play_by_play').delete().eq('game_id', gameId),
-      supabase.from('player_game_stats').delete().eq('game_id', gameId)
-    ]);
+    // 0. WARM UP CONNECTION: Verify we can still see the game
+    const { data: activeGame } = await supabase.from('games').select('id').eq('id', gameId).single();
+    if (!activeGame) throw new Error("Game record lost during ignition sequence");
 
-    // 1. Mark as 'igniting' in the database immediately
+    // 1. Mark as 'igniting'
     await supabase
       .from('games')
       .update({ 

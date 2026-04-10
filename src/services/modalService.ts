@@ -26,12 +26,20 @@ export const modalService = {
    */
   processGame: async (signedUrl: string, config: any) => {
     try {
-      const modalEndpoint = process.env.MODAL_WEBHOOK_URL;
-      if (!modalEndpoint) throw new Error("MODAL_WEBHOOK_URL is not configured");
+      // Use the explicit MODAL_WEBHOOK_URL or MODAL_URL from .env.local
+      const modalEndpoint = process.env.MODAL_WEBHOOK_URL || process.env.MODAL_URL;
+      if (!modalEndpoint) throw new Error("MODAL_URL is not configured in .env.local");
       
+      console.log(`[ModalService] Igniting GPU Swarm at: ${modalEndpoint}`);
+      console.log(`[ModalService] Payload for Game ${config.game_id}:`, {
+        video_url: signedUrl.substring(0, 50) + "...",
+        home_team: config.home_team_id,
+        away_team: config.away_team_id
+      });
+
       const response = await axios.post(modalEndpoint, {
         video_url: signedUrl,
-        game_id: config.gameId,
+        game_id: config.game_id,
         home_team: config.home_team_id,
         away_team: config.away_team_id,
         home_color: config.homeColor || "#FFFFFF",

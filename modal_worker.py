@@ -205,9 +205,9 @@ def analyze(item: dict):
     }
 
     # 1. FOOLPROOF IGNITION: Absolute first action
-    # This breaks the 20% stall by forcing a 25% update immediately.
+    # This MUST happen before any imports or heavy logic to break the 20% stall.
     print(f"🔥 Ignition Sequence Started for Game: {game_id}")
-    update_supabase_progress(game_id, 25, "analyzing", credentials=creds, log_msg="🚀 GPU Cluster Online. DribbleStats Elite Environment Initialized.")
+    report_ignition(game_id, creds, status_msg="GPU Swarm Connection Established")
 
     # 2. EXTRACT ROSTERS FOR OCR CONSTRAINTS
     # We pass these to the processing engine so it knows what numbers to look for
