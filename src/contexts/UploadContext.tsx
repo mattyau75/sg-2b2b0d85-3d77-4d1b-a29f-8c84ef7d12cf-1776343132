@@ -82,7 +82,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       const abortController = new AbortController();
       abortControllers.current[uploadId] = abortController;
 
-      await storageService.uploadMultipart(file, videoKey, (progress) => {
+      await storageService.uploadVideo(file, (progress) => {
         setActiveUploads(prev => prev.map(t => 
           t.id === uploadId ? { ...t, progress } : t
         ));
