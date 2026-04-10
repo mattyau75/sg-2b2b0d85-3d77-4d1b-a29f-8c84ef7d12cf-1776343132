@@ -28,9 +28,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: sanitizedPath });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
-    const [{ data: homeRoster }, { data: awayRoster }] = await Promise.all([
+    const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
       supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
-      supabase.from('players').select('id, name, number').eq('team_id', awayTeamId)
+      supabase.from('players').select('id, name, number').eq('team_id', awayTeamId),
+      supabase.from('games').select('camera_type').eq('id', gameId).single()
     ]);
 
     const gpuConfig = {
@@ -39,6 +40,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_team_id: awayTeamId,
       homeColor,
       awayColor,
+      camera_type: gameData?.camera_type || "panning",
       home_roster: homeRoster || [],
       away_roster: awayRoster || [],
       scouting_mode: "deep_recognition",

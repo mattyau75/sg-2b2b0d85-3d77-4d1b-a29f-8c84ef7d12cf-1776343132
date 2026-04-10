@@ -25,7 +25,8 @@ import {
   ArrowLeftRight,
   Plus,
   Check,
-  X
+  X,
+  Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { venueService } from "@/services/venueService";
@@ -52,6 +53,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [venueId, setVenueId] = useState("");
   const [newVenueName, setNewVenueName] = useState("");
   const [isAddingVenue, setIsAddingVenue] = useState(false);
+  const [cameraType, setCameraType] = useState<"panning" | "fixed">("panning");
   
   const [loading, setLoading] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
@@ -73,6 +75,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       setAwayScore(game.away_score || 0);
       setGameDate(game.date ? new Date(game.date) : new Date());
       setVenueId(game.venue_id || "");
+      setCameraType(game.camera_type || "panning");
       
       if (game.detected_home_color && game.detected_away_color) {
         setDetectedColors([game.detected_home_color, game.detected_away_color]);
@@ -142,7 +145,8 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           home_score: homeScore,
           away_score: awayScore,
           date: gameDate?.toISOString(),
-          venue_id: venueId || null
+          venue_id: venueId || null,
+          camera_type: cameraType
         })
         .eq('id', game.id);
 
@@ -334,6 +338,47 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   ) : (
                     <div className="h-11 w-full bg-muted/20 border border-border rounded-md animate-pulse" />
                   )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Camera Configuration */}
+          <div className="space-y-4">
+            <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+              <Camera className="h-3.5 w-3.5" /> Discovery Optimization
+            </Label>
+            <div className="bg-muted/10 p-6 rounded-2xl border border-white/5 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Camera Recording Type</h4>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
+                    Calibrates motion compensation for the AI track engines
+                  </p>
+                </div>
+                <div className="flex bg-black/40 p-1 rounded-xl border border-white/5">
+                  <button
+                    onClick={() => setCameraType("panning")}
+                    className={cn(
+                      "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                      cameraType === "panning" 
+                        ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                        : "text-muted-foreground hover:text-white"
+                    )}
+                  >
+                    Panning
+                  </button>
+                  <button
+                    onClick={() => setCameraType("fixed")}
+                    className={cn(
+                      "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
+                      cameraType === "fixed" 
+                        ? "bg-primary text-white shadow-lg shadow-primary/20" 
+                        : "text-muted-foreground hover:text-white"
+                    )}
+                  >
+                    Fixed
+                  </button>
                 </div>
               </div>
             </div>
