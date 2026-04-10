@@ -315,7 +315,7 @@ export default function GameDetailPage() {
                 <div className="flex items-center gap-3">
                   <Button 
                     onClick={handleStartMapping} 
-                    disabled={analyzing || isCurrentlyProcessing || !isRosterPrepopulated} 
+                    disabled={analyzing || (isCurrentlyProcessing && !game.last_error) || !isRosterPrepopulated} 
                     className={cn(
                       "font-bold h-10 px-8 shadow-xl uppercase tracking-tighter transition-all",
                       isRosterPrepopulated 
@@ -323,10 +323,10 @@ export default function GameDetailPage() {
                         : "bg-muted text-muted-foreground cursor-not-allowed"
                     )}
                   >
-                    { (analyzing || isCurrentlyProcessing) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" /> }
-                    { analyzing || isCurrentlyProcessing 
+                    { (analyzing || (isCurrentlyProcessing && !game.last_error)) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" /> }
+                    { (analyzing || (isCurrentlyProcessing && !game.last_error)) 
                       ? "ANALYSIS IN PROGRESS" 
-                      : isAnalysisComplete ? "RE-RUN AI ANALYSIS" : "ANALYZE GAME & MAP IDENTITIES" 
+                      : (isAnalysisComplete || game?.status === 'error') ? "RE-RUN AI ANALYSIS" : "ANALYZE GAME & MAP IDENTITIES" 
                     }
                   </Button>
                   
@@ -338,6 +338,17 @@ export default function GameDetailPage() {
                   </Badge>
                 </div>
               </div>
+
+              {game?.last_error && (
+                <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3 animate-in slide-in-from-top-2">
+                  <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-bold text-destructive uppercase tracking-tighter">GPU Cluster Error Detected</p>
+                    <p className="text-xs text-destructive/80 font-mono">{game.last_error}</p>
+                    <p className="text-[10px] text-muted-foreground mt-2">The handoff to the AI engine failed. Please verify your video file and try re-running the analysis.</p>
+                  </div>
+                </div>
+              )}
 
               {!isRosterPrepopulated ? (
                 <div className="p-12 text-center rounded-xl border border-dashed border-white/10 bg-white/5">
