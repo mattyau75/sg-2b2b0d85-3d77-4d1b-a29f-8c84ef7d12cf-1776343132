@@ -6,14 +6,22 @@ import { HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
+  console.log(`[API] ${req.method} /api/process-game triggered`);
+  
+  if (req.method !== "POST") {
+    return res.status(405).json({ message: "Method not allowed" });
+  }
 
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   try {
-    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
+    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor, cameraType } = req.body;
+    
+    if (!gameId || !videoPath) {
+      return res.status(400).json({ message: "Missing required game metadata (ID or Video Path)" });
+    }
     const bucketName = process.env.R2_BUCKET_NAME;
 
     if (!bucketName) throw new Error("R2_BUCKET_NAME environment variable is missing");

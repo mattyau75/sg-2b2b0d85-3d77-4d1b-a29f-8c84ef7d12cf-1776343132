@@ -126,21 +126,35 @@ export default function GameDetailPage() {
   }, [gameId, fetchGameData]);
 
   const handleStartDiscovery = async () => {
-    if (!gameId) return;
+    if (!gameId || !game) return;
     setAnalyzing(true);
     try {
-      await axios.post("/api/process-game", {
+      // Ensure we use the absolute path for the API route
+      const response = await axios.post("/api/process-game", {
         gameId: game.id,
         videoPath: game.video_path,
         homeTeamId: game.home_team_id,
         awayTeamId: game.away_team_id,
         homeColor: game.home_team_color,
-        awayColor: game.away_team_color
+        awayColor: game.away_team_color,
+        cameraType: game.camera_type || "panning"
       });
-      toast({ title: "Module 2 Active", description: "GPU Swarm ignited for personnel discovery." });
-      await fetchGameData(true);
+
+      if (response.status === 202) {
+        toast({ 
+          title: "AI Swarm Ignited", 
+          description: "Module 2: Personnel Discovery is now processing on GPU cluster." 
+        });
+        await fetchGameData(true);
+      }
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Trigger Failed", description: error.message });
+      const errorMessage = error.response?.data?.message || error.message || "Unknown discovery error";
+      toast({ 
+        variant: "destructive", 
+        title: "Ignition Failed", 
+        description: `Endpoint Error: ${errorMessage}` 
+      });
+      console.error("[Module 2] API Trigger Error:", error);
     } finally {
       setAnalyzing(false);
     }
