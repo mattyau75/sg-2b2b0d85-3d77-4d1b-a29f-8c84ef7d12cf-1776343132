@@ -15,11 +15,11 @@ import {
   Trophy,
   History,
   Activity,
-  Lock,
   ArrowRightCircle,
   Users,
-  AlertCircle,
-  Sparkles
+  Sparkles,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -58,15 +58,16 @@ export default function GameDetailPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
+  const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
   const isRosterPrepopulated = (homeRoster.length > 0 || awayRoster.length > 0);
   const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
 
-  const fetchGameData = useCallback(async () => {
+  const fetchGameData = useCallback(async (isUpdate = false) => {
     if (!gameId || !isValidUUID(gameId)) {
-      setLoading(false);
+      if (!isUpdate) setLoading(false);
       return;
     }
     
@@ -86,6 +87,9 @@ export default function GameDetailPage() {
       
       const metadata = gameData.processing_metadata as any;
       setWorkerLogs(metadata?.worker_logs || []);
+
+      // If we are just updating the status/logs, we can skip the heavy stats/pbp fetches
+      if (isUpdate && gameData.status !== 'completed') return;
 
       const { data: statsData } = await supabase
         .from('player_game_stats')
@@ -135,7 +139,7 @@ export default function GameDetailPage() {
     } catch (error: any) {
       console.error("Error fetching game:", error);
     } finally {
-      setLoading(false);
+      if (!isUpdate) setLoading(false);
     }
   }, [gameId, videoUrl]);
 
@@ -143,15 +147,52 @@ export default function GameDetailPage() {
     fetchGameData();
   }, [fetchGameData]);
 
+  // ELITE FEATURE: Realtime Status & Progress Tracking
   useEffect(() => {
-    let interval: NodeJS.Timeout;
-    if (gameId && isCurrentlyProcessing) {
-      interval = setInterval(() => {
-        fetchGameData();
-      }, 10000);
-    }
-    return () => { if (interval) clearInterval(interval); };
-  }, [gameId, isCurrentlyProcessing, fetchGameData]);
+    if (!gameId || !isValidUUID(gameId)) return;
+
+    console.log("📡 Initializing Realtime Connection for Game:", gameId);
+    
+    const channel = supabase
+      .channel(`game-analysis-${gameId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'games',
+          filter: `id=eq.${gameId}`
+        },
+        (payload) => {
+          console.log("⚡ Realtime Update Received:", payload.new);
+          const newGameData = payload.new;
+          
+          setGame(prev => ({
+            ...prev,
+            ...newGameData
+          }));
+
+          const metadata = newGameData.processing_metadata as any;
+          if (metadata?.worker_logs) {
+            setWorkerLogs(metadata.worker_logs);
+          }
+
+          // If completed or errored, do a full data refresh to get final stats/pbp
+          if (newGameData.status === 'completed' || newGameData.status === 'error') {
+            fetchGameData(false);
+          }
+        }
+      )
+      .subscribe((status) => {
+        setIsRealtimeActive(status === 'SUBSCRIBED');
+        console.log("📡 Realtime Status:", status);
+      });
+
+    return () => {
+      console.log("🔌 Disconnecting Realtime for Game:", gameId);
+      supabase.removeChannel(channel);
+    };
+  }, [gameId, fetchGameData]);
 
   const handleStartMapping = async () => {
     if (!gameId) return;
@@ -166,7 +207,7 @@ export default function GameDetailPage() {
         awayColor: game.away_team_color
       });
       toast({ title: "Module 2 Active", description: "GPU Swarm ignited for identity recognition." });
-      fetchGameData();
+      //fetchGameData(); // No longer needed, Realtime will catch the change
     } catch (error: any) {
       toast({ variant: "destructive", title: "Trigger Failed", description: error.message });
     } finally {
@@ -180,12 +221,11 @@ export default function GameDetailPage() {
     try {
       const { error } = await supabase
         .from('games')
-        .update({ status: null, progress_percentage: 0, last_error: null })
+        .update({ status: null, progress_percentage: 0, last_error: null, ignition_status: null })
         .eq('id', gameId);
       
       if (error) throw error;
       toast({ title: "Analysis Cancelled", description: "GPU Swarm halted." });
-      fetchGameData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Reset Failed", description: error.message });
     } finally {
@@ -212,7 +252,18 @@ export default function GameDetailPage() {
   return (
     <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'} | DribbleStats AI Elite`}>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl shadow-primary/5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl shadow-primary/5 relative overflow-hidden">
+          {/* Realtime Indicator */}
+          <div className="absolute top-0 right-0 p-2">
+            <div className={cn(
+              "flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-mono border",
+              isRealtimeActive ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
+            )}>
+              {isRealtimeActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
+              {isRealtimeActive ? "LIVE SYNC" : "CONNECTING..."}
+            </div>
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 uppercase font-mono text-[10px]">MODULE 1 ACTIVE</Badge>
@@ -318,7 +369,13 @@ export default function GameDetailPage() {
                     <span className="flex items-center gap-2 text-primary font-bold uppercase">
                       {game?.status === 'error' ? 'HALTED' : 'GPU ACTIVE'}
                     </span>
-                    <span>{game?.progress_percentage || 0}% COMPLETE</span>
+                    <span className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                      </span>
+                      {game?.progress_percentage || 0}% COMPLETE
+                    </span>
                   </div>
                   <Progress value={game?.progress_percentage || 0} className="h-2" />
                   <div className="pt-4">
@@ -350,7 +407,7 @@ export default function GameDetailPage() {
               </Tabs>
             ) : (
               <Card className="bg-card/40 border-dashed border-2 border-white/10 p-24 text-center">
-                <Lock className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
+                <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-bold">Sync Required</h3>
                 <p className="text-sm text-muted-foreground">Click 'Sync Box Score' above to generate statistics.</p>
               </Card>
