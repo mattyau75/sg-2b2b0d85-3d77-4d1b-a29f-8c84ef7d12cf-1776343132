@@ -368,7 +368,7 @@ export default function GameDetailPage() {
                     )}
                     <Button onClick={handleStartDiscovery} disabled={analyzing || (isCurrentlyProcessing && !game.last_error)} className={cn("font-bold h-10 px-8 uppercase tracking-tighter", "bg-primary")}>
                       {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? "ANALYSIS ACTIVE" : "IGNITE SWARM"}
+                      {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? "ANALYZING..." : "ANALYZE AI DETECTION"}
                     </Button>
                   </div>
                 </div>
