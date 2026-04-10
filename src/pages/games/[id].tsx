@@ -62,6 +62,7 @@ export default function GameDetailPage() {
 
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
+  const isRosterPrepopulated = stats && stats.length > 0;
 
   const handleStartMapping = async () => {
     if (!gameId || !isValidUUID(gameId)) return;
@@ -314,20 +315,47 @@ export default function GameDetailPage() {
                   {game?.status !== 'processing' && game?.status !== 'analyzing' && (
                     <Button 
                       onClick={handleStartMapping} 
-                      disabled={analyzing} 
-                      className="bg-primary hover:bg-primary/90 font-bold h-10 px-8 shadow-xl shadow-primary/30 uppercase tracking-tighter"
+                      disabled={analyzing || !isRosterPrepopulated} 
+                      className={cn(
+                        "font-bold h-10 px-8 shadow-xl uppercase tracking-tighter transition-all",
+                        isRosterPrepopulated 
+                          ? "bg-primary hover:bg-primary/90 shadow-primary/30" 
+                          : "bg-muted text-muted-foreground cursor-not-allowed"
+                      )}
                     >
                       {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      {analyzing ? "PREPARING..." : "PREPARE AI ENGINE"}
+                      {analyzing ? "PREPARING..." : isAnalysisComplete ? "RE-RUN AI ENGINE" : "PREPARE AI ENGINE"}
                     </Button>
                   )}
-                  <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10 uppercase tracking-tighter font-black">
-                    {detectedPlayers.length > 0 ? `${detectedPlayers.length} IDENTITIES DETECTED` : "READY FOR ENGINE"}
+                  <Badge variant="outline" className={cn(
+                    "px-4 py-1 border-primary/20 font-mono h-10 uppercase tracking-tighter font-black",
+                    isRosterPrepopulated ? "text-primary bg-primary/5" : "text-muted-foreground bg-muted/5"
+                  )}>
+                    {isRosterPrepopulated ? "ROSTERS READY" : "SETUP REQUIRED"}
                   </Badge>
                 </div>
               </div>
 
-              <MappingStagingTable homeRoster={homeRoster} awayRoster={awayRoster} game={game} />
+              {!isRosterPrepopulated ? (
+                <div className="p-12 text-center rounded-xl border border-dashed border-white/10 bg-white/5">
+                  <div className="max-w-md mx-auto space-y-4">
+                    <div className="h-12 w-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                      <Users className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-lg italic uppercase">Module 1 Setup Required</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Please save the Team Metadata and Jersey Colors in Module 1 to pre-populate the rosters for AI mapping.
+                      </p>
+                      <Button variant="outline" className="border-primary/20 hover:bg-primary/5 mt-4" onClick={() => setIsEditModalOpen(true)}>
+                        <Settings2 className="h-4 w-4 mr-2" /> OPEN MODULE 1 SETUP
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <MappingStagingTable homeRoster={homeRoster} awayRoster={awayRoster} game={game} />
+              )}
             </Card>
           </TabsContent>
 
