@@ -164,7 +164,9 @@ def analyze(item: dict):
     update_supabase_progress(game_id, 20, "analyzing", credentials=creds, log_msg="GPU Swarm Node Allocated. Initializing DribbleStats AI Elite environment.")
 
     def orchestrate():
-        yield json.dumps({"__progress": 20, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
+        # This is the 'First Breath' heartbeat
+        yield json.dumps({"__progress": 21, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
+        update_supabase_progress(game_id, 21, credentials=creds, log_msg="Ignition Successful. AI Vision Engines warming up.")
         
         try:
             # Video split phase
