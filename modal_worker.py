@@ -17,15 +17,11 @@ app = modal.App("dribblestats-ai-elite")
 _SCRIPT_PATH = str(Path(__file__).parent / "opencv_statgen.py")
 
 # 1. PRE-BAKE AI MODELS INTO THE IMAGE
-# This avoids downloading them at runtime, making ignition instant.
 def download_models():
     from ultralytics import YOLO
     import os
-    # Pre-download YOLOv11 basketball/player models for ELITE accuracy
-    # We use 'm' (medium) for the best balance of speed vs detection precision
     YOLO("yolo11m.pt") 
     YOLO("yolo11n.pt")
-    # Tesseract and OpenCV are handled by apt_install
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -47,7 +43,7 @@ image = (
         "fastapi",
         "pydantic"
     ])
-    .run_function(download_models) # This bakes the models into the image cache
+    .run_function(download_models)
     .add_local_file(_SCRIPT_PATH, remote_path="/app/opencv_statgen.py")
 )
 
@@ -56,11 +52,9 @@ weights_volume = modal.Volume.from_name("dribbleai-yolo-weights", create_if_miss
 WEIGHTS_DIR = "/cache/yolo"
 
 # ── GPU Processing Logic ──────────────────────────────────────────────────────
-
-# Model Configuration
 MODEL_VARIANT = "yolo11m.pt"
-CONFIDENCE_THRESHOLD = 0.35 # Tightened for Elite Roster Discovery
-IOU_THRESHOLD = 0.50 # Optimized for overlapping gym personnel
+CONFIDENCE_THRESHOLD = 0.35
+IOU_THRESHOLD = 0.50
 
 @app.function(image=image, volumes={WEIGHTS_DIR: weights_volume}, timeout=1800, gpu="A10G")
 def process_chunk(chunk_data: dict, config: dict):
@@ -69,7 +63,6 @@ def process_chunk(chunk_data: dict, config: dict):
     import sys
     import json
     
-    # Map API keys to script arguments exactly as expected by opencv_statgen.py
     cmd = [
         sys.executable, "/app/opencv_statgen.py",
         "--url", chunk_data["url"],
@@ -101,21 +94,16 @@ def split_video(video_url: str, chunk_duration: int = 300):
     try:
         duration = float(subprocess.check_output(probe_cmd).decode().strip())
     except:
-        duration = 600 # Fallback for probe failures
+        duration = 600
         
     num_chunks = math.ceil(duration / chunk_duration)
     return [{"url": video_url, "start": i * chunk_duration, "chunk_id": i} for i in range(num_chunks)]
 
 def update_supabase_progress(game_id, progress, status=None, credentials=None, log_msg=None, log_level="info"):
-    """
-    Bulletproof callback to update the dashboard. 
-    Uses provided credentials to ensure RLS bypass.
-    """
     supabase_url = credentials.get("url") if credentials else os.environ.get("SUPABASE_URL")
     supabase_key = credentials.get("key") if credentials else os.environ.get("SUPABASE_ANON_KEY")
     
     if not (supabase_url and supabase_key and game_id):
-        print(f"⚠️ Skipping heartbeat: Missing config for game {game_id}")
         return
 
     headers = {
@@ -125,14 +113,12 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None, l
         "Prefer": "return=minimal"
     }
 
-    # Prepare log payload
     new_log = {
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "level": log_level,
         "message": log_msg if log_msg else f"Status Update: {progress}%"
     }
 
-    # PATCH update: This is idempotent and doesn't require a prior SELECT
     payload = {
         "progress_percentage": progress,
         "ignition_status": "ignited",
@@ -143,25 +129,15 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None, l
     if status:
         payload["status"] = status
 
-    # For logs, we append to the existing array without fetching it first
     try:
         if progress <= 25:
             payload["processing_metadata"] = {"worker_logs": [new_log]}
         
-        response = requests.patch(
-            f"{supabase_url}/rest/v1/games?id=eq.{game_id}", 
-            headers=headers, 
-            json=payload, 
-            timeout=10
-        )
-        response.raise_for_status()
-        print(f"✅ Heartbeat {progress}% delivered for {game_id}")
+        requests.patch(f"{supabase_url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload, timeout=10)
     except Exception as e:
         print(f"❌ Heartbeat Failed: {e}")
 
-# 2. FOOLPROOF HEARTBEAT UTILITY
 def report_ignition(game_id, creds, status_msg="Ignition Successful"):
-    """Absolute first check-in to break the 20% stall."""
     url = creds.get("url")
     key = creds.get("key")
     if not (url and key and game_id): return
@@ -182,62 +158,35 @@ def report_ignition(game_id, creds, status_msg="Ignition Successful"):
             "worker_logs": [{
                 "timestamp": "now()",
                 "level": "info",
-                "message": f"🚀 {status_msg}: GPU Node Online (Models Pre-cached)"
+                "message": f"🚀 {status_msg}: GPU Node Online"
             }]
         }
     }
     
     try:
-        import requests
         requests.patch(f"{url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload, timeout=5)
     except:
-        pass # Silent fail to ensure orchestration continues
+        pass
 
 @app.function(image=image, timeout=3600, cpu=2, gpu="T4")
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
-    """Main entry point for Next.js API calls."""
     import json
     from fastapi.responses import StreamingResponse
     
-    # 1. PRE-FLIGHT HANDSHAKE: Check in with DB before heavy imports
     game_id = item.get("game_id")
-    creds = {
-        "url": item.get("supabase_url"),
-        "key": item.get("supabase_key")
-    }
-    
-    # Report 1% progress immediately to confirm handshake
-    report_ignition(game_id, creds, status_msg="Handshake Verified: GPU Node Initialized")
+    creds = {"url": item.get("supabase_url"), "key": item.get("supabase_key")}
+    report_ignition(game_id, creds)
 
-    # 2. HEAVY IMPORTS START HERE
-    import torch
-    from ultralytics import YOLO
-
-    # 3. ENGINE PRIMED (30%)
-    update_supabase_progress(game_id, 30, credentials=creds, log_msg="AI Engine Primed. Initializing Video Stream...")
-    
     def orchestrate():
-        # Step 1: Video Download & Model Load
-        # This is the 'First Breath' heartbeat after ignition
         update_supabase_progress(game_id, 30, credentials=creds, log_msg="AI Engine Primed. Initializing Video Stream...")
         yield json.dumps({"__progress": 30, "__msg": "📡 AI Engine Primed. Initializing Video Stream..."}) + "\n"
-        # 2. EXTRACT ROSTERS FOR OCR CONSTRAINTS
-        # We pass these to the processing engine so it knows what numbers to look for
-        home_roster = item.get("home_roster", [])
-        away_roster = item.get("away_roster", [])
-        valid_numbers = {
-            "home": [str(p.get("number")) for p in home_roster if p.get("number") is not None],
-            "away": [str(p.get("number")) for p in away_roster if p.get("number") is not None]
-        }
-
+        
         try:
-            # Video split phase
             chunks = split_video.remote(item["video_url"])
             update_supabase_progress(game_id, 25, credentials=creds, log_msg=f"Roster Discovery Phase: Igniting {len(chunks)} GPU sub-nodes.")
             yield json.dumps({"__progress": 25, "__msg": f"🔥 Roster Discovery Swarm ({len(chunks)} nodes active)..."}) + "\n"
             
-            # Parallel Execution for Discovery
             results = []
             for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
                 if isinstance(result, list):
@@ -245,38 +194,29 @@ def analyze(item: dict):
                 progress = 25 + int((i + 1) / len(chunks) * 60)
                 update_supabase_progress(game_id, progress, credentials=creds, log_msg=f"Discovery Node {i+1} finished scanning.")
             
-            # AGGREGATE DISCOVERY RESULTS
-            unique_mappings = {} # (team_side, jersey) -> {data}
+            unique_mappings = {}
             for m in results:
                 key = (m.get('team_side'), m.get('jersey_number'))
                 if key not in unique_mappings or m.get('confidence', 0) > unique_mappings[key].get('confidence', 0):
                     unique_mappings[key] = m
 
-            # SAVE TO SUPABASE
             if unique_mappings:
-                mapping_rows = []
                 from supabase import create_client
                 client = create_client(creds['url'], creds['key'])
+                mapping_rows = []
 
                 for m in unique_mappings.values():
-                    # Handle Snapshot Upload
                     snapshot_url = None
                     if m.get('snapshot'):
                         try:
                             import base64
                             img_data = base64.b64decode(m['snapshot'])
                             file_path = f"snapshots/{game_id}/{m['track_id']}.jpg"
-                            # Upload to public 'snapshots' bucket
-                            client.storage.from_('snapshots').upload(
-                                file_path, 
-                                img_data,
-                                {"content-type": "image/jpeg", "upsert": "true"}
-                            )
+                            client.storage.from_('snapshots').upload(file_path, img_data, {"content-type": "image/jpeg", "upsert": "true"})
                             snapshot_url = client.storage.from_('snapshots').get_public_url(file_path)
                         except Exception as e:
                             print(f"⚠️ Snapshot upload failed: {e}")
 
-                    # Check for auto-match with roster
                     roster = item.get('home_roster' if m['team_side'] == 'home' else 'away_roster', [])
                     match = next((p for p in roster if str(p['number']) == str(m['jersey_number'])), None)
                     
@@ -294,7 +234,6 @@ def analyze(item: dict):
                 
                 client.table('ai_player_mappings').insert(mapping_rows).execute()
 
-            # THE SEAL: Transition to Mapping Ready state
             update_supabase_progress(game_id, 100, status="completed", credentials=creds, log_msg="Roster Discovery Complete. Mapping Dashboard Ready.")
             yield json.dumps({"__result": "SUCCESS", "__mapping_ready": True}) + "\n"
         except Exception as e:
