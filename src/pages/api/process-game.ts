@@ -52,8 +52,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let confirmedKey = "";
     console.log(`[ProcessGame] Starting resolution for key variations:`, keysToTry);
 
-    for (const key of keysToTry) {
-      if (!key) continue;
+    // TRY EVERY POSSIBLE COMBINATION
+    const aggressiveKeys = [
+      ...keysToTry,
+      primaryKey.split('/').pop() || "", // Just the filename
+      `uploads/${primaryKey.split('/').pop()}`, // Try uploads folder
+      `temp/${primaryKey.split('/').pop()}`   // Try temp folder
+    ].filter(Boolean);
+
+    for (const key of aggressiveKeys) {
       try {
         await r2Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
         confirmedKey = key;
@@ -62,23 +69,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (e) {}
     }
 
-    // NEW: Fuzzy Search Fallback if exact keys fail
+    // FINAL FALLBACK: Recursive scan of the entire bucket for the game ID
     if (!confirmedKey) {
-      console.log(`[ProcessGame] ⚠️ Exact keys failed. Attempting fuzzy search for ID: ${gameId}`);
-      try {
-        const listCommand = new ListObjectsV2Command({
-          Bucket: bucketName,
-          Prefix: "raw-footage/", // Common root
-          MaxKeys: 100
-        });
-        const listResult = await r2Client.send(listCommand);
-        const match = listResult.Contents?.find(obj => obj.Key?.includes(gameId));
-        if (match?.Key) {
-          confirmedKey = match.Key;
-          console.log(`[ProcessGame] 🎯 Fuzzy match found: ${confirmedKey}`);
-        }
-      } catch (fuzzyError) {
-        console.error("[ProcessGame] Fuzzy search failed:", fuzzyError);
+      console.log(`[ProcessGame] 🔍 SEARCHING ENTIRE BUCKET for: ${gameId}`);
+      const listAll = await r2Client.send(new ListObjectsV2Command({ Bucket: bucketName }));
+      const match = listAll.Contents?.find(obj => obj.Key?.includes(gameId));
+      if (match?.Key) {
+        confirmedKey = match.Key;
+        console.log(`[ProcessGame] 🎯 Found through Global Scan: ${confirmedKey}`);
       }
     }
 
