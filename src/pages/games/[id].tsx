@@ -214,7 +214,7 @@ export default function GameDetailPage() {
     if (gameId && isCurrentlyProcessing) {
       interval = setInterval(() => {
         fetchGameData();
-      }, 30000); // Poll every 30 seconds
+      }, 60000); // Poll every 60 seconds
     }
     
     return () => {
