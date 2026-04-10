@@ -17,7 +17,8 @@ import {
   ChevronRight,
   Youtube,
   FileVideo,
-  Plus
+  Plus,
+  RefreshCw
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -162,13 +163,28 @@ export default function Home() {
             </h1>
             <p className="text-muted-foreground">Welcome back, Scout. Here's your performance snapshot.</p>
           </div>
-          <Button 
-            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
-            onClick={() => setIsModalOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            ADD NEW GAME
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="bg-muted/10 border-white/5 hover:bg-muted/20"
+              onClick={() => {
+                setLoading(true);
+                // The useEffect will naturally trigger fetchDashboardData if we had a key, 
+                // but let's just reload the page for a 'clean' 100% foolproof refresh
+                window.location.reload();
+              }}
+            >
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
+            <Button 
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
+              onClick={() => setIsModalOpen(true)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              ADD NEW GAME
+            </Button>
+          </div>
         </div>
 
         <NewGameModal 

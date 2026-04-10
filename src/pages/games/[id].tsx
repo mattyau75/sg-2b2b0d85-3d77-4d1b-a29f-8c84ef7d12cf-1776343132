@@ -207,7 +207,8 @@ export default function GameDetailPage() {
         awayColor: game.away_team_color
       });
       toast({ title: "Module 2 Active", description: "GPU Swarm ignited for identity recognition." });
-      //fetchGameData(); // No longer needed, Realtime will catch the change
+      // Immediate refresh to show the 'Analyzing' state
+      await fetchGameData(true);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Trigger Failed", description: error.message });
     } finally {
@@ -226,6 +227,8 @@ export default function GameDetailPage() {
       
       if (error) throw error;
       toast({ title: "Analysis Cancelled", description: "GPU Swarm halted." });
+      // Immediate refresh to clear the status
+      await fetchGameData(true);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Reset Failed", description: error.message });
     } finally {
@@ -239,7 +242,8 @@ export default function GameDetailPage() {
     try {
       await axios.post("/api/sync-game-stats", { gameId });
       toast({ title: "Deep Sync Complete", description: "Stats re-calculated." });
-      fetchGameData();
+      // Full refresh to load new stats/pbp
+      await fetchGameData(false);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Sync Failed", description: error.message });
     } finally {
