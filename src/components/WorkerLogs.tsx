@@ -64,7 +64,8 @@ export function WorkerLogs({ logs, className }: WorkerLogsProps) {
               "font-bold uppercase tracking-tighter shrink-0 w-16",
               log.level === 'error' ? "text-red-500" : 
               log.level === 'warning' ? "text-yellow-500" :
-              log.level === 'heartbeat' ? "text-primary" : "text-accent"
+              log.level === 'heartbeat' ? "text-primary" : 
+              log.level === 'info' ? "text-accent" : "text-muted-foreground"
             )}>
               {log.level}
             </span>
