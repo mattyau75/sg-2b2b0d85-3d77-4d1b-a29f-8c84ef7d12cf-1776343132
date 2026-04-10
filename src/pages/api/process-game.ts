@@ -37,13 +37,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3. FETCH ROSTERS FOR DEEP RECOGNITION
     const [{ data: homeRoster }, { data: awayRoster }] = await Promise.all([
-      supabase.from('players').select('name, number').eq('team_id', homeTeamId),
-      supabase.from('players').select('name, number').eq('team_id', awayTeamId)
+      supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
+      supabase.from('players').select('id, name, number').eq('team_id', awayTeamId)
     ]);
 
     // 4. TRIGGER GPU CLUSTER
     const gpuConfig = {
-      gameId,
+      game_id: gameId, // Match the key expected by modal_worker.py
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
       homeColor,

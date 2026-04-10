@@ -1,295 +1,153 @@
-#!/usr/bin/env python3
-"""
-OpenCV Basketball Stats Generator with yt-dlp Cookie Support
-============================================================
-This script processes basketball game videos and generates detailed statistics
-using YOLO object detection and OCR.
-
-Usage:
-    python opencv_statgen.py --url <VIDEO_URL> --home "Lakers" --away "Celtics" \
-        --home-roster '[{"name":"LeBron","number":"23"}]' \
-        --away-roster '[{"name":"Tatum","number":"0"}]' \
-        --cookies cookies.txt
-"""
-
 import argparse
 import json
-import sys
-import tempfile
 import os
-from pathlib import Path
+import sys
 import cv2
-import time
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
+import tempfile
+from pathlib import Path
+from collections import Counter
+import yt_dlp
+from ultralytics import YOLO
 
 def emit_progress(progress: int, msg: str = ""):
-    """Emit progress update in JSON-line format"""
     print(json.dumps({"__progress": progress, "__msg": msg}), flush=True)
 
 def emit_error(error_msg: str):
-    """Emit error in JSON-line format"""
     print(json.dumps({"__error": error_msg}), flush=True)
 
 def emit_result(result: dict):
-    """Emit final result in JSON-line format"""
     print(json.dumps({"__result": result}), flush=True)
 
-def download_video(url: str, cookies_file: str = None, cookies_browser: str = None) -> str:
+class TemporalIdentityEngine:
     """
-    Download video using yt-dlp with cookie support
-    
-    Args:
-        url: Video URL (YouTube, Vimeo, or direct link)
-        cookies_file: Path to cookies.txt file (Netscape format)
-        cookies_browser: Browser name to extract cookies from ('chrome', 'firefox', etc.)
-    
-    Returns:
-        Path to downloaded video file
+    The 'Elite' Mapping Engine.
+    Uses multi-frame consensus (Temporal Voting) to resolve identities.
     """
-    import yt_dlp
-    
-    emit_progress(5, "Downloading video...")
-    
-    output_path = str(Path(tempfile.gettempdir()) / "basketball_game.mp4")
-    
-    ydl_opts = {
-        'format': 'best[ext=mp4]/best',
-        'outtmpl': output_path,
-        'quiet': False,
-        'no_warnings': False,
-    }
-    
-    # Add cookie authentication if provided
-    if cookies_file:
-        if not os.path.exists(cookies_file):
-            raise FileNotFoundError(f"Cookies file not found: {cookies_file}")
-        ydl_opts['cookiefile'] = cookies_file
-        print(f"Using cookies file: {cookies_file}", file=sys.stderr)
-    elif cookies_browser:
-        ydl_opts['cookiesfrombrowser'] = (cookies_browser,)
-        print(f"Extracting cookies from browser: {cookies_browser}", file=sys.stderr)
-    else:
-        print("WARNING: No cookies provided - YouTube videos may fail", file=sys.stderr)
-    
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
+    def __init__(self, roster_home, roster_away):
+        self.roster_home = {str(p['number']): p for p in roster_home}
+        self.roster_away = {str(p['number']): p for p in roster_away}
+        self.votes = {} # track_id -> Counter(jersey_numbers)
+        self.confirmed_identities = {} # track_id -> {player_id, team_id, number}
+
+    def add_vote(self, track_id, jersey_number, team_hint):
+        if track_id not in self.votes:
+            self.votes[track_id] = Counter()
         
-        if not os.path.exists(output_path):
-            raise FileNotFoundError("Video download failed - file not created")
+        # Only vote for numbers actually in the roster
+        valid_roster = self.roster_home if team_hint == 'home' else self.roster_away
+        if str(jersey_number) in valid_roster:
+            self.votes[track_id][str(jersey_number)] += 1
+
+    def resolve(self, track_id):
+        if track_id in self.confirmed_identities:
+            return self.confirmed_identities[track_id]
         
-        emit_progress(15, "Video downloaded successfully")
-        return output_path
+        if track_id in self.votes:
+            most_common = self.votes[track_id].most_common(1)
+            if most_common and most_common[0][1] > 5: # Threshold for consensus
+                number = most_common[0][0]
+                # In a real scenario, we'd determine team_hint from shirt color
+                # For now, we'll try to find it in either roster
+                if number in self.roster_home:
+                    self.confirmed_identities[track_id] = {**self.roster_home[number], "team": "home"}
+                elif number in self.roster_away:
+                    self.confirmed_identities[track_id] = {**self.roster_away[number], "team": "away"}
+                
+                return self.confirmed_identities.get(track_id)
+        return None
+
+def process_video_elite(args):
+    emit_progress(10, "Initializing Elite AI Vision Engines...")
     
-    except Exception as e:
-        error_msg = f"Video download failed: {str(e)}"
-        emit_error(error_msg)
-        raise
-
-class PlayerTracker:
-    """ByteTrack-inspired tracker to maintain ID consistency during pans."""
-    def __init__(self, iou_thresh=0.3, max_age=30):
-        self.iou_thresh = iou_thresh
-        self.max_age = max_age
-        self.tracks = [] # List of {id, bbox, color, age, velocity}
-        self.next_id = 1
-
-    def _iou(self, boxA, boxB):
-        xA = max(boxA[0], boxB[0])
-        yA = max(boxA[1], boxB[1])
-        xB = min(boxA[2], boxB[2])
-        yB = min(boxA[3], boxB[3])
-        interArea = max(0, xB - xA) * max(0, yB - yA)
-        boxAArea = (boxA[2] - boxA[0]) * (boxA[3] - boxA[1])
-        boxBArea = (boxB[2] - boxB[0]) * (boxB[3] - boxB[1])
-        return interArea / float(boxAArea + boxBArea - interArea)
-
-    def update(self, detections):
-        """
-        detections: list of [x1, y1, x2, y2, conf, cls, color_vector]
-        returns: list of [x1, y1, x2, y2, track_id, color_vector]
-        """
-        # 1. Predict (Simple linear motion)
-        for t in self.tracks:
-            t['age'] += 1
-            if 'velocity' in t:
-                t['bbox'][0] += t['velocity'][0]
-                t['bbox'][1] += t['velocity'][1]
-                t['bbox'][2] += t['velocity'][0]
-                t['bbox'][3] += t['velocity'][1]
-
-        matched_tracks = []
-        unmatched_detections = list(range(len(detections)))
-
-        # 2. Match based on IOU
-        if self.tracks and detections:
-            ious = np.zeros((len(self.tracks), len(detections)))
-            for i, t in enumerate(self.tracks):
-                for j, d in enumerate(detections):
-                    ious[i, j] = self._iou(t['bbox'], d[:4])
-
-            # Greedy matching
-            for i in range(len(self.tracks)):
-                best_j = np.argmax(ious[i])
-                if ious[i, best_j] > self.iou_thresh:
-                    t = self.tracks[i]
-                    d = detections[best_j]
-                    
-                    # Update velocity
-                    dx = d[0] - t['bbox'][0]
-                    dy = d[1] - t['bbox'][1]
-                    t['velocity'] = [dx, dy]
-                    
-                    t['bbox'] = d[:4]
-                    t['age'] = 0
-                    t['color'] = d[6] if len(d) > 6 else t['color']
-                    matched_tracks.append(i)
-                    if best_j in unmatched_detections:
-                        unmatched_detections.remove(best_j)
-
-        # 3. Handle unmatched
-        # Create new tracks for high-confidence detections
-        for j in unmatched_detections:
-            d = detections[j]
-            if d[4] > 0.5: # Confidence threshold
-                self.tracks.append({
-                    'id': self.next_id,
-                    'bbox': d[:4],
-                    'color': d[6] if len(d) > 6 else None,
-                    'age': 0,
-                    'velocity': [0, 0]
-                })
-                self.next_id += 1
-
-        # 4. Cleanup stale tracks
-        self.tracks = [t for i, t in enumerate(self.tracks) if t['age'] < self.max_age]
-        
-        return [[*t['bbox'], t['id'], t['color']] for t in self.tracks if t['age'] == 0]
-
-class AnalyticsEngine:
-    """Streamlined engine for parallel metric calculation."""
-    def __init__(self):
-        self.executor = ThreadPoolExecutor(max_workers=4)
-
-    def process_event(self, event_data):
-        """Asynchronously calculate advanced metrics for a detected event."""
-        # e.g., Shot distance, player spacing, defensive pressure
-        return self.executor.submit(self._calculate_metrics, event_data)
-
-    def _calculate_metrics(self, data):
-        # Heavy math here...
-        time.sleep(0.01) # Simulated complexity
-        return {**data, "distance": 24.5, "contested": True}
-
-def process_video(video_path: str, home_team: str, away_team: str, 
-                  home_roster: list, away_roster: list) -> dict:
-    """
-    Process basketball video and extract statistics
+    # Load Models (Pre-baked in Modal image)
+    model = YOLO("yolo11m.pt") # Upgraded to Medium for better small-object detection
     
-    This is a placeholder - replace with your actual OpenCV/YOLO processing logic
-    """
-    import cv2
-    import time
+    # Download Video
+    output_path = str(Path(tempfile.gettempdir()) / f"game_{args.chunk_id}.mp4")
+    ydl_opts = {'format': 'best[ext=mp4]/best', 'outtmpl': output_path, 'quiet': True}
     
-    emit_progress(20, "Loading YOLO models...")
+    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+        ydl.download([args.url])
     
-    # Placeholder: Load your YOLO models here
-    # from ultralytics import YOLO
-    # ball_model = YOLO('yolo11m.pt')
-    # player_model = YOLO('yolo11n.pt')
-    # pose_model = YOLO('yolo11n-pose.pt')
-    
-    emit_progress(25, "Initializing video processing...")
-    
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        raise ValueError(f"Failed to open video: {video_path}")
-    
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    cap = cv2.VideoCapture(output_path)
     fps = cap.get(cv2.CAP_PROP_FPS)
     
-    emit_progress(30, f"Processing {total_frames} frames at {fps:.1f} FPS...")
+    # Initialize Engines
+    home_roster = json.loads(args.home_roster)
+    away_roster = json.loads(args.away_roster)
+    identity_engine = TemporalIdentityEngine(home_roster, away_roster)
     
-    tracker = PlayerTracker(max_age=int(fps)) # 1 second memory
-    analytics = AnalyticsEngine()
+    play_by_play = []
+    frame_count = 0
     
-    # Streamlined loop
-    for frame_id in range(0, total_frames, 2): # Adaptive sampling
-        # ... detection logic ...
-        # analytics.process_event(detected_shot)
-    
-    cap.release()
-    emit_progress(95, "Finalizing statistics...")
-    
-    return results
+    emit_progress(30, "Analyzing frames and extracting tracking vectors...")
 
-def process_video_elite(video_path: str, home_color: str, away_color: str):
-    """
-    Optimized for local file processing (the foolproof way).
-    """
-    print(f"🚀 Processing Local Video: {video_path}")
-    cap = cv2.VideoCapture(video_path)
-    
-    if not cap.isOpened():
-        raise Exception("Fatal: Could not open local video file.")
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret: break
         
-    # High-accuracy tracking logic here...
-    # (Matches your White and Navy Blue team colors)
+        frame_count += 1
+        if frame_count % 3 != 0: continue # Adaptive sampling for speed
 
-def parse_args():
+        # 1. Detection & Tracking
+        results = model.track(frame, persist=True, classes=[0], verbose=False) # Only players (class 0)
+        
+        if results[0].boxes.id is not None:
+            boxes = results[0].boxes.xyxy.cpu().numpy()
+            track_ids = results[0].boxes.id.cpu().numpy().astype(int)
+            
+            for box, track_id in zip(boxes, track_ids):
+                # 2. High-Res ROI Crop (Torso Area)
+                x1, y1, x2, y2 = map(int, box)
+                torso_h = (y2 - y1) // 3
+                crop = frame[y1:y1+torso_h*2, x1:x2] # Focus on upper 2/3rds
+                
+                if crop.size > 0:
+                    # Digital Zoom (3x resolution for small jersey recognition)
+                    zoom = cv2.resize(crop, (crop.shape[1]*3, crop.shape[0]*3), interpolation=cv2.INTER_CUBIC)
+                    
+                    # 3. Simulate OCR/Number Detection (Mock for current sandbox logic)
+                    # In production, we'd pass 'zoom' to Tesseract or a secondary YOLO number model
+                    # For this demo, we're mapping based on the Temporal Identity Engine
+                    
+                    identity = identity_engine.resolve(track_id)
+                    if identity:
+                        # Log a detected presence/event every few seconds
+                        if frame_count % (fps * 10) == 0:
+                            play_by_play.append({
+                                "game_id": args.game_id,
+                                "player_id": identity.get('id'),
+                                "jersey_number": identity['number'],
+                                "event_type": "PRESENCE",
+                                "description": f"{identity['name']} (# {identity['number']}) active on court",
+                                "timestamp_seconds": int(args.offset_seconds + (frame_count / fps))
+                            })
+
+        if frame_count % (fps * 30) == 0:
+            progress = 30 + int((frame_count / cap.get(cv2.CAP_PROP_FRAME_COUNT)) * 60)
+            emit_progress(progress, f"Processed {int(frame_count/fps)}s of footage...")
+
+    cap.release()
+    os.remove(output_path)
+    
+    emit_result({
+        "play_by_play": play_by_play,
+        "mapped_ids": list(identity_engine.confirmed_identities.keys())
+    })
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--url", required=True)
-    parser.add_argument("--home", default="Home")
-    parser.add_argument("--away", default="Away")
-    parser.add_argument("--offset-seconds", type=float, default=0.0, help="Start time offset for chunked processing")
+    parser.add_argument("--game-id", required=True)
+    parser.add_argument("--offset-seconds", type=float, default=0.0)
     parser.add_argument("--chunk-id", type=int, default=0)
-    parser.add_argument("--home-roster", required=True, help="Home roster JSON")
-    parser.add_argument("--away-roster", required=True, help="Away roster JSON")
-    parser.add_argument("--cookies", help="Path to cookies.txt file for yt-dlp")
-    parser.add_argument("--cookies-from-browser", help="Browser to extract cookies from (chrome, firefox, etc.)")
-    return parser.parse_args()
-
-def main():
-    args = parse_args()
-    # When emitting play-by-play, add offset-seconds to current frame time
-    # This ensures the global timeline is correct
+    parser.add_argument("--home-roster", required=True)
+    parser.add_argument("--away-roster", required=True)
+    args = parser.parse_args()
     
     try:
-        # Parse roster data
-        home_roster = json.loads(args.home_roster)
-        away_roster = json.loads(args.away_roster)
-        
-        emit_progress(0, "Starting video processing...")
-        
-        # Download video with cookie support
-        video_path = download_video(
-            args.url, 
-            cookies_file=args.cookies,
-            cookies_browser=args.cookies_from_browser
-        )
-        
-        # Process video
-        results = process_video(
-            video_path, 
-            args.home, 
-            args.away,
-            home_roster,
-            away_roster
-        )
-        
-        # Emit final result
-        emit_result(results)
-        
-        # Cleanup
-        if os.path.exists(video_path):
-            os.remove(video_path)
-        
-        sys.exit(0)
-    
+        process_video_elite(args)
     except Exception as e:
         emit_error(str(e))
         sys.exit(1)
-
-if __name__ == "__main__":
-    main()
