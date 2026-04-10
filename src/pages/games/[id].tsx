@@ -345,36 +345,37 @@ export default function GameDetailPage() {
 
           <TabsContent value="stats">
             {isSyncComplete ? (
-              <Card className="bg-card/40 border-white/5 overflow-hidden">
-                <Table>
-                  <TableHeader className="bg-white/5">
-                    <TableRow className="hover:bg-transparent border-white/5">
-                      <TableHead className="font-bold text-primary">PLAYER</TableHead>
-                      <TableHead className="text-center font-bold">PTS</TableHead>
-                      <TableHead className="text-center font-bold">FG</TableHead>
-                      <TableHead className="text-center font-bold">REB</TableHead>
-                      <TableHead className="text-center font-bold">AST</TableHead>
-                      <TableHead className="text-center font-bold">STL</TableHead>
-                      <TableHead className="text-center font-bold">BLK</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {stats.length > 0 ? stats.map((s) => (
-                      <TableRow key={s.id} className="border-white/5 hover:bg-white/5">
-                        <TableCell className="font-bold">#{s.player?.number} {s.player?.name}</TableCell>
-                        <TableCell className="text-center font-mono font-bold text-white text-lg">{s.points}</TableCell>
-                        <TableCell className="text-center font-mono">{s.fg_made}/{s.fg_attempted}</TableCell>
-                        <TableCell className="text-center font-mono">{s.rebounds}</TableCell>
-                        <TableCell className="text-center font-mono">{s.assists}</TableCell>
-                        <TableCell className="text-center font-mono">{s.steals}</TableCell>
-                        <TableCell className="text-center font-mono">{s.blocks}</TableCell>
-                      </TableRow>
-                    )) : (
-                      <TableRow><TableCell colSpan={7} className="h-32 text-center text-muted-foreground">Click 'Deep Sync Stats' to resolve directory identities.</TableCell></TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </Card>
+              <Tabs defaultValue="home" className="w-full">
+                <div className="flex items-center justify-between mb-4 bg-muted/20 p-2 rounded-lg border border-white/5">
+                  <TabsList className="bg-transparent border-none p-0 h-auto gap-2">
+                    <TabsTrigger 
+                      value="home" 
+                      className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 px-6 font-bold rounded-md transition-all uppercase text-[10px] tracking-widest"
+                    >
+                      {game?.home_team?.name || "HOME TEAM"}
+                    </TabsTrigger>
+                    <TabsTrigger 
+                      value="away" 
+                      className="data-[state=active]:bg-primary data-[state=active]:text-white h-9 px-6 font-bold rounded-md transition-all uppercase text-[10px] tracking-widest"
+                    >
+                      {game?.away_team?.name || "AWAY TEAM"}
+                    </TabsTrigger>
+                  </TabsList>
+                  <Badge variant="outline" className="font-mono text-[10px] border-primary/20 text-primary">BOX SCORE ALPHA</Badge>
+                </div>
+
+                <TabsContent value="home" className="mt-0">
+                  <Card className="bg-card/40 border-white/5 overflow-hidden">
+                    <BoxScoreTable stats={stats.filter(s => s.team_id === game?.home_team_id || s.player?.team_id === game?.home_team_id)} />
+                  </Card>
+                </TabsContent>
+
+                <TabsContent value="away" className="mt-0">
+                  <Card className="bg-card/40 border-white/5 overflow-hidden">
+                    <BoxScoreTable stats={stats.filter(s => s.team_id === game?.away_team_id || s.player?.team_id === game?.away_team_id)} />
+                  </Card>
+                </TabsContent>
+              </Tabs>
             ) : (
               <Card className="bg-card/40 border-dashed border-2 border-white/10 p-24 text-center">
                 <div className="max-w-xs mx-auto space-y-4">
@@ -482,5 +483,54 @@ export default function GameDetailPage() {
         {game && <EditGameTeamsModal game={game} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onUpdated={fetchGameData} />}
       </div>
     </Layout>
+  );
+}
+
+// Add a helper component for the stats table to keep the main file cleaner
+function BoxScoreTable({ stats }: { stats: any[] }) {
+  return (
+    <Table>
+      <TableHeader className="bg-white/5">
+        <TableRow className="hover:bg-transparent border-white/5">
+          <TableHead className="font-bold text-primary w-[200px]">PLAYER</TableHead>
+          <TableHead className="text-center font-bold">PTS</TableHead>
+          <TableHead className="text-center font-bold">FG</TableHead>
+          <TableHead className="text-center font-bold">3PT</TableHead>
+          <TableHead className="text-center font-bold">FT</TableHead>
+          <TableHead className="text-center font-bold">REB</TableHead>
+          <TableHead className="text-center font-bold">AST</TableHead>
+          <TableHead className="text-center font-bold">STL</TableHead>
+          <TableHead className="text-center font-bold">BLK</TableHead>
+          <TableHead className="text-center font-bold">TO</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {stats.length > 0 ? stats.map((s) => (
+          <TableRow key={s.id} className="border-white/5 hover:bg-white/5">
+            <TableCell className="font-bold">
+              <div className="flex items-center gap-2">
+                <span className="text-primary font-mono italic">#{s.player?.number || '??'}</span>
+                <span className="truncate">{s.player?.name || "Unknown Player"}</span>
+              </div>
+            </TableCell>
+            <TableCell className="text-center font-mono font-bold text-white text-lg">{s.points || 0}</TableCell>
+            <TableCell className="text-center font-mono text-xs">{s.fg_made || 0}/{s.fg_attempted || 0}</TableCell>
+            <TableCell className="text-center font-mono text-xs">{s.three_p_made || 0}/{s.three_p_attempted || 0}</TableCell>
+            <TableCell className="text-center font-mono text-xs">{s.ft_made || 0}/{s.ft_attempted || 0}</TableCell>
+            <TableCell className="text-center font-mono">{s.rebounds || 0}</TableCell>
+            <TableCell className="text-center font-mono">{s.assists || 0}</TableCell>
+            <TableCell className="text-center font-mono">{s.steals || 0}</TableCell>
+            <TableCell className="text-center font-mono">{s.blocks || 0}</TableCell>
+            <TableCell className="text-center font-mono text-destructive/80">{s.turnovers || 0}</TableCell>
+          </TableRow>
+        )) : (
+          <TableRow>
+            <TableCell colSpan={10} className="h-32 text-center text-muted-foreground italic">
+              No roster data found for this team in this game.
+            </TableCell>
+          </TableRow>
+        )}
+      </TableBody>
+    </Table>
   );
 }
