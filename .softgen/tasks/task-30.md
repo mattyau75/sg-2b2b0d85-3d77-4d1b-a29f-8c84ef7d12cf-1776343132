@@ -1,6 +1,6 @@
 ---
 title: Split Scouting Workflow into Module 1 and Module 2
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: ["workflow", "ui", "api"]
@@ -19,4 +19,4 @@ Include automatic database pre-population of rosters after Module 1 is saved.
 - [x] Update `EditGameTeamsModal.tsx` to only handle Metadata & Color Calibration (Remove AI trigger).
 - [x] Create `src/pages/api/prepare-mapping.ts` to pre-populate game rosters in the database after Module 1.
 - [x] Modify `GameDetails` ([id].tsx) to include a "Start AI Mapping" trigger in the Identity Mapping tab.
-- [ ] Update `process-game.ts` to focus solely on the AI analysis phase (Module 2).
+- [x] Update `process-game.ts` to focus solely on the AI analysis phase (Module 2).
