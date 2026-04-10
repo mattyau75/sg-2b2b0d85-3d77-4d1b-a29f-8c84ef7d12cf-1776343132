@@ -211,6 +211,7 @@ export default function Dashboard() {
         <NewGameModal 
           isOpen={isModalOpen} 
           onClose={() => setIsModalOpen(false)} 
+          onUploadSuccess={handleUploadSuccess}
         />
 
         {/* Quick Stats Grid */}

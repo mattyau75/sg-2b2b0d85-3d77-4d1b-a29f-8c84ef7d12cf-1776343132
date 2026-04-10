@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NewGameModal } from "@/components/NewGameModal";
+import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 
@@ -30,6 +31,9 @@ export default function GamesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
 
   useEffect(() => {
     fetchGames();
@@ -50,6 +54,21 @@ export default function GamesPage() {
       setGames(data);
     }
     setLoading(false);
+  };
+
+  const handleUploadSuccess = async (gameId: string) => {
+    setIsNewGameModalOpen(false);
+    
+    const { data } = await supabase
+      .from('games')
+      .select('*')
+      .eq('id', gameId)
+      .single();
+    
+    if (data) {
+      setSelectedGameForEdit(data);
+      setIsEditModalOpen(true);
+    }
   };
 
   const filteredGames = games.filter(game => {
@@ -173,8 +192,19 @@ export default function GamesPage() {
       </div>
 
       <NewGameModal 
-        isOpen={isModalOpen} 
-        onClose={() => setIsModalOpen(false)} 
+        isOpen={isNewGameModalOpen} 
+        onClose={() => setIsNewGameModalOpen(false)} 
+        onUploadSuccess={handleUploadSuccess}
+      />
+
+      <EditGameTeamsModal 
+        game={selectedGameForEdit}
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        onUpdated={() => {
+          fetchGames();
+          setIsEditModalOpen(false);
+        }}
       />
     </Layout>
   );

@@ -49,9 +49,11 @@ export function NewGameModal({ isOpen, onClose, onUploadSuccess }: NewGameModalP
     setIsStarting(true);
     
     try {
-      const gameId = await startUpload(selectedFile, {
+      const result = await startUpload(selectedFile, {
         cameraType: "panning"
       });
+      
+      const gameId = result as unknown as string;
       
       if (gameId) {
         toast({ title: "Upload Complete", description: "Footage stored. Proceeding to Calibration." });

@@ -17,7 +17,7 @@ interface UploadTask {
 
 interface UploadContextType {
   activeUploads: UploadTask[];
-  startUpload: (file: File, config: any) => Promise<void>;
+  startUpload: (file: File, config: any) => Promise<string | undefined>;
   cancelUpload: (uploadId: string) => void;
 }
 
@@ -52,7 +52,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     });
   }, [activeUploads, toast]);
 
-  const startUpload = useCallback(async (file: File, formData: any) => {
+  const startUpload = useCallback(async (file: File, formData: any): Promise<string | undefined> => {
     // 1. Create Game record in staging status
     const { data: gameData, error: gameError } = await supabase
       .from('games')

@@ -24,7 +24,8 @@ import {
   Trophy, 
   ArrowLeftRight,
   Plus,
-  Check
+  Check,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { venueService } from "@/services/venueService";
