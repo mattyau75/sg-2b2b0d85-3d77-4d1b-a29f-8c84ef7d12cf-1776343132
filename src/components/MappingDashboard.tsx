@@ -18,6 +18,7 @@ import {
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { rosterService } from "@/services/rosterService";
 
 interface MappingDashboardProps {
   gameId: string;
@@ -31,39 +32,24 @@ interface MappingDashboardProps {
 
 export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, homeColor, awayColor, onRefresh }: MappingDashboardProps) {
   const { toast } = useToast();
-  const [saving, setSaving] = useState(false);
-
-  const unmappedTracks = aiMappings.filter(m => !m.real_player_id);
-  const mappedTracks = aiMappings.filter(m => m.real_player_id);
+  const [saving, setSaving] = useState<string | null>(null);
 
   const handleManualMatch = async (mappingId: string, playerId: string) => {
-    setSaving(true);
+    setSaving(mappingId);
     try {
-      const { error } = await supabase
-        .from('ai_player_mappings')
-        .update({ 
-          real_player_id: playerId, 
-          is_manual_override: true,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', mappingId);
-
-      if (error) throw error;
+      await rosterService.updateMapping(mappingId, playerId);
       toast({ title: "Identity Linked", description: "Manual mapping saved successfully." });
       onRefresh();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Mapping Failed", description: error.message });
     } finally {
-      setSaving(false);
+      setSaving(null);
     }
   };
 
   const handleReset = async (mappingId: string) => {
     try {
-      await supabase
-        .from('ai_player_mappings')
-        .update({ real_player_id: null, is_manual_override: false })
-        .eq('id', mappingId);
+      await rosterService.updateMapping(mappingId, null);
       onRefresh();
     } catch (err) {}
   };
@@ -137,7 +123,7 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
                       {track.real_player_id ? (
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                          <span className="text-sm font-bold truncate max-w-[100px]">{track.player?.name}</span>
+                          <span className="text-sm font-bold truncate max-w-[100px]">{track.players?.name || 'Unknown'}</span>
                           {track.is_manual_override && <Badge className="text-[8px] bg-primary/20 text-primary border-primary/20">MANUAL</Badge>}
                         </div>
                       ) : (
@@ -154,9 +140,10 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
                         </Button>
                       ) : (
                         <select 
-                          className="bg-background border border-white/10 rounded px-2 py-1 text-[10px] font-mono outline-none focus:ring-1 focus:ring-primary w-24"
+                          className="bg-background border border-white/10 rounded px-2 py-1 text-[10px] font-mono outline-none focus:ring-1 focus:ring-primary w-24 disabled:opacity-50"
                           onChange={(e) => handleManualMatch(track.id, e.target.value)}
                           defaultValue=""
+                          disabled={saving === track.id}
                         >
                           <option value="" disabled>Link Roster...</option>
                           <optgroup label="Home Roster">

@@ -58,5 +58,20 @@ export const rosterService = {
     const { data, error } = await supabase.from("players").update(updates).eq("id", id).select().single();
     if (error) throw error;
     return data;
+  },
+
+  updateMapping: async (id: string, playerId: string | null) => {
+    const { data, error } = await supabase
+      .from("ai_player_mappings")
+      .update({ 
+        real_player_id: playerId, 
+        is_manual_override: !!playerId,
+        updated_at: new Date().toISOString()
+      })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) throw error;
+    return data;
   }
 };
