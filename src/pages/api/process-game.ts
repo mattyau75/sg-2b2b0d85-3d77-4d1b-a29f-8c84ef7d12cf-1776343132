@@ -2,7 +2,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { r2Client } from "@/lib/r2Client";
 import { modalService } from "@/services/modalService";
-import { HeadObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -45,8 +45,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const keysToTry = [
       primaryKey,
-      `raw-footage/${primaryKey.split('/').pop()}`, // Fallback to raw-footage if nested incorrectly
-      primaryKey.replace('raw-footage/raw-footage/', 'raw-footage/') // Fix double prefixes
+      `raw-footage/${primaryKey.split('/').pop()}`, 
+      primaryKey.replace('raw-footage/raw-footage/', 'raw-footage/') 
     ];
 
     let confirmedKey = "";
@@ -59,8 +59,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         confirmedKey = key;
         console.log(`[ProcessGame] ✅ Verified R2 Key: ${key}`);
         break;
-      } catch (e) {
-        console.log(`[ProcessGame] ❌ Key not found: ${key}`);
+      } catch (e) {}
+    }
+
+    // NEW: Fuzzy Search Fallback if exact keys fail
+    if (!confirmedKey) {
+      console.log(`[ProcessGame] ⚠️ Exact keys failed. Attempting fuzzy search for ID: ${gameId}`);
+      try {
+        const listCommand = new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: "raw-footage/", // Common root
+          MaxKeys: 100
+        });
+        const listResult = await r2Client.send(listCommand);
+        const match = listResult.Contents?.find(obj => obj.Key?.includes(gameId));
+        if (match?.Key) {
+          confirmedKey = match.Key;
+          console.log(`[ProcessGame] 🎯 Fuzzy match found: ${confirmedKey}`);
+        }
+      } catch (fuzzyError) {
+        console.error("[ProcessGame] Fuzzy search failed:", fuzzyError);
       }
     }
 
