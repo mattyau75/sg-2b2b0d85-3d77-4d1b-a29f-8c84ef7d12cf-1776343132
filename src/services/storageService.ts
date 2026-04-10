@@ -104,7 +104,9 @@ export const storageService = {
         throw new Error(completeResponse.data?.message || "R2 reassembly rejected.");
       }
 
-      return key;
+      // Ensure key is returned without leading slashes for database consistency
+      const finalKey = key.startsWith('/') ? key.slice(1) : key;
+      return finalKey;
     } catch (error: any) {
       if (axios.isCancel(error) || abortSignal?.aborted) {
         throw new Error("CANCELLED");

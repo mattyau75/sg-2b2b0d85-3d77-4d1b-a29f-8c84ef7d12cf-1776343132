@@ -12,13 +12,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  // Force no-cache for this API route to prevent stale 404s
+  // Force no-cache to prevent stale 404s from being cached by the browser
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
 
   try {
-    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor, cameraType } = req.body;
+    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
     
     if (!gameId || !videoPath) {
       return res.status(400).json({ message: "Missing required game metadata (ID or Video Path)" });
@@ -27,10 +27,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const bucketName = process.env.R2_BUCKET_NAME;
     if (!bucketName) throw new Error("R2_BUCKET_NAME environment variable is missing");
 
-    // Robust path sanitization: Remove leading slash if present for S3 Key compatibility
-    const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
+    // Robust path sanitization:
+    // 1. Remove leading slash if present
+    // 2. Decode URL characters (in case the path was stored as a full URL)
+    // 3. Remove "games/" prefix if it was accidentally doubled
+    let sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
+    try { sanitizedPath = decodeURIComponent(sanitizedPath); } catch (e) {}
     
-    // Verify file existence in R2 before triggering GPU
+    // Final key should not have the protocol or domain if it was passed as a full URL
+    if (sanitizedPath.includes('://')) {
+      const url = new URL(sanitizedPath);
+      sanitizedPath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+    }
+
+    console.log(`[ProcessGame] Verifying R2 Key: ${sanitizedPath}`);
+
+    // Verify file existence in R2
     try {
       await r2Client.send(new HeadObjectCommand({ 
         Bucket: bucketName, 
@@ -39,14 +51,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } catch (e: any) {
       console.error(`[ProcessGame] File Check Failed for key: ${sanitizedPath}`, e.message);
       return res.status(404).json({ 
-        message: "Video file not found in storage. Please verify the upload.",
+        message: `Video file not found in storage. Checked key: ${sanitizedPath}`,
         path: sanitizedPath
       });
     }
 
+    // Generate a temporary signed URL for the GPU worker (valid for 24h)
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: sanitizedPath });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
+    // Fetch team rosters for mapping
     const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
       supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
       supabase.from('players').select('id, name, number').eq('team_id', awayTeamId),
@@ -70,10 +84,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Update game status to signify ingestion start
     await supabase.from('games').update({ 
       status: 'analyzing', 
-      progress_percentage: 25, 
+      progress_percentage: 10, 
       ignition_status: 'ignited',
-      updated_at: new Date().toISOString() 
-    }).eq('id', gameId);
+      updated_at: new Date().toISOString(),
+      last_error: null
+    } as any).eq('id', gameId);
 
     // Fire and forget GPU handoff
     modalService.processGame(signedUrl, { game_id: gameId, ...gpuConfig }).catch(err => {
@@ -82,7 +97,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: 'error', 
         last_error: `GPU Connection Failed: ${err.message}`,
         ignition_status: 'failed'
-      }).eq('id', gameId);
+      } as any).eq('id', gameId);
     });
 
     return res.status(202).json({ 
