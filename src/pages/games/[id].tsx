@@ -158,11 +158,11 @@ export default function GameDetailPage() {
 
       // Fetch rosters
       if (gameData.home_team_id) {
-        const { data: hr } = await supabase.from('players').select('*').eq('team_id', gameData.home_team_id);
+        const { data: hr } = await supabase.from('players').select('*').eq('team_id', gameData.home_team_id).order('number', { ascending: true });
         setHomeRoster(hr || []);
       }
       if (gameData.away_team_id) {
-        const { data: ar } = await supabase.from('players').select('*').eq('team_id', gameData.away_team_id);
+        const { data: ar } = await supabase.from('players').select('*').eq('team_id', gameData.away_team_id).order('number', { ascending: true });
         setAwayRoster(ar || []);
       }
 
@@ -308,7 +308,7 @@ export default function GameDetailPage() {
                   <h3 className="text-xl font-bold flex items-center gap-2">
                     <Users className="h-5 w-5 text-primary" /> Player Recognition & AI Mapping
                   </h3>
-                  <p className="text-sm text-muted-foreground">Verify and map detected jersey numbers to your directory rosters.</p>
+                  <p className="text-sm text-muted-foreground">Module 2: Verify and map detected identities to rostered directory players.</p>
                 </div>
                 <div className="flex items-center gap-3">
                   {game?.status !== 'processing' && game?.status !== 'analyzing' && (
@@ -317,85 +317,29 @@ export default function GameDetailPage() {
                       START AI IDENTITY MAPPING
                     </Button>
                   )}
-                  <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10">
-                    {detectedPlayers.length} IDENTITIES DETECTED
+                  <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10 uppercase tracking-tighter">
+                    {detectedPlayers.length > 0 ? `${detectedPlayers.length} IDENTITIES DETECTED` : "PREPARING AI ENGINE"}
                   </Badge>
                 </div>
               </div>
 
-              <div className="rounded-xl border border-white/5 overflow-hidden bg-background/20">
-                <Table>
-                  <TableHeader className="bg-white/5">
-                    <TableRow className="border-white/5 hover:bg-transparent">
-                      <TableHead className="w-32 font-bold text-primary">JERSEY</TableHead>
-                      <TableHead className="w-48 font-bold">DETECTED TEAM</TableHead>
-                      <TableHead className="font-bold">MAPPED ROSTER PLAYER</TableHead>
-                      <TableHead className="w-32 text-center font-bold">STATUS</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {detectedPlayers.length > 0 ? detectedPlayers.map((dp, i) => {
-                      const isHome = dp.team_id === game.home_team_id;
-                      const roster = isHome ? homeRoster : awayRoster;
-                      const key = `${dp.team_id}-${dp.jersey_number}`;
-                      const currentMapping = manualMappings[key];
-                      const autoMatch = roster.find(p => p.number === dp.jersey_number);
-                      const isMapped = !!currentMapping || !!autoMatch;
-
-                      return (
-                        <TableRow key={i} className="border-white/5 hover:bg-white/5">
-                          <TableCell className="font-mono text-2xl font-black text-white italic">#{dp.jersey_number}</TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={cn("font-bold", isHome ? "border-primary/50 text-primary bg-primary/5" : "border-accent/50 text-accent bg-accent/5")}>
-                              {isHome ? 'HOME TEAM' : 'AWAY TEAM'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <Select 
-                              value={currentMapping || autoMatch?.id || ""} 
-                              onValueChange={(val) => handleUpdateMapping(dp.team_id, dp.jersey_number, val)}
-                            >
-                              <SelectTrigger className="w-full max-w-sm bg-muted/20 border-white/10 h-10">
-                                <SelectValue placeholder="Link to Roster Player" />
-                              </SelectTrigger>
-                              <SelectContent className="bg-popover border-border">
-                                {roster.map(p => (
-                                  <SelectItem key={p.id} value={p.id}>
-                                    #{p.number} {p.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {isMapped ? (
-                              <div className="flex items-center justify-center text-emerald-500 gap-1.5 font-bold text-xs">
-                                <CheckCircle2 className="h-4 w-4" /> VERIFIED
-                              </div>
-                            ) : (
-                              <div className="flex items-center justify-center text-amber-500 gap-1.5 font-bold text-xs">
-                                <AlertCircle className="h-4 w-4" /> UNMATCHED
-                              </div>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    }) : (
-                      <TableRow>
-                        <TableCell colSpan={4} className="h-48 text-center">
-                          <div className="max-w-xs mx-auto space-y-2">
-                            <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mx-auto mb-4">
-                              <Lock className="h-6 w-6 text-muted-foreground" />
-                            </div>
-                            <h4 className="font-bold">Identity Recognition Locked</h4>
-                            <p className="text-xs text-muted-foreground">Run Module 2 AI Analysis to detect jersey identities from video.</p>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
+              {detectedPlayers.length === 0 && (
+                <div className="p-12 text-center rounded-xl border border-dashed border-white/10 bg-white/5">
+                  <div className="max-w-md mx-auto space-y-4">
+                    <div className="flex justify-center -space-x-4">
+                      {homeRoster.slice(0, 3).map((p, i) => (
+                        <div key={i} className="h-12 w-12 rounded-full border-2 border-background bg-primary/20 flex items-center justify-center font-bold text-primary italic">#{p.number}</div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <h4 className="font-bold text-lg">Rosters Ready for Module 2</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {homeRoster.length + awayRoster.length} players from {game?.home_team?.name} and {game?.away_team?.name} are pre-loaded. Click the button above to start the AI identity recognition engine.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </Card>
           </TabsContent>
 
