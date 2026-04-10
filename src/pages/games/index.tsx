@@ -30,7 +30,6 @@ export default function GamesPage() {
   const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
@@ -88,7 +87,7 @@ export default function GamesPage() {
           </div>
           <Button 
             className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => setIsNewGameModalOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
             ADD NEW GAME
@@ -181,7 +180,7 @@ export default function GamesPage() {
                 </p>
               </div>
               <Button 
-                onClick={() => setIsModalOpen(true)}
+                onClick={() => setIsNewGameModalOpen(true)}
                 className="bg-primary hover:bg-primary/90 text-white font-bold px-8 rounded-xl shadow-lg shadow-primary/20"
               >
                 Analyze First Game
