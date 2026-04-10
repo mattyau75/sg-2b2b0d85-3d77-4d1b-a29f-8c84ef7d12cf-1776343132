@@ -28,7 +28,7 @@ interface NewGameModalProps {
 export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const { startUpload, activeUploads } = useUploads();
+  const { startUpload, activeUploads, cancelUpload } = useUploads();
   const [teams, setTeams] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isStarting, setIsStarting] = useState(false);
@@ -45,6 +45,13 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
   const currentUpload = activeUploads.find(u => u.fileName === formData.videoFile?.name);
   const isUploading = !!currentUpload && currentUpload.status === "uploading";
   const uploadProgress = currentUpload?.progress || 0;
+
+  const handleCancel = () => {
+    if (isUploading && currentUpload) {
+      cancelUpload(currentUpload.id);
+    }
+    onClose();
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -208,7 +215,13 @@ export function NewGameModal({ isOpen, onClose }: NewGameModalProps) {
         </div>
 
         <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5">
-          <Button variant="ghost" onClick={onClose} disabled={isStarting || isUploading}>Cancel</Button>
+          <Button 
+            variant="ghost" 
+            onClick={handleCancel} 
+            disabled={isStarting}
+          >
+            {isUploading ? "Cancel Upload" : "Cancel"}
+          </Button>
           <Button 
             onClick={handleProcess} 
             disabled={!formData.videoFile || isStarting || isUploading}
