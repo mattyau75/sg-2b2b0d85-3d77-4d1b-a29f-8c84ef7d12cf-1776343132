@@ -10,10 +10,21 @@ from ultralytics import YOLO
 from datetime import datetime
 
 # ── App Definition ────────────────────────────────────────────────────────────
-app = modal.App("dribbleai-stats")
+app = modal.App("dribblestats-ai-elite")
 
 # ── Container Image ───────────────────────────────────────────────────────────
 _SCRIPT_PATH = str(Path(__file__).parent / "opencv_statgen.py")
+
+# 1. PRE-BAKE AI MODELS INTO THE IMAGE
+# This avoids downloading them at runtime, making ignition instant.
+def download_models():
+    from ultralytics import YOLO
+    import os
+    # Pre-download YOLOv11 basketball/player models for ELITE accuracy
+    # We use 'm' (medium) for the best balance of speed vs detection precision
+    YOLO("yolo11m.pt") 
+    YOLO("yolo11n.pt")
+    # Tesseract and OpenCV are handled by apt_install
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -35,6 +46,7 @@ image = (
         "fastapi",
         "pydantic"
     ])
+    .run_function(download_models) # This bakes the models into the image cache
     .add_local_file(_SCRIPT_PATH, remote_path="/app/opencv_statgen.py")
 )
 
@@ -146,7 +158,41 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None, l
     except Exception as e:
         print(f"❌ Heartbeat Failed: {e}")
 
-@app.function(image=image, timeout=3600)
+# 2. FOOLPROOF HEARTBEAT UTILITY
+def report_ignition(game_id, creds, status_msg="Ignition Successful"):
+    """Absolute first check-in to break the 20% stall."""
+    url = creds.get("url")
+    key = creds.get("key")
+    if not (url and key and game_id): return
+    
+    headers = {
+        "apikey": key,
+        "Authorization": f"Bearer {key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal"
+    }
+    
+    payload = {
+        "progress_percentage": 25,
+        "ignition_status": "ignited",
+        "status": "analyzing",
+        "last_heartbeat": "now()",
+        "processing_metadata": {
+            "worker_logs": [{
+                "timestamp": "now()",
+                "level": "info",
+                "message": f"🚀 {status_msg}: GPU Node Online (Models Pre-cached)"
+            }]
+        }
+    }
+    
+    try:
+        import requests
+        requests.patch(f"{url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload, timeout=5)
+    except:
+        pass # Silent fail to ensure orchestration continues
+
+@app.function(image=image, timeout=3600, cpu=2, gpu="T4")
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
     """Main entry point for Next.js API calls."""
@@ -160,8 +206,9 @@ def analyze(item: dict):
         "key": item.get("supabase_key")
     }
 
-    # CRITICAL: Immediate check-in before the streaming loop
-    update_supabase_progress(game_id, 20, "analyzing", credentials=creds, log_msg="GPU Swarm Node Allocated. Initializing DribbleStats AI Elite environment.")
+    # CRITICAL: Immediate 'First Breath' report
+    # This happens BEFORE video downloading or heavy processing
+    report_ignition(game_id, creds)
 
     def orchestrate():
         # This is the 'First Breath' heartbeat
