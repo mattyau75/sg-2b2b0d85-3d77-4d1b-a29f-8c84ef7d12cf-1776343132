@@ -12,6 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: "Method not allowed" });
   }
 
+  // Force no-cache for this API route to prevent stale 404s
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -22,15 +23,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!gameId || !videoPath) {
       return res.status(400).json({ message: "Missing required game metadata (ID or Video Path)" });
     }
-    const bucketName = process.env.R2_BUCKET_NAME;
 
+    const bucketName = process.env.R2_BUCKET_NAME;
     if (!bucketName) throw new Error("R2_BUCKET_NAME environment variable is missing");
+
+    // Robust path sanitization: Remove leading slash if present for S3 Key compatibility
     const sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
     
+    // Verify file existence in R2 before triggering GPU
     try {
-      await r2Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: sanitizedPath }));
+      await r2Client.send(new HeadObjectCommand({ 
+        Bucket: bucketName, 
+        Key: sanitizedPath 
+      }));
     } catch (e: any) {
-      return res.status(404).json({ message: "Video file not found in storage", path: sanitizedPath });
+      console.error(`[ProcessGame] File Check Failed for key: ${sanitizedPath}`, e.message);
+      return res.status(404).json({ 
+        message: "Video file not found in storage. Please verify the upload.",
+        path: sanitizedPath
+      });
     }
 
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: sanitizedPath });
@@ -56,14 +67,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
     };
 
-    await supabase.from('games').update({ status: 'analyzing', progress_percentage: 25, ignition_status: 'ignited', updated_at: new Date().toISOString() }).eq('id', gameId);
+    // Update game status to signify ingestion start
+    await supabase.from('games').update({ 
+      status: 'analyzing', 
+      progress_percentage: 25, 
+      ignition_status: 'ignited',
+      updated_at: new Date().toISOString() 
+    }).eq('id', gameId);
 
+    // Fire and forget GPU handoff
     modalService.processGame(signedUrl, { game_id: gameId, ...gpuConfig }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
-      supabase.from('games').update({ status: 'error', last_error: `GPU Connection Failed: ${err.message}`, ignition_status: 'failed' }).eq('id', gameId);
+      supabase.from('games').update({ 
+        status: 'error', 
+        last_error: `GPU Connection Failed: ${err.message}`,
+        ignition_status: 'failed'
+      }).eq('id', gameId);
     });
 
-    return res.status(202).json({ success: true, message: "Ignition Sequence Started", id: gameId });
+    return res.status(202).json({ 
+      success: true, 
+      message: "Ignition Sequence Started", 
+      id: gameId 
+    });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
     return res.status(500).json({ message: error.message });
