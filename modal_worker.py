@@ -8,6 +8,7 @@ from pathlib import Path
 import modal
 from ultralytics import YOLO
 from datetime import datetime
+from fastapi.responses import StreamingResponse
 
 # ── App Definition ────────────────────────────────────────────────────────────
 app = modal.App("dribblestats-ai-elite")
@@ -108,7 +109,7 @@ def split_video(video_url: str, chunk_duration: int = 300):
 def update_supabase_progress(game_id, progress, status=None, credentials=None, log_msg=None, log_level="info"):
     """
     Bulletproof callback to update the dashboard. 
-    Stateless: Does not depend on fetching previous metadata.
+    Uses provided credentials to ensure RLS bypass.
     """
     supabase_url = credentials.get("url") if credentials else os.environ.get("SUPABASE_URL")
     supabase_key = credentials.get("key") if credentials else os.environ.get("SUPABASE_ANON_KEY")
@@ -197,72 +198,55 @@ def report_ignition(game_id, creds, status_msg="Ignition Successful"):
 def analyze(item: dict):
     """Main entry point for Next.js API calls."""
     import json
+    from fastapi.responses import StreamingResponse
     
-    # 1. FOOLPROOF IGNITION: Absolute first action
-    # This MUST happen before any heavy imports to break the 25% stall.
+    # 1. PRE-FLIGHT HANDSHAKE: Check in with DB before heavy imports
     game_id = item.get("game_id")
     creds = {
         "url": item.get("supabase_url"),
         "key": item.get("supabase_key")
     }
     
-    print(f"🔥 Ignition Sequence Started for Game: {game_id}")
-    # Call the stored procedure to bypass RLS and report status immediately
-    report_ignition(game_id, creds, status_msg="GPU Swarm Connection Established (A10G Active)")
+    # Report 1% progress immediately to confirm handshake
+    report_ignition(game_id, creds, status_msg="Handshake Verified: GPU Node Initialized")
 
     # 2. HEAVY IMPORTS START HERE
     import torch
     from ultralytics import YOLO
 
     # 3. ENGINE PRIMED (30%)
-    sb.table("games").update({
-        "progress_percentage": 30,
-        "ignition_status": "primed"
-    }).eq("id", game_id).execute()
+    update_supabase_progress(game_id, 30, credentials=creds, log_msg="AI Engine Primed. Initializing Video Stream...")
     
-    yield json.dumps({"__progress": 30, "__msg": "📡 AI Engine Primed. Initializing Video Stream..."}) + "\n"
-    # 2. EXTRACT ROSTERS FOR OCR CONSTRAINTS
-    # We pass these to the processing engine so it knows what numbers to look for
-    home_roster = item.get("home_roster", [])
-    away_roster = item.get("away_roster", [])
-    valid_numbers = {
-        "home": [str(p.get("number")) for p in home_roster if p.get("number") is not None],
-        "away": [str(p.get("number")) for p in away_roster if p.get("number") is not None]
-    }
-
     def orchestrate():
         # Step 1: Video Download & Model Load
         # This is the 'First Breath' heartbeat after ignition
         update_supabase_progress(game_id, 30, credentials=creds, log_msg="AI Engine Primed. Initializing Video Stream...")
-        yield json.dumps({"__progress": 30, "__msg": "📡 Downloading footage and priming AI engines..."}) + "\n"
-        
+        yield json.dumps({"__progress": 30, "__msg": "📡 AI Engine Primed. Initializing Video Stream..."}) + "\n"
+        # 2. EXTRACT ROSTERS FOR OCR CONSTRAINTS
+        # We pass these to the processing engine so it knows what numbers to look for
+        home_roster = item.get("home_roster", [])
+        away_roster = item.get("away_roster", [])
+        valid_numbers = {
+            "home": [str(p.get("number")) for p in home_roster if p.get("number") is not None],
+            "away": [str(p.get("number")) for p in away_roster if p.get("number") is not None]
+        }
+
         try:
             # Video split phase
             chunks = split_video.remote(item["video_url"])
-            update_supabase_progress(game_id, 25, credentials=creds, log_msg=f"Video partition complete. Igniting {len(chunks)} GPU sub-nodes.")
-            yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
+            update_supabase_progress(game_id, 25, credentials=creds, log_msg=f"Roster Discovery Phase: Igniting {len(chunks)} GPU sub-nodes.")
+            yield json.dumps({"__progress": 25, "__msg": f"🔥 Roster Discovery Swarm ({len(chunks)} nodes active)..."}) + "\n"
             
-            # Parallel Execution across multiple GPUs
-            # We can update progress as chunks complete
+            # Parallel Execution for Discovery
             results = []
             for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
                 results.append(result)
                 progress = 25 + int((i + 1) / len(chunks) * 60)
-                update_supabase_progress(game_id, progress, credentials=creds, log_msg=f"Node {i+1} completed chunk analysis. Recognition vectors stabilized.")
-                yield json.dumps({"__progress": progress, "__msg": f"Analyzing chunk {i+1}/{len(chunks)}..."}) + "\n"
+                update_supabase_progress(game_id, progress, credentials=creds, log_msg=f"Discovery Node {i+1} finished scanning.")
             
-            update_supabase_progress(game_id, 95, "finalizing", credentials=creds)
-            yield json.dumps({"__progress": 95, "__msg": "📊 Aggregating multi-node intelligence..."}) + "\n"
-            
-            # Merge logic (simplified)
-            final_result = {
-                "game_id": game_id,
-                "play_by_play": [p for r in results if "play_by_play" in r for p in r["play_by_play"]],
-                "stats": {} # Total aggregation
-            }
-            
-            update_supabase_progress(game_id, 100, "completed", credentials=creds, log_msg="AI Engine stabilization complete. Identity mapping finalized.")
-            yield json.dumps({"__result": final_result}) + "\n"
+            # THE SEAL: Transition to Mapping Ready state
+            update_supabase_progress(game_id, 100, status="completed", credentials=creds, log_msg="Roster Discovery Complete. Mapping Dashboard Ready.")
+            yield json.dumps({"__result": "SUCCESS", "__mapping_ready": True}) + "\n"
         except Exception as e:
             update_supabase_progress(game_id, 100, "error", credentials=creds, log_msg=f"CRITICAL ENGINE FAILURE: {str(e)}", log_level="error")
             yield json.dumps({"__error": str(e)}) + "\n"

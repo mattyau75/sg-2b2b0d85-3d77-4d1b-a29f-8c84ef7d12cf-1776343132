@@ -40,8 +40,8 @@ export const modalService = {
       const response = await axios.post(modalEndpoint, {
         video_url: signedUrl,
         game_id: config.game_id,
-        home_team: config.home_team_id,
-        away_team: config.away_team_id,
+        home_team_id: config.home_team_id,
+        away_team_id: config.away_team_id,
         home_color: config.homeColor || "#FFFFFF",
         away_color: config.awayColor || "#0B0F19",
         home_roster: config.home_roster || [],
@@ -51,7 +51,8 @@ export const modalService = {
         config: {
           ...config,
           temporal_tracking: true,
-          shot_detection: true
+          shot_detection: true,
+          handshake_version: "2.0"
         }
       });
       return response.data;

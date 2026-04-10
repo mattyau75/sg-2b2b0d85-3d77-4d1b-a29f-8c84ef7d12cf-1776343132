@@ -1,7 +1,7 @@
 # DribbleStats AI Elite
 
-**Vision:** A high-performance basketball scouting and analytics platform for professional-grade game analysis.
-**Target User:** Coaches, Scouts, and Data-Driven Fans.
+**Vision:** A high-performance basketball scouting platform focused on elite roster discovery and AI-to-Human mapping precision.
+**Target User:** Coaches and Scouts performing deep personnel analysis.
 
 ## Design
 --background: 222 39% 7% (deep charcoal)
@@ -12,15 +12,15 @@
 --muted: 215 25% 27% (slate)
 
 **Fonts:** 
-- Headings: Plus Jakarta Sans (Tech/Modern)
-- Body: Work Sans (Readability)
-- Stats: Geist Mono (Precision)
+- Headings: Plus Jakarta Sans (Modern)
+- Body: Work Sans (Clean)
+- Stats: Geist Mono (Fixed)
 
-**Style:** High-density, dark mode, high contrast, tactical.
+**Style:** High-density, tactical dark mode.
 
 ## Features
-- Interactive Shot Charts (Team & Player level)
-- Live-updating Box Score with advanced metrics
-- Chronological Play-by-Play with video timestamps
-- AI-Generated Highlights integration via Modal.com
-- YouTube URL processing and clip playback
+- **AI Roster Discovery**: Automatic detection of players and jersey numbers via GPU OCR.
+- **Roster Mapping Engine**: Dynamic database matching of AI entities to team rosters.
+- **Color Calibration**: Team-specific color recognition for high-accuracy tracking.
+- **Manual Override Dashboard**: Interface for manual player-to-AI mapping.
+- **Zero-Stat Mode**: Pure personnel analysis without event overhead.

@@ -1,7 +1,7 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film, Target } from "lucide-react";
+import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 
 interface LayoutProps {
@@ -11,13 +11,6 @@ interface LayoutProps {
 }
 
 export function Layout({ children, title, description }: LayoutProps) {
-  const navigation = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Analysis Queue', href: '/analysis-queue', icon: Activity },
-  { name: 'Roster', href: '/roster', icon: Users },
-  { name: 'Games', href: '/games', icon: Trophy }];
-
-
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 selection:text-primary">
       <SEO title={title} description={description} />
@@ -34,33 +27,32 @@ export function Layout({ children, title, description }: LayoutProps) {
 
           <nav className="flex-1 space-y-2">
             {[
-            { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-            { icon: Activity, label: "Processing Queue", href: "/analysis-queue" },
-            { icon: Users, label: "Roster", href: "/roster" },
-            { icon: History, label: "Games", href: "/games" },
-            { icon: BarChart3, label: "Analytics", href: "/analytics" },
-            { icon: Target, label: "Accuracy Audit", href: "/accuracy-report" },
-            { icon: PlayCircle, label: "Highlights", href: "/highlights" },
-            { icon: HelpCircle, label: "Help & Tips", href: "/help" }].
-            map((item) =>
-            <Link
-              key={item.label}
-              href={item.href}
-              className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group">
-              
+              { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+              { icon: Activity, label: "Processing Queue", href: "/analysis-queue" },
+              { icon: Users, label: "Roster", href: "/roster" },
+              { icon: History, label: "Games", href: "/games" },
+              { icon: BarChart3, label: "Analytics", href: "/analytics" },
+              { icon: PlayCircle, label: "Highlights", href: "/highlights" },
+              { icon: HelpCircle, label: "Help & Tips", href: "/help" },
+            ].map((item) => (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group"
+              >
                 <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="hidden md:block font-medium text-muted-foreground group-hover:text-foreground">
                   {item.label}
                 </span>
               </Link>
-            )}
+            ))}
           </nav>
 
           <div className="mt-auto pt-6 border-t border-border">
             <Link
               href="/settings"
-              className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group w-full text-left">
-              
+              className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group w-full text-left"
+            >
               <Settings className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
               <span className="hidden md:block font-medium text-muted-foreground group-hover:text-foreground">Settings</span>
             </Link>
@@ -89,6 +81,6 @@ export function Layout({ children, title, description }: LayoutProps) {
         </div>
       </main>
       <Toaster />
-    </div>);
-
+    </div>
+  );
 }

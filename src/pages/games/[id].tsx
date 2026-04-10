@@ -19,7 +19,10 @@ import {
   Users,
   Sparkles,
   Wifi,
-  WifiOff
+  WifiOff,
+  Link2,
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -55,6 +58,7 @@ export default function GameDetailPage() {
   
   const [homeRoster, setHomeRoster] = useState<any[]>([]);
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
+  const [aiMappings, setAiMappings] = useState<any[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
@@ -87,6 +91,14 @@ export default function GameDetailPage() {
       
       const metadata = gameData.processing_metadata as any;
       setWorkerLogs(metadata?.worker_logs || []);
+
+      // Fetch AI Mappings
+      const { data: mappingsData } = await supabase
+        .from('ai_player_mappings')
+        .select('*, player:players(*)')
+        .eq('game_id', gameId);
+      
+      setAiMappings(mappingsData || []);
 
       // If we are just updating the status/logs, we can skip the heavy stats/pbp fetches
       if (isUpdate && gameData.status !== 'completed') return;

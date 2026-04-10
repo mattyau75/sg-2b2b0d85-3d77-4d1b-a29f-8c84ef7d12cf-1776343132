@@ -8,6 +8,11 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
+  // 0. ENFORCE NO-CACHE FOR HANDSHAKE INTEGRITY
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+
   try {
     const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
     const bucketName = process.env.R2_BUCKET_NAME;
@@ -74,23 +79,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', gameId);
 
-    // 2. DETACHED GPU TRIGGER: Fire and forget to prevent timeouts
+    // 2. DETACHED GPU TRIGGER: Fire and forget
     console.log(`[ProcessGame] Dispatching to GPU Swarm...`);
     modalService.processGame(signedUrl, {
       game_id: gameId,
-      home_team_id: homeTeamId,
-      away_team_id: awayTeamId,
-      homeColor,
-      awayColor,
-      home_roster: homeRoster || [],
-      away_roster: awayRoster || [],
-      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      ...gpuConfig
     }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
       supabase.from('games').update({ 
         status: 'error', 
-        last_error: `GPU Connection Failed: ${err.message}` 
+        last_error: `GPU Connection Failed: ${err.message}`,
+        ignition_status: 'failed'
       }).eq('id', gameId);
     });
 

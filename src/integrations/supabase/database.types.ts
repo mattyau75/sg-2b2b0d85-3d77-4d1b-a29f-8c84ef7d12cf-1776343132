@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -15,6 +15,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_player_mappings: {
+        Row: {
+          ai_detected_id: string
+          ai_track_id: string | null
+          confidence: number | null
+          created_at: string | null
+          detected_number: string | null
+          detected_team_side: string | null
+          game_id: string | null
+          id: string
+          is_manual_match: boolean | null
+          is_manual_override: boolean | null
+          jersey_number: number | null
+          real_player_id: string | null
+          team_side: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ai_detected_id: string
+          ai_track_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          detected_number?: string | null
+          detected_team_side?: string | null
+          game_id?: string | null
+          id?: string
+          is_manual_match?: boolean | null
+          is_manual_override?: boolean | null
+          jersey_number?: number | null
+          real_player_id?: string | null
+          team_side?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ai_detected_id?: string
+          ai_track_id?: string | null
+          confidence?: number | null
+          created_at?: string | null
+          detected_number?: string | null
+          detected_team_side?: string | null
+          game_id?: string | null
+          id?: string
+          is_manual_match?: boolean | null
+          is_manual_override?: boolean | null
+          jersey_number?: number | null
+          real_player_id?: string | null
+          team_side?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_player_mappings_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_player_mappings_real_player_id_fkey"
+            columns: ["real_player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           away_score: number | null
