@@ -207,6 +207,21 @@ export default function GameDetailPage() {
     if (gameId) fetchGameData();
   }, [gameId]);
 
+  // Add polling for active analysis
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (gameId && isCurrentlyProcessing) {
+      interval = setInterval(() => {
+        fetchGameData();
+      }, 10000); // Poll every 10 seconds
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [gameId, isCurrentlyProcessing]);
+
   const handleUpdateMapping = async (teamId: string, jersey: number, playerId: string) => {
     const key = `${teamId}-${jersey}`;
     const newMappings = { ...manualMappings, [key]: playerId };

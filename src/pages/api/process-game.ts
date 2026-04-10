@@ -63,7 +63,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }).eq('id', gameId);
 
     // TRIGGER & DETACH: Don't await the modalService call to prevent 504 timeouts
-    modalService.processGame(signedUrl, gpuConfig).catch(err => {
+    modalService.processGame(signedUrl, gpuConfig).then(() => {
+      console.log(`[ProcessGame] GPU Swarm Acknowledged for ${gameId}`);
+      supabase.from('games').update({ 
+        progress_percentage: 15,
+        status: 'analyzing'
+      }).eq('id', gameId).then(() => {});
+    }).catch(err => {
       console.error("[ProcessGame] Background GPU Trigger Failed:", err.message);
       supabase.from('games').update({ 
         status: 'error', 
