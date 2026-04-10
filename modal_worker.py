@@ -197,6 +197,7 @@ def report_ignition(game_id, creds, status_msg="Ignition Successful"):
 def analyze(item: dict):
     """Main entry point for Next.js API calls."""
     import json
+    import time
     
     game_id = item.get("game_id")
     creds = {
@@ -204,11 +205,13 @@ def analyze(item: dict):
         "key": item.get("supabase_key")
     }
 
-    # 1. FOOLPROOF IGNITION: Absolute first action
-    # This MUST happen before any imports or heavy logic to break the 20% stall.
+    # 1. IMMEDIATE ACKNOWLEDGEMENT (25%)
     print(f"🔥 Ignition Sequence Started for Game: {game_id}")
     report_ignition(game_id, creds, status_msg="GPU Swarm Connection Established")
 
+    # 2. MODEL PRIMING LOG (Added to bridge the 25% gap)
+    print("🧠 Priming AI Models (YOLOv11m + BoT-SORT)...")
+    update_supabase_progress(game_id, 26, "analyzing", credentials=creds, log_msg="🧠 Priming AI Models into GPU VRAM (YOLOv11m + BoT-SORT)...")
     # 2. EXTRACT ROSTERS FOR OCR CONSTRAINTS
     # We pass these to the processing engine so it knows what numbers to look for
     home_roster = item.get("home_roster", [])
