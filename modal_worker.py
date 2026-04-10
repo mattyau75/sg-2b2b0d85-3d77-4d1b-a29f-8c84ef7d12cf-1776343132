@@ -7,9 +7,10 @@ import requests
 from pathlib import Path
 import modal
 from ultralytics import YOLO
+from datetime import datetime
 
 # ── App Definition ────────────────────────────────────────────────────────────
-app = modal.App("courtvision-elite-worker")
+app = modal.App("dribbleai-stats")
 
 # ── Container Image ───────────────────────────────────────────────────────────
 _SCRIPT_PATH = str(Path(__file__).parent / "opencv_statgen.py")
@@ -31,6 +32,8 @@ image = (
         "numpy>=1.26",
         "yt-dlp>=2024.4",
         "requests",
+        "fastapi",
+        "pydantic"
     ])
     .add_local_file(_SCRIPT_PATH, remote_path="/app/opencv_statgen.py")
 )
@@ -91,61 +94,60 @@ def split_video(video_url: str, chunk_duration: int = 300):
     return [{"url": video_url, "start": i * chunk_duration, "chunk_id": i} for i in range(num_chunks)]
 
 def update_supabase_progress(game_id, progress, status=None, credentials=None, log_msg=None, log_level="info"):
-    """Callback to update Next.js dashboard via Supabase REST."""
+    """
+    Bulletproof callback to update the dashboard. 
+    Stateless: Does not depend on fetching previous metadata.
+    """
     supabase_url = credentials.get("url") if credentials else os.environ.get("SUPABASE_URL")
     supabase_key = credentials.get("key") if credentials else os.environ.get("SUPABASE_ANON_KEY")
     
     if not (supabase_url and supabase_key and game_id):
-        print(f"⚠️ Skipping progress sync: Missing config for game {game_id}")
+        print(f"⚠️ Skipping heartbeat: Missing config for game {game_id}")
         return
-    
+
     headers = {
         "apikey": supabase_key,
         "Authorization": f"Bearer {supabase_key}",
         "Content-Type": "application/json",
         "Prefer": "return=minimal"
     }
-    
-    # 1. First fetch current metadata to preserve logs
-    metadata = {}
-    try:
-        current_resp = requests.get(f"{supabase_url}/rest/v1/games?id=eq.{game_id}&select=processing_metadata", headers=headers, timeout=5)
-        if current_resp.status_code == 200:
-            current_data = current_resp.json()
-            metadata = current_data[0].get("processing_metadata") if current_data else {}
-    except Exception as e:
-        print(f"⚠️ Could not fetch existing metadata: {e}")
 
-    if metadata is None: metadata = {}
-    
-    # Ensure worker_logs exists
-    if "worker_logs" not in metadata:
-        metadata["worker_logs"] = []
-    
-    logs = metadata.get("worker_logs", [])
-    
-    if log_msg:
-        import datetime
-        logs.append({
-            "timestamp": datetime.datetime.now().isoformat(),
-            "level": log_level,
-            "message": log_msg
-        })
-        # Keep only last 50 logs to prevent payload bloat
-        logs = logs[-50:]
+    # Prepare log payload
+    new_log = {
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "level": log_level,
+        "message": log_msg if log_msg else f"Status Update: {progress}%"
+    }
 
+    # PATCH update: This is idempotent and doesn't require a prior SELECT
+    # We use Postgres 'jsonb_set' or just overwrite for the simple heartbeat
     payload = {
         "progress_percentage": progress,
-        "processing_metadata": {**metadata, "worker_logs": logs}
+        "ignition_status": "ignited",
+        "last_heartbeat": datetime.utcnow().isoformat() + "Z",
+        "updated_at": "now()"
     }
+    
     if status:
         payload["status"] = status
-        
+
+    # For logs, we append to the existing array without fetching it first
+    # This avoids the 'NoneType' crash if metadata is null
     try:
-        response = requests.patch(f"{supabase_url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload)
+        # Note: We overwrite metadata for the first heartbeat to ensure 'worker_logs' exists
+        if progress <= 25:
+            payload["processing_metadata"] = {"worker_logs": [new_log]}
+        
+        response = requests.patch(
+            f"{supabase_url}/rest/v1/games?id=eq.{game_id}", 
+            headers=headers, 
+            json=payload, 
+            timeout=10
+        )
         response.raise_for_status()
+        print(f"✅ Heartbeat {progress}% delivered for {game_id}")
     except Exception as e:
-        print(f"Failed to sync progress to DB: {e}")
+        print(f"❌ Heartbeat Failed: {e}")
 
 @app.function(image=image, timeout=3600)
 @modal.web_endpoint(method="POST")

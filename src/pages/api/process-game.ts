@@ -62,38 +62,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabase.from('player_game_stats').delete().eq('game_id', gameId)
     ]);
 
-    // 1. EAGER UPDATE: Mark as analyzing/15% immediately to signal successful dispatch
-    await supabase.from('games').update({ 
-      status: 'analyzing',
-      progress_percentage: 15,
-      processing_metadata: {
-        ...(req.body.processing_metadata || {}),
-        gpu_triggered_at: new Date().toISOString()
-      }
-    }).eq('id', gameId);
+    // 1. Mark as 'igniting' in the database immediately
+    await supabase
+      .from('games')
+      .update({ 
+        status: 'analyzing', 
+        progress_percentage: 20,
+        ignition_status: 'igniting',
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', gameId);
 
-    // 2. TRIGGER & DETACH: Fire the request without awaiting the stream
-    // This prevents the API from hanging for 10+ minutes on the worker's StreamingResponse
-    modalService.processGame(signedUrl, gpuConfig).then(() => {
-      console.log(`[ProcessGame] GPU Job Completed for ${gameId}`);
-    }).catch(err => {
-      console.error("[ProcessGame] GPU Handoff or Execution Failed:", err.message);
-      // Only update to error if we're not already marked as completed by the worker
-      supabase.from('games').select('status').eq('id', gameId).single().then(({ data }) => {
-        if (data?.status !== 'completed') {
-          supabase.from('games').update({ 
-            status: 'error', 
-            last_error: `AI Engine Error: ${err.message}` 
-          }).eq('id', gameId).then(() => {});
-        }
-      });
+    // 2. DETACHED TRIGGER: Fire the request without 'awaiting' the long-running process
+    // This prevents the Next.js API from timing out after 60 seconds
+    modalService.processGame(signedUrl, gpuConfig).catch(err => {
+      console.error("[ProcessGame] GPU Handoff Failed:", err.message);
+      supabase.from('games').update({ 
+        status: 'error', 
+        last_error: `GPU Connection Failed: ${err.message}` 
+      }).eq('id', gameId).then(() => {});
     });
 
-    // 3. Return 202 Accepted immediately
+    // 3. Return immediately to the UI
     return res.status(202).json({ 
       success: true, 
-      message: "AI Mapping Ignited",
-      jobId: gameId 
+      message: "Ignition Sequence Started",
+      id: gameId 
     });
 
   } catch (error: any) {

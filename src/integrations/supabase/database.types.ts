@@ -29,7 +29,9 @@ export type Database = {
           home_team_color: string | null
           home_team_id: string | null
           id: string
+          ignition_status: string | null
           last_error: string | null
+          last_heartbeat: string | null
           processing_metadata: Json | null
           progress_percentage: number | null
           status: string | null
@@ -51,7 +53,9 @@ export type Database = {
           home_team_color?: string | null
           home_team_id?: string | null
           id?: string
+          ignition_status?: string | null
           last_error?: string | null
+          last_heartbeat?: string | null
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
@@ -73,7 +77,9 @@ export type Database = {
           home_team_color?: string | null
           home_team_id?: string | null
           id?: string
+          ignition_status?: string | null
           last_error?: string | null
+          last_heartbeat?: string | null
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
