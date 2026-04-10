@@ -12,7 +12,7 @@ position: 1
 The UI must allow users to see what the AI found and manually link 'Unmatched' AI tracks to actual roster players.
 
 ## Checklist:
-- [ ] Create `MappingDashboard.tsx` component: Split view showing AI Tracks vs Roster.
+- [x] Create `MappingDashboard.tsx` component: Split view showing AI Tracks vs Roster.
 - [ ] Implement `update-mapping` API: Endpoint to save manual overrides to `ai_player_mappings`.
-- [ ] Add 'Confidence' indicators: Visual cues for AI recognition certainty.
+- [x] Add 'Confidence' indicators: Visual cues for AI recognition certainty.
 - [ ] Integrate 'Color Swatches': Show detected player colors next to tracks.

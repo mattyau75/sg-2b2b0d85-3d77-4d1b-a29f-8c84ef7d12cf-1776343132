@@ -34,6 +34,7 @@ import { storageService } from "@/services/storageService";
 import { WorkerLogs, type LogEntry } from "@/components/WorkerLogs";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import axios from "axios";
+import { MappingDashboard } from "@/components/MappingDashboard";
 
 const isValidUUID = (uuid: string) => {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -406,7 +407,13 @@ export default function GameDetailPage() {
                   <Button variant="outline" onClick={() => setIsEditModalOpen(true)}><Settings2 className="h-4 w-4 mr-2" /> OPEN SETUP</Button>
                 </div>
               ) : (
-                <MappingStagingTable homeRoster={homeRoster} awayRoster={awayRoster} game={game} />
+                <MappingDashboard 
+                  gameId={game.id}
+                  aiMappings={aiMappings}
+                  homeRoster={homeRoster}
+                  awayRoster={awayRoster}
+                  onRefresh={() => fetchGameData(true)}
+                />
               )}
             </Card>
           </TabsContent>
