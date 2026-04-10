@@ -220,12 +220,9 @@ def analyze(item: dict):
 
     def orchestrate():
         # Step 1: Video Download & Model Load
+        # This is the 'First Breath' heartbeat after ignition
+        update_supabase_progress(game_id, 30, credentials=creds, log_msg="AI Engine Primed. Initializing Video Stream...")
         yield json.dumps({"__progress": 30, "__msg": "📡 Downloading footage and priming AI engines..."}) + "\n"
-        
-        # ... processing logic calling opencv_statgen ...
-        # This is the 'First Breath' heartbeat
-        yield json.dumps({"__progress": 21, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
-        update_supabase_progress(game_id, 21, credentials=creds, log_msg="Ignition Successful. AI Vision Engines warming up.")
         
         try:
             # Video split phase
