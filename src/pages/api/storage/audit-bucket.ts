@@ -1,11 +1,11 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { r2Client, bucketName } from "@/lib/r2Client";
+import { r2Client, BUCKET_NAME } from "@/lib/r2Client";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     const command = new ListObjectsV2Command({
-      Bucket: bucketName,
+      Bucket: BUCKET_NAME,
       MaxKeys: 1000
     });
     
@@ -17,7 +17,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     })) || [];
 
     return res.status(200).json({ 
-      bucket: bucketName,
+      bucket: BUCKET_NAME,
       count: files.length,
       files 
     });
