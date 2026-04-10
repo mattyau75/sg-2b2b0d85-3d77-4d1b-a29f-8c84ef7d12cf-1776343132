@@ -11,7 +11,8 @@ import {
   CheckCircle2, 
   Fingerprint,
   RotateCcw,
-  Save
+  Save,
+  Palette
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,10 +98,11 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, o
                       <div className="flex flex-col">
                         <span className="text-[10px] font-mono text-muted-foreground">ID: {track.ai_track_id || track.id.slice(0, 8)}</span>
                         <div className="flex items-center gap-2 mt-1">
-                          <div className={cn(
-                            "w-3 h-3 rounded-full",
-                            track.team_side === 'home' ? "bg-primary" : "bg-accent"
-                          )} />
+                          <div 
+                            className="w-4 h-4 rounded-sm border border-white/10 shadow-sm"
+                            style={{ backgroundColor: track.detected_color || (track.team_side === 'home' ? '#EA580C' : '#06B6D4') }}
+                            title="Detected Average Color"
+                          />
                           <span className="text-[10px] font-bold uppercase">{track.team_side}</span>
                         </div>
                       </div>

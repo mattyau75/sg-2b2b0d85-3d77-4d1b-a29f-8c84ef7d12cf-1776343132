@@ -240,10 +240,42 @@ def analyze(item: dict):
             # Parallel Execution for Discovery
             results = []
             for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
-                results.append(result)
+                if isinstance(result, list):
+                    results.extend(result)
                 progress = 25 + int((i + 1) / len(chunks) * 60)
                 update_supabase_progress(game_id, progress, credentials=creds, log_msg=f"Discovery Node {i+1} finished scanning.")
             
+            # AGGREGATE DISCOVERY RESULTS
+            unique_mappings = {} # (team_side, jersey) -> {data}
+            for m in results:
+                key = (m.get('team_side'), m.get('jersey_number'))
+                if key not in unique_mappings or m.get('confidence', 0) > unique_mappings[key].get('confidence', 0):
+                    unique_mappings[key] = m
+
+            # SAVE TO SUPABASE
+            if unique_mappings:
+                mapping_rows = []
+                for m in unique_mappings.values():
+                    # Check for auto-match with roster
+                    roster = item.get('home_roster' if m['team_side'] == 'home' else 'away_roster', [])
+                    match = next((p for p in roster if str(p['number']) == str(m['jersey_number'])), None)
+                    
+                    mapping_rows.append({
+                        "game_id": game_id,
+                        "team_side": m['team_side'],
+                        "jersey_number": m['jersey_number'],
+                        "confidence": m.get('confidence', 0),
+                        "detected_color": m.get('color_hex'),
+                        "ai_track_id": m.get('track_id'),
+                        "real_player_id": match['id'] if match else None,
+                        "is_manual_override": False
+                    })
+                
+                # Use execute_sql_query style logic via the creds if possible, or simple insert
+                from supabase import create_client
+                client = create_client(creds['url'], creds['key'])
+                client.table('ai_player_mappings').insert(mapping_rows).execute()
+
             # THE SEAL: Transition to Mapping Ready state
             update_supabase_progress(game_id, 100, status="completed", credentials=creds, log_msg="Roster Discovery Complete. Mapping Dashboard Ready.")
             yield json.dumps({"__result": "SUCCESS", "__mapping_ready": True}) + "\n"
