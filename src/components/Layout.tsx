@@ -39,6 +39,7 @@ export function Layout({ children, title, description }: LayoutProps) {
             { icon: Users, label: "Roster", href: "/roster" },
             { icon: History, label: "Games", href: "/games" },
             { icon: BarChart3, label: "Analytics", href: "/analytics" },
+            { icon: Target, label: "Accuracy Audit", href: "/accuracy-report" },
             { icon: PlayCircle, label: "Highlights", href: "/highlights" },
             { icon: HelpCircle, label: "Help & Tips", href: "/help" }].
             map((item) =>
