@@ -24,10 +24,12 @@ interface MappingDashboardProps {
   aiMappings: any[];
   homeRoster: any[];
   awayRoster: any[];
+  homeColor?: string;
+  awayColor?: string;
   onRefresh: () => void;
 }
 
-export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, onRefresh }: MappingDashboardProps) {
+export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, homeColor, awayColor, onRefresh }: MappingDashboardProps) {
   const { toast } = useToast();
   const [saving, setSaving] = useState(false);
 
@@ -174,43 +176,84 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, o
         </CardContent>
       </Card>
 
-      {/* RIGHT: ROSTER INTEGRITY VIEW */}
-      <Card className="bg-card/40 border-white/5">
+      {/* RIGHT: ROSTER MAPPING STATUS (BIFURCATED) */}
+      <Card className="bg-card/40 border-white/5 lg:col-span-1">
         <CardHeader className="border-b border-white/5 bg-accent/5">
           <CardTitle className="text-sm font-mono flex items-center gap-2">
             <Users className="h-4 w-4 text-accent" /> ROSTER MAPPING STATUS
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0 overflow-auto max-h-[600px]">
-          <div className="grid grid-cols-1 divide-y divide-white/5">
-            {[...homeRoster, ...awayRoster].map((player) => {
-              const mapping = aiMappings.find(m => m.real_player_id === player.id);
-              return (
-                <div key={player.id} className="p-4 flex items-center justify-between hover:bg-white/5 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <span className="text-lg font-black italic text-muted-foreground w-8">#{player.number}</span>
-                    <div className="flex flex-col">
-                      <span className="font-bold text-sm text-white">{player.name}</span>
-                      <span className="text-[10px] text-muted-foreground uppercase">{player.position || 'Player'}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    {mapping ? (
-                      <div className="flex flex-col items-end">
-                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] font-black">
-                          LINKED TO AI #{mapping.jersey_number}
-                        </Badge>
-                        <span className="text-[8px] font-mono text-muted-foreground mt-1">CONF: {Math.round((mapping.confidence || 0) * 100)}%</span>
+          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-white/5">
+            {/* HOME TEAM COLUMN */}
+            <div className="flex flex-col">
+              <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Home Roster</span>
+                <div 
+                  className="w-6 h-3 rounded-sm border border-white/10 shadow-sm" 
+                  style={{ backgroundColor: homeColor || '#EA580C' }}
+                  title="Home Calibration Color"
+                />
+              </div>
+              <div className="divide-y divide-white/5">
+                {homeRoster.map((player) => {
+                  const mapping = aiMappings.find(m => m.real_player_id === player.id);
+                  return (
+                    <div key={player.id} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base font-black italic text-muted-foreground w-6">#{player.number}</span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-xs text-white truncate max-w-[80px]">{player.name}</span>
+                          <span className="text-[8px] text-muted-foreground uppercase">{player.position || 'G'}</span>
+                        </div>
                       </div>
-                    ) : (
-                      <Badge variant="outline" className="text-muted-foreground/50 border-white/5 text-[9px] font-mono italic">
-                        NOT SEEN IN VIDEO
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                      {mapping ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[8px] font-black px-1.5 py-0">
+                          AI #{mapping.jersey_number}
+                        </Badge>
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/10 group-hover:bg-amber-500/30 transition-colors" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* AWAY TEAM COLUMN */}
+            <div className="flex flex-col">
+              <div className="p-3 bg-white/5 border-b border-white/5 flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Away Roster</span>
+                <div 
+                  className="w-6 h-3 rounded-sm border border-white/10 shadow-sm" 
+                  style={{ backgroundColor: awayColor || '#06B6D4' }}
+                  title="Away Calibration Color"
+                />
+              </div>
+              <div className="divide-y divide-white/5">
+                {awayRoster.map((player) => {
+                  const mapping = aiMappings.find(m => m.real_player_id === player.id);
+                  return (
+                    <div key={player.id} className="p-3 flex items-center justify-between hover:bg-white/5 transition-colors group">
+                      <div className="flex items-center gap-3">
+                        <span className="text-base font-black italic text-muted-foreground w-6">#{player.number}</span>
+                        <div className="flex flex-col">
+                          <span className="font-bold text-xs text-white truncate max-w-[80px]">{player.name}</span>
+                          <span className="text-[8px] text-muted-foreground uppercase">{player.position || 'G'}</span>
+                        </div>
+                      </div>
+                      {mapping ? (
+                        <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[8px] font-black px-1.5 py-0">
+                          AI #{mapping.jersey_number}
+                        </Badge>
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/10 group-hover:bg-amber-500/30 transition-colors" />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

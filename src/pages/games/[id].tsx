@@ -444,7 +444,15 @@ export default function GameDetailPage() {
                   </div>
                 )}
 
-                <MappingDashboard gameId={game.id} aiMappings={aiMappings} homeRoster={homeRoster} awayRoster={awayRoster} onRefresh={() => fetchGameData(true)} />
+                <MappingDashboard 
+                  gameId={game.id} 
+                  aiMappings={aiMappings} 
+                  homeRoster={homeRoster} 
+                  awayRoster={awayRoster} 
+                  homeColor={game.home_team_color}
+                  awayColor={game.away_team_color}
+                  onRefresh={() => fetchGameData(true)} 
+                />
               </Card>
             )}
           </TabsContent>

@@ -12,7 +12,7 @@ created_at: "2026-04-10T22:00:00Z"
 Separate the Roster Mapping Status in Module 2 into two team-specific sections. Include the calibrated jersey color for each team.
 
 ## Checklist:
-- [ ] Refactor Module 2 mapping UI into a two-column layout (Home vs Away).
-- [ ] Integrate Video Calibration Color swatches for each team.
-- [ ] Display discovered players and mapping status per team.
-- [ ] Ensure the UI remains high-density and tactical.
+- [x] Refactor Module 2 mapping UI into a two-column layout (Home vs Away).
+- [x] Integrate Video Calibration Color swatches for each team.
+- [x] Display discovered players and mapping status per team.
+- [x] Ensure the UI remains high-density and tactical.
