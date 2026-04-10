@@ -129,11 +129,12 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
     }
   };
 
-  const handleSave = async (reAnalyze = false) => {
+  const handleSave = async () => {
     if (!game?.id || !isValidUUID(game.id)) return;
     setLoading(true);
 
     try {
+      // 1. Update Game Metadata
       const { error: updateError } = await supabase
         .from('games')
         .update({
@@ -142,35 +143,28 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           home_team_color: homeColor,
           away_team_color: awayColor,
           date: gameDate instanceof Date && !isNaN(gameDate.getTime()) ? gameDate.toISOString() : null,
-          venue: venue || "DribbleStats Stadium",
-          status: reAnalyze ? 'pending' : game.status,
-          processing_metadata: {
-            ...game.processing_metadata,
-            manual_mappings: manualMappings
-          }
+          venue: venue || "DribbleStats Stadium"
         })
         .eq('id', game.id);
 
       if (updateError) throw updateError;
 
-      if (reAnalyze) {
-        await axios.post("/api/process-game", {
+      // 2. Automatically prepare rosters for Mapping Module
+      if (isValidUUID(homeTeamId) && isValidUUID(awayTeamId)) {
+        await axios.post("/api/prepare-mapping", {
           gameId: game.id,
-          videoPath: game.video_path,
           homeTeamId,
-          awayTeamId,
-          homeColor,
-          awayColor
+          awayTeamId
         });
-        toast({ title: "GPU Engine Restarted", description: "Modular scouting active with calibrated colors." });
+        toast({ title: "Module 1 Complete", description: "Metadata saved and rosters pre-populated for mapping." });
       } else {
-        toast({ title: "Metadata Updated", description: "Game details and team rosters have been linked." });
+        toast({ title: "Metadata Updated", description: "Game details have been saved." });
       }
 
       onUpdated();
       onClose();
     } catch (error: any) {
-      toast({ title: "Update Failed", description: error.message, variant: "destructive" });
+      toast({ title: "Setup Failed", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -320,14 +314,9 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
         <DialogFooter className="gap-2 sm:gap-0 mt-2 bg-muted/50 -mx-6 -mb-6 p-6">
           <Button variant="ghost" onClick={onClose} className="hover:bg-muted text-muted-foreground text-xs font-bold">CANCEL</Button>
-          <div className="flex gap-2 w-full sm:w-auto">
-            <Button variant="outline" onClick={() => handleSave(false)} disabled={loading} className="border-border hover:bg-white/5 flex-1 sm:flex-none text-xs font-bold px-6">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "SAVE METADATA"}
-            </Button>
-            <Button onClick={() => handleSave(true)} disabled={loading} className="bg-primary hover:bg-primary/90 text-white font-bold flex-1 sm:flex-none shadow-lg shadow-primary/20 text-xs px-6">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "SAVE & START AI MAPPING"}
-            </Button>
-          </div>
+          <Button onClick={handleSave} disabled={loading} className="bg-primary hover:bg-primary/90 text-white font-bold w-full sm:w-auto shadow-lg shadow-primary/20 text-xs px-12 h-12">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "SAVE METADATA & PREPARE ROSTERS"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

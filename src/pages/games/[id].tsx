@@ -19,7 +19,8 @@ import {
   ArrowRightCircle,
   Users,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sparkles
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -57,9 +58,31 @@ export default function GameDetailPage() {
   const [homeRoster, setHomeRoster] = useState<any[]>([]);
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
   const [manualMappings, setManualMappings] = useState<Record<string, string>>({});
+  const [analyzing, setAnalyzing] = useState(false);
 
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
+
+  const handleStartMapping = async () => {
+    if (!gameId || !isValidUUID(gameId)) return;
+    setAnalyzing(true);
+    try {
+      await axios.post("/api/process-game", {
+        gameId: game.id,
+        videoPath: game.video_path,
+        homeTeamId: game.home_team_id,
+        awayTeamId: game.away_team_id,
+        homeColor: game.home_team_color,
+        awayColor: game.away_team_color
+      });
+      toast({ title: "Module 2 Active", description: "GPU Swarm ignited for identity recognition." });
+      fetchGameData();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Trigger Failed", description: error.message });
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const fetchGameData = async () => {
     if (!gameId || !isValidUUID(gameId)) {
@@ -283,13 +306,21 @@ export default function GameDetailPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
                   <h3 className="text-xl font-bold flex items-center gap-2">
-                    <Users className="h-5 w-5 text-primary" /> Player Recognition Overview
+                    <Users className="h-5 w-5 text-primary" /> Player Recognition & AI Mapping
                   </h3>
                   <p className="text-sm text-muted-foreground">Verify and map detected jersey numbers to your directory rosters.</p>
                 </div>
-                <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono">
-                  {detectedPlayers.length} IDENTITIES DETECTED
-                </Badge>
+                <div className="flex items-center gap-3">
+                  {game?.status !== 'processing' && game?.status !== 'analyzing' && (
+                    <Button onClick={handleStartMapping} disabled={analyzing} className="bg-primary hover:bg-primary/90 font-bold h-10 px-6 shadow-lg shadow-primary/20">
+                      {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                      START AI IDENTITY MAPPING
+                    </Button>
+                  )}
+                  <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10">
+                    {detectedPlayers.length} IDENTITIES DETECTED
+                  </Badge>
+                </div>
               </div>
 
               <div className="rounded-xl border border-white/5 overflow-hidden bg-background/20">

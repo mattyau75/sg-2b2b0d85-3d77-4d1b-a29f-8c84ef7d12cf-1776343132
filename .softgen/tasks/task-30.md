@@ -16,7 +16,7 @@ Split the existing "Module 1" into two distinct steps:
 Include automatic database pre-population of rosters after Module 1 is saved.
 
 ## Checklist:
-- [ ] Update `EditGameTeamsModal.tsx` to only handle Metadata & Color Calibration (Remove AI trigger).
-- [ ] Create `src/pages/api/prepare-mapping.ts` to pre-populate game rosters in the database after Module 1.
-- [ ] Modify `GameDetails` ([id].tsx) to include a "Start AI Mapping" trigger in the Identity Mapping tab.
+- [x] Update `EditGameTeamsModal.tsx` to only handle Metadata & Color Calibration (Remove AI trigger).
+- [x] Create `src/pages/api/prepare-mapping.ts` to pre-populate game rosters in the database after Module 1.
+- [x] Modify `GameDetails` ([id].tsx) to include a "Start AI Mapping" trigger in the Identity Mapping tab.
 - [ ] Update `process-game.ts` to focus solely on the AI analysis phase (Module 2).
