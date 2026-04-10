@@ -63,6 +63,7 @@ export default function GameDetailPage() {
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
   const isRosterPrepopulated = stats && stats.length > 0;
+  const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
 
   const handleStartMapping = async () => {
     if (!gameId || !isValidUUID(gameId)) return;
@@ -312,21 +313,23 @@ export default function GameDetailPage() {
                   <p className="text-sm text-muted-foreground">Module 2: Verify and map detected identities to rostered directory players.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                  {(game?.status !== 'processing' && game?.status !== 'analyzing') && (
-                    <Button 
-                      onClick={handleStartMapping} 
-                      disabled={analyzing || !isRosterPrepopulated} 
-                      className={cn(
-                        "font-bold h-10 px-8 shadow-xl uppercase tracking-tighter transition-all",
-                        isRosterPrepopulated 
-                          ? "bg-primary hover:bg-primary/90 shadow-primary/30" 
-                          : "bg-muted text-muted-foreground cursor-not-allowed"
-                      )}
-                    >
-                      {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      {analyzing ? "PREPARING..." : (game?.status === 'completed' || game?.status === 'error') ? "RE-RUN AI ENGINE" : "PREPARE AI ENGINE"}
-                    </Button>
-                  )}
+                  <Button 
+                    onClick={handleStartMapping} 
+                    disabled={analyzing || isCurrentlyProcessing || !isRosterPrepopulated} 
+                    className={cn(
+                      "font-bold h-10 px-8 shadow-xl uppercase tracking-tighter transition-all",
+                      isRosterPrepopulated 
+                        ? "bg-primary hover:bg-primary/90 shadow-primary/30" 
+                        : "bg-muted text-muted-foreground cursor-not-allowed"
+                    )}
+                  >
+                    { (analyzing || isCurrentlyProcessing) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" /> }
+                    { analyzing || isCurrentlyProcessing 
+                      ? "ANALYSIS IN PROGRESS" 
+                      : isAnalysisComplete ? "RE-RUN AI ENGINE" : "PREPARE AI ENGINE" 
+                    }
+                  </Button>
+                  
                   <Badge variant="outline" className={cn(
                     "px-4 py-1 border-primary/20 font-mono h-10 uppercase tracking-tighter font-black",
                     isRosterPrepopulated ? "text-primary bg-primary/5" : "text-muted-foreground bg-muted/5"
