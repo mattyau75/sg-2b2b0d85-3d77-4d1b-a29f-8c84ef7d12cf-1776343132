@@ -312,34 +312,18 @@ export default function GameDetailPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   {game?.status !== 'processing' && game?.status !== 'analyzing' && (
-                    <Button onClick={handleStartMapping} disabled={analyzing} className="bg-primary hover:bg-primary/90 font-bold h-10 px-6 shadow-lg shadow-primary/20">
+                    <Button onClick={handleStartMapping} disabled={analyzing} className="bg-primary hover:bg-primary/90 font-bold h-10 px-8 shadow-xl shadow-primary/30 uppercase tracking-tighter">
                       {analyzing ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      START AI IDENTITY MAPPING
+                      PREPARE AI ENGINE
                     </Button>
                   )}
-                  <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10 uppercase tracking-tighter">
+                  <Badge variant="outline" className="px-4 py-1 border-primary/20 text-primary bg-primary/5 font-mono h-10 uppercase tracking-tighter font-black">
                     {detectedPlayers.length > 0 ? `${detectedPlayers.length} IDENTITIES DETECTED` : "PREPARING AI ENGINE"}
                   </Badge>
                 </div>
               </div>
 
-              {detectedPlayers.length === 0 && (
-                <div className="p-12 text-center rounded-xl border border-dashed border-white/10 bg-white/5">
-                  <div className="max-w-md mx-auto space-y-4">
-                    <div className="flex justify-center -space-x-4">
-                      {homeRoster.slice(0, 3).map((p, i) => (
-                        <div key={i} className="h-12 w-12 rounded-full border-2 border-background bg-primary/20 flex items-center justify-center font-bold text-primary italic">#{p.number}</div>
-                      ))}
-                    </div>
-                    <div className="space-y-2">
-                      <h4 className="font-bold text-lg">Rosters Ready for Module 2</h4>
-                      <p className="text-sm text-muted-foreground">
-                        {homeRoster.length + awayRoster.length} players from {game?.home_team?.name} and {game?.away_team?.name} are pre-loaded. Click the button above to start the AI identity recognition engine.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              <MappingStagingTable homeRoster={homeRoster} awayRoster={awayRoster} game={game} />
             </Card>
           </TabsContent>
 
@@ -483,6 +467,70 @@ export default function GameDetailPage() {
         {game && <EditGameTeamsModal game={game} isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onUpdated={fetchGameData} />}
       </div>
     </Layout>
+  );
+}
+
+// Add a helper component for the Mapping Staging Table
+function MappingStagingTable({ homeRoster, awayRoster, game }: { homeRoster: any[], awayRoster: any[], game: any }) {
+  const combined = [
+    ...homeRoster.map(p => ({ ...p, teamType: 'HOME', color: game.home_team_color || '#FFFFFF', teamName: game.home_team?.name })),
+    ...awayRoster.map(p => ({ ...p, teamType: 'AWAY', color: game.away_team_color || '#0B0F19', teamName: game.away_team?.name })),
+  ];
+
+  return (
+    <div className="rounded-xl border border-white/5 overflow-hidden bg-white/5">
+      <Table>
+        <TableHeader className="bg-white/5">
+          <TableRow className="hover:bg-transparent border-white/5">
+            <TableHead className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground h-12">Team</TableHead>
+            <TableHead className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground h-12">Rostered Player</TableHead>
+            <TableHead className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground h-12">AI Identity Key</TableHead>
+            <TableHead className="font-bold uppercase text-[10px] tracking-widest text-muted-foreground h-12">Color Target</TableHead>
+            <TableHead className="text-right font-bold uppercase text-[10px] tracking-widest text-muted-foreground h-12">Module 2 Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {combined.length > 0 ? combined.map((player) => (
+            <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
+              <TableCell>
+                <Badge variant="outline" className={cn("text-[9px] font-mono font-black", player.teamType === 'HOME' ? "border-primary/50 text-primary bg-primary/5" : "border-accent/50 text-accent bg-accent/5")}>
+                  {player.teamType}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <div className="flex flex-col">
+                  <span className="font-bold text-white text-sm">{player.name}</span>
+                  <span className="text-[10px] text-muted-foreground uppercase font-mono">{player.teamName}</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-primary font-mono font-black text-lg italic">#{player.number}</span>
+                  <span className="text-[10px] text-muted-foreground/50 font-mono">(Jersey)</span>
+                </div>
+              </TableCell>
+              <TableCell>
+                <div className="flex items-center gap-3">
+                  <div className="h-4 w-4 rounded-sm border border-white/10 shadow-sm" style={{ backgroundColor: player.color }} />
+                  <span className="text-[10px] font-mono text-muted-foreground uppercase tracking-tighter">{player.color}</span>
+                </div>
+              </TableCell>
+              <TableCell className="text-right">
+                <Badge className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[9px] font-black uppercase tracking-widest py-1 px-3">
+                  STAGED FOR RECOGNITION
+                </Badge>
+              </TableCell>
+            </TableRow>
+          )) : (
+            <TableRow>
+              <TableCell colSpan={5} className="h-32 text-center text-muted-foreground italic">
+                No roster data staged. Please complete Module 1 (Team Setup) first.
+              </TableCell>
+            </TableRow>
+          )}
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 
