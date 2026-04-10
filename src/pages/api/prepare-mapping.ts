@@ -12,13 +12,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 1. Fetch all players for both teams
-    const { data: homePlayers } = await supabase.from('players').select('id, team_id').eq('team_id', homeTeamId);
-    const { data: awayPlayers } = await supabase.from('players').select('id, team_id').eq('team_id', awayTeamId);
+    const { data: homePlayers, error: homeError } = await supabase.from('players').select('id, team_id').eq('team_id', homeTeamId);
+    const { data: awayPlayers, error: awayError } = await supabase.from('players').select('id, team_id').eq('team_id', awayTeamId);
+
+    if (homeError || awayError) throw new Error("Failed to fetch rosters");
 
     const allPlayers = [...(homePlayers || []), ...(awayPlayers || [])];
 
+    if (allPlayers.length === 0) {
+      return res.status(200).json({ success: true, message: "No players found to pre-populate", count: 0 });
+    }
+
     // 2. Pre-populate player_game_stats placeholders for mapping
-    // This allows the mapping UI to show rostered players even before AI detection
     const statsEntries = allPlayers.map(p => ({
       game_id: gameId,
       player_id: p.id,
@@ -32,12 +37,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       fg_attempted: 0
     }));
 
-    // Upsert to avoid duplicates if re-running
+    // Upsert based on the (game_id, player_id) unique constraint
     const { error: statsError } = await supabase
       .from('player_game_stats')
       .upsert(statsEntries, { onConflict: 'game_id,player_id' });
 
-    if (statsError) throw statsError;
+    if (statsError) {
+      console.error("[PrepareMapping] Upsert Error:", statsError);
+      throw statsError;
+    }
 
     return res.status(200).json({ 
       success: true, 

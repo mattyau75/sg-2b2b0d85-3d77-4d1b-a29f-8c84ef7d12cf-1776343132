@@ -263,6 +263,7 @@ export type Database = {
           points: number | null
           rebounds: number | null
           steals: number | null
+          team_id: string | null
           three_attempted: number | null
           three_made: number | null
           turnovers: number | null
@@ -282,6 +283,7 @@ export type Database = {
           points?: number | null
           rebounds?: number | null
           steals?: number | null
+          team_id?: string | null
           three_attempted?: number | null
           three_made?: number | null
           turnovers?: number | null
@@ -301,6 +303,7 @@ export type Database = {
           points?: number | null
           rebounds?: number | null
           steals?: number | null
+          team_id?: string | null
           three_attempted?: number | null
           three_made?: number | null
           turnovers?: number | null
@@ -318,6 +321,13 @@ export type Database = {
             columns: ["player_id"]
             isOneToOne: false
             referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "player_game_stats_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
             referencedColumns: ["id"]
           },
         ]
