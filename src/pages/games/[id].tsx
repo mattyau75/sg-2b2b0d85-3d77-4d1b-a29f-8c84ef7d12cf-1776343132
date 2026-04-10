@@ -29,6 +29,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
+import { WorkerLogs, type LogEntry } from "@/components/WorkerLogs";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import axios from "axios";
@@ -61,6 +62,7 @@ export default function GameDetailPage() {
   const [manualMappings, setManualMappings] = useState<Record<string, string>>({});
   const [analyzing, setAnalyzing] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
 
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
@@ -134,6 +136,7 @@ export default function GameDetailPage() {
       
       const metadata = gameData.processing_metadata as any;
       setManualMappings(metadata?.manual_mappings || {});
+      setWorkerLogs(metadata?.worker_logs || []);
 
       const { data: statsData } = await supabase
         .from('player_game_stats')
@@ -408,6 +411,10 @@ export default function GameDetailPage() {
                     <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 25 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Ignition</div>
                     <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 50 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Recognition</div>
                     <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 90 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Finalizing</div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <WorkerLogs logs={workerLogs} />
                   </div>
                 </div>
               )}

@@ -90,7 +90,7 @@ def split_video(video_url: str, chunk_duration: int = 300):
     num_chunks = math.ceil(duration / chunk_duration)
     return [{"url": video_url, "start": i * chunk_duration, "chunk_id": i} for i in range(num_chunks)]
 
-def update_supabase_progress(game_id, progress, status=None, credentials=None):
+def update_supabase_progress(game_id, progress, status=None, credentials=None, log_msg=None, log_level="info"):
     """Callback to update Next.js dashboard via Supabase REST."""
     supabase_url = credentials.get("url") if credentials else os.environ.get("SUPABASE_URL")
     supabase_key = credentials.get("key") if credentials else os.environ.get("SUPABASE_ANON_KEY")
@@ -105,7 +105,32 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None):
         "Content-Type": "application/json",
         "Prefer": "return=minimal"
     }
-    payload = {"progress_percentage": progress}
+    
+    # 1. First fetch current metadata to preserve logs
+    try:
+        current_resp = requests.get(f"{supabase_url}/rest/v1/games?id=eq.{game_id}&select=processing_metadata", headers=headers)
+        current_data = current_resp.json()
+        metadata = current_data[0].get("processing_metadata") if current_data else {}
+    except:
+        metadata = {}
+
+    if metadata is None: metadata = {}
+    logs = metadata.get("worker_logs", [])
+    
+    if log_msg:
+        import datetime
+        logs.append({
+            "timestamp": datetime.datetime.now().isoformat(),
+            "level": log_level,
+            "message": log_msg
+        })
+        # Keep only last 50 logs to prevent payload bloat
+        logs = logs[-50:]
+
+    payload = {
+        "progress_percentage": progress,
+        "processing_metadata": {**metadata, "worker_logs": logs}
+    }
     if status:
         payload["status"] = status
         
@@ -130,7 +155,7 @@ def analyze(item: dict):
     }
 
     # CRITICAL: Immediate check-in before the streaming loop
-    update_supabase_progress(game_id, 20, "analyzing", credentials=creds)
+    update_supabase_progress(game_id, 20, "analyzing", credentials=creds, log_msg="GPU Swarm Node Allocated. Initializing DribbleStats AI Elite environment.")
 
     def orchestrate():
         yield json.dumps({"__progress": 20, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
@@ -138,7 +163,7 @@ def analyze(item: dict):
         try:
             # Video split phase
             chunks = split_video.remote(item["video_url"])
-            update_supabase_progress(game_id, 25, credentials=creds)
+            update_supabase_progress(game_id, 25, credentials=creds, log_msg=f"Video partition complete. Igniting {len(chunks)} GPU sub-nodes.")
             yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
             
             # Parallel Execution across multiple GPUs
@@ -147,7 +172,7 @@ def analyze(item: dict):
             for i, result in enumerate(process_chunk.map(chunks, kwargs={"config": item}, order_outputs=True)):
                 results.append(result)
                 progress = 25 + int((i + 1) / len(chunks) * 60)
-                update_supabase_progress(game_id, progress, credentials=creds)
+                update_supabase_progress(game_id, progress, credentials=creds, log_msg=f"Node {i+1} completed chunk analysis. Recognition vectors stabilized.")
                 yield json.dumps({"__progress": progress, "__msg": f"Analyzing chunk {i+1}/{len(chunks)}..."}) + "\n"
             
             update_supabase_progress(game_id, 95, "finalizing", credentials=creds)
@@ -160,10 +185,10 @@ def analyze(item: dict):
                 "stats": {} # Total aggregation
             }
             
-            update_supabase_progress(game_id, 100, "completed", credentials=creds)
+            update_supabase_progress(game_id, 100, "completed", credentials=creds, log_msg="AI Engine stabilization complete. Identity mapping finalized.")
             yield json.dumps({"__result": final_result}) + "\n"
         except Exception as e:
-            update_supabase_progress(game_id, 100, "error", credentials=creds)
+            update_supabase_progress(game_id, 100, "error", credentials=creds, log_msg=f"CRITICAL ENGINE FAILURE: {str(e)}", log_level="error")
             yield json.dumps({"__error": str(e)}) + "\n"
 
     return StreamingResponse(orchestrate(), media_type="text/plain")
