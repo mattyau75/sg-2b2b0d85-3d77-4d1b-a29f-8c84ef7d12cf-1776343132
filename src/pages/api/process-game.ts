@@ -56,6 +56,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`[ProcessGame] Handing off to GPU Swarm for ${gameId}`);
     
+    // 0. CLEAN SLATE: Delete previous events and stats for this game to prevent duplicates
+    await Promise.all([
+      supabase.from('play_by_play').delete().eq('game_id', gameId),
+      supabase.from('player_game_stats').delete().eq('game_id', gameId)
+    ]);
+
     // 1. EAGER UPDATE: Mark as analyzing/15% immediately to signal successful dispatch
     await supabase.from('games').update({ 
       status: 'analyzing',
