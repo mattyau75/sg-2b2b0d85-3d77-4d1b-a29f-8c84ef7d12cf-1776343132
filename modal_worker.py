@@ -59,8 +59,8 @@ WEIGHTS_DIR = "/cache/yolo"
 
 # Model Configuration
 MODEL_VARIANT = "yolo11m.pt"
-CONFIDENCE_THRESHOLD = 0.25
-IOU_THRESHOLD = 0.45
+CONFIDENCE_THRESHOLD = 0.35 # Tightened for Elite Roster Discovery
+IOU_THRESHOLD = 0.50 # Optimized for overlapping gym personnel
 
 @app.function(image=image, volumes={WEIGHTS_DIR: weights_volume}, timeout=1800, gpu="A10G")
 def process_chunk(chunk_data: dict, config: dict):

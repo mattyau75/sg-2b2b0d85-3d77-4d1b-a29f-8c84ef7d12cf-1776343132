@@ -47,7 +47,7 @@ class TemporalIdentityEngine:
         
         if track_id in self.votes:
             most_common = self.votes[track_id].most_common(1)
-            if most_common and most_common[0][1] >= 2: # Consensus threshold (2+ frames)
+            if most_common and most_common[0][1] >= 5: # Consensus threshold increased to 5 for elite accuracy
                 number = most_common[0][0]
                 
                 # Capture snapshot if frame is provided
@@ -82,7 +82,7 @@ class TemporalIdentityEngine:
         return None
 
 def process_video_elite(args):
-    emit_progress(35, "Initializing AI Vision & Temporal Mapping Engine...")
+    emit_progress(35, "Initializing Elite AI Vision (YOLO11m @ 1280p)...")
     
     # Load Models
     model = YOLO("yolo11m.pt") # Elite accuracy variant
@@ -119,8 +119,18 @@ def process_video_elite(args):
         frame_count += 1
         if frame_count % 5 != 0: continue # Skip frames for speed
 
-        # 1. Detection & Tracking (BoT-SORT)
-        results_yolo = model.track(frame, persist=True, classes=[0], verbose=False)
+        # 1. Detection & Tracking (BoT-SORT + 1280p Inference)
+        # Higher resolution (imgsz=1280) is critical for small jersey numbers
+        results_yolo = model.track(
+            frame, 
+            persist=True, 
+            classes=[0], 
+            imgsz=1280, 
+            tracker="botsort.yaml",
+            conf=0.35,
+            iou=0.5,
+            verbose=False
+        )
         
         if results_yolo[0].boxes.id is not None:
             track_ids = results_yolo[0].boxes.id.cpu().numpy().astype(int)
