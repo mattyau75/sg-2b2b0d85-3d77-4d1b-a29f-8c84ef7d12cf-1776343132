@@ -107,14 +107,21 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None, l
     }
     
     # 1. First fetch current metadata to preserve logs
+    metadata = {}
     try:
-        current_resp = requests.get(f"{supabase_url}/rest/v1/games?id=eq.{game_id}&select=processing_metadata", headers=headers)
-        current_data = current_resp.json()
-        metadata = current_data[0].get("processing_metadata") if current_data else {}
-    except:
-        metadata = {}
+        current_resp = requests.get(f"{supabase_url}/rest/v1/games?id=eq.{game_id}&select=processing_metadata", headers=headers, timeout=5)
+        if current_resp.status_code == 200:
+            current_data = current_resp.json()
+            metadata = current_data[0].get("processing_metadata") if current_data else {}
+    except Exception as e:
+        print(f"⚠️ Could not fetch existing metadata: {e}")
 
     if metadata is None: metadata = {}
+    
+    # Ensure worker_logs exists
+    if "worker_logs" not in metadata:
+        metadata["worker_logs"] = []
+    
     logs = metadata.get("worker_logs", [])
     
     if log_msg:
