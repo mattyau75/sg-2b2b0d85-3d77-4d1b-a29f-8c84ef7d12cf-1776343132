@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ message: "Method not allowed" });
   }
 
-  // Force no-cache to prevent stale 404s from being cached by the browser
+  // Force no-cache to prevent stale 404s
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
   res.setHeader("Pragma", "no-cache");
   res.setHeader("Expires", "0");
@@ -27,37 +27,52 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const bucketName = process.env.R2_BUCKET_NAME;
     if (!bucketName) throw new Error("R2_BUCKET_NAME environment variable is missing");
 
-    // Robust path sanitization:
-    // 1. Remove leading slash if present
-    // 2. Decode URL characters (in case the path was stored as a full URL)
-    // 3. Remove "games/" prefix if it was accidentally doubled
-    let sanitizedPath = videoPath.startsWith('/') ? videoPath.slice(1) : videoPath;
-    try { sanitizedPath = decodeURIComponent(sanitizedPath); } catch (e) {}
+    // Robust path resolution logic
+    // We will try several variations of the key to ensure we find the file
+    let primaryKey = videoPath.trim();
     
-    // Final key should not have the protocol or domain if it was passed as a full URL
-    if (sanitizedPath.includes('://')) {
-      const url = new URL(sanitizedPath);
-      sanitizedPath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+    // 1. Decode URL characters
+    try { primaryKey = decodeURIComponent(primaryKey); } catch (e) {}
+    
+    // 2. Extract key from full URL if passed
+    if (primaryKey.includes('://')) {
+      const url = new URL(primaryKey);
+      primaryKey = url.pathname;
     }
 
-    console.log(`[ProcessGame] Verifying R2 Key: ${sanitizedPath}`);
+    // 3. Remove leading slash
+    if (primaryKey.startsWith('/')) primaryKey = primaryKey.slice(1);
 
-    // Verify file existence in R2
-    try {
-      await r2Client.send(new HeadObjectCommand({ 
-        Bucket: bucketName, 
-        Key: sanitizedPath 
-      }));
-    } catch (e: any) {
-      console.error(`[ProcessGame] File Check Failed for key: ${sanitizedPath}`, e.message);
+    const keysToTry = [
+      primaryKey,
+      `raw-footage/${primaryKey.split('/').pop()}`, // Fallback to raw-footage if nested incorrectly
+      primaryKey.replace('raw-footage/raw-footage/', 'raw-footage/') // Fix double prefixes
+    ];
+
+    let confirmedKey = "";
+    console.log(`[ProcessGame] Starting resolution for key variations:`, keysToTry);
+
+    for (const key of keysToTry) {
+      if (!key) continue;
+      try {
+        await r2Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
+        confirmedKey = key;
+        console.log(`[ProcessGame] ✅ Verified R2 Key: ${key}`);
+        break;
+      } catch (e) {
+        console.log(`[ProcessGame] ❌ Key not found: ${key}`);
+      }
+    }
+
+    if (!confirmedKey) {
       return res.status(404).json({ 
-        message: `Video file not found in storage. Checked key: ${sanitizedPath}`,
-        path: sanitizedPath
+        message: `Video file not found in storage. Checked keys: ${keysToTry.join(', ')}`,
+        triedKeys: keysToTry
       });
     }
 
     // Generate a temporary signed URL for the GPU worker (valid for 24h)
-    const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: sanitizedPath });
+    const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: confirmedKey });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
     // Fetch team rosters for mapping
@@ -87,7 +102,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       progress_percentage: 10, 
       ignition_status: 'ignited',
       updated_at: new Date().toISOString(),
-      last_error: null
+      last_error: null,
+      video_path: confirmedKey // Update the record with the confirmed working key
     } as any).eq('id', gameId);
 
     // Fire and forget GPU handoff
@@ -103,7 +119,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(202).json({ 
       success: true, 
       message: "Ignition Sequence Started", 
-      id: gameId 
+      id: gameId,
+      confirmedKey
     });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
