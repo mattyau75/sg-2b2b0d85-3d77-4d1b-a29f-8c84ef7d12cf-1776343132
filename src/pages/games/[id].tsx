@@ -27,6 +27,7 @@ import { VideoPlayer } from "@/components/VideoPlayer";
 import { ShotChart, type Shot } from "@/components/ShotChart";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -388,6 +389,28 @@ export default function GameDetailPage() {
                   </Badge>
                 </div>
               </div>
+
+              {(isCurrentlyProcessing || game?.status === 'error') && (
+                <div className="space-y-4 p-6 rounded-xl bg-primary/5 border border-primary/10 animate-in fade-in slide-in-from-top-4 duration-500">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="flex items-center gap-2 text-primary font-bold uppercase tracking-widest">
+                      {game?.status === 'error' ? (
+                        <><AlertCircle className="h-3 w-3" /> ANALYSIS HALTED</>
+                      ) : (
+                        <><RefreshCw className="h-3 w-3 animate-spin" /> GPU CLUSTER ACTIVE</>
+                      )}
+                    </span>
+                    <span className="text-muted-foreground">{game?.progress_percentage || 0}% COMPLETE</span>
+                  </div>
+                  <Progress value={game?.progress_percentage || 0} className="h-2 bg-primary/10" />
+                  <div className="grid grid-cols-4 gap-2 text-[10px] font-mono uppercase tracking-tighter">
+                    <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 10 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Handoff</div>
+                    <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 25 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Ignition</div>
+                    <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 50 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Recognition</div>
+                    <div className={cn("text-center p-1 rounded", (game?.progress_percentage || 0) >= 90 ? "text-primary font-bold bg-primary/10" : "text-muted-foreground/40")}>Finalizing</div>
+                  </div>
+                </div>
+              )}
 
               {game?.last_error && (
                 <div className="p-4 rounded-lg bg-destructive/10 border border-destructive/20 flex items-start gap-3 animate-in slide-in-from-top-2">
