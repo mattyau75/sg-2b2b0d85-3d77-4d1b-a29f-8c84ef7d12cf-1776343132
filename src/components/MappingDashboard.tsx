@@ -12,7 +12,8 @@ import {
   Fingerprint,
   RotateCcw,
   Save,
-  Palette
+  Palette,
+  Image as ImageIcon
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -95,15 +96,30 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, o
                 aiMappings.map((track) => (
                   <TableRow key={track.id} className="border-white/5 group">
                     <TableCell>
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-mono text-muted-foreground">ID: {track.ai_track_id || track.id.slice(0, 8)}</span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div 
-                            className="w-4 h-4 rounded-sm border border-white/10 shadow-sm"
-                            style={{ backgroundColor: track.detected_color || (track.team_side === 'home' ? '#EA580C' : '#06B6D4') }}
-                            title="Detected Average Color"
-                          />
-                          <span className="text-[10px] font-bold uppercase">{track.team_side}</span>
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-12 w-10 bg-muted rounded border border-white/5 overflow-hidden flex-shrink-0">
+                          {track.snapshot_url ? (
+                            <img 
+                              src={track.snapshot_url} 
+                              alt="Player Snapshot" 
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground/20" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-mono text-muted-foreground">ID: {track.ai_track_id || track.id.slice(0, 8)}</span>
+                          <div className="flex items-center gap-2 mt-1">
+                            <div 
+                              className="w-4 h-4 rounded-sm border border-white/10 shadow-sm"
+                              style={{ backgroundColor: track.detected_color || (track.team_side === 'home' ? '#EA580C' : '#06B6D4') }}
+                              title="Detected Average Color"
+                            />
+                            <span className="text-[10px] font-bold uppercase">{track.team_side}</span>
+                          </div>
                         </div>
                       </div>
                     </TableCell>

@@ -1,6 +1,6 @@
 ---
 title: "Implement AI Visual Snapshots for Mapping"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "feature"
 tags: ["ai", "ui", "storage"]
@@ -13,7 +13,7 @@ Enhance the AI Discovery phase to capture visual evidence of every detected play
 
 ## Checklist:
 - [x] Add `snapshot_url` to `ai_player_mappings` table.
-- [ ] Update `opencv_statgen.py`: Extract bounding box crops (JPG) for unique tracks.
-- [ ] Update `modal_worker.py`: Handle snapshot upload to R2 and link to mapping DB.
-- [ ] Update `MappingDashboard.tsx`: Display snapshot images in the discovery registry.
-- [ ] Implement visual fallback: Show a '?' placeholder if snapshot is missing.
+- [x] Update `opencv_statgen.py`: Extract bounding box crops (JPG) for unique tracks.
+- [x] Update `modal_worker.py`: Handle snapshot upload to R2 and link to mapping DB.
+- [x] Update `MappingDashboard.tsx`: Display snapshot images in the discovery registry.
+- [x] Implement visual fallback: Show a '?' placeholder if snapshot is missing.

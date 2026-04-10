@@ -255,7 +255,27 @@ def analyze(item: dict):
             # SAVE TO SUPABASE
             if unique_mappings:
                 mapping_rows = []
+                from supabase import create_client
+                client = create_client(creds['url'], creds['key'])
+
                 for m in unique_mappings.values():
+                    # Handle Snapshot Upload
+                    snapshot_url = None
+                    if m.get('snapshot'):
+                        try:
+                            import base64
+                            img_data = base64.b64decode(m['snapshot'])
+                            file_path = f"snapshots/{game_id}/{m['track_id']}.jpg"
+                            # Upload to public 'snapshots' bucket
+                            client.storage.from_('snapshots').upload(
+                                file_path, 
+                                img_data,
+                                {"content-type": "image/jpeg", "upsert": "true"}
+                            )
+                            snapshot_url = client.storage.from_('snapshots').get_public_url(file_path)
+                        except Exception as e:
+                            print(f"⚠️ Snapshot upload failed: {e}")
+
                     # Check for auto-match with roster
                     roster = item.get('home_roster' if m['team_side'] == 'home' else 'away_roster', [])
                     match = next((p for p in roster if str(p['number']) == str(m['jersey_number'])), None)
@@ -268,12 +288,10 @@ def analyze(item: dict):
                         "detected_color": m.get('color_hex'),
                         "ai_track_id": m.get('track_id'),
                         "real_player_id": match['id'] if match else None,
+                        "snapshot_url": snapshot_url,
                         "is_manual_override": False
                     })
                 
-                # Use execute_sql_query style logic via the creds if possible, or simple insert
-                from supabase import create_client
-                client = create_client(creds['url'], creds['key'])
                 client.table('ai_player_mappings').insert(mapping_rows).execute()
 
             # THE SEAL: Transition to Mapping Ready state

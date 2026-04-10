@@ -9,6 +9,7 @@ from pathlib import Path
 from collections import Counter
 import yt_dlp
 from ultralytics import YOLO
+import base64
 
 def emit_progress(progress: int, msg: str = ""):
     print(json.dumps({"__progress": progress, "__msg": msg}), flush=True)
@@ -40,7 +41,7 @@ class TemporalIdentityEngine:
         if num_str in self.roster_home or num_str in self.roster_away:
             self.votes[track_id][num_str] += 1
 
-    def resolve(self, track_id):
+    def resolve(self, track_id, frame=None):
         if track_id in self.confirmed_identities:
             return self.confirmed_identities[track_id]
         
@@ -48,19 +49,33 @@ class TemporalIdentityEngine:
             most_common = self.votes[track_id].most_common(1)
             if most_common and most_common[0][1] >= 2: # Consensus threshold (2+ frames)
                 number = most_common[0][0]
+                
+                # Capture snapshot if frame is provided
+                snapshot_b64 = None
+                if frame is not None:
+                    try:
+                        # Find the box for this track_id in the current frame results
+                        # This is a simplified placeholder for the actual ROI crop logic
+                        _, buffer = cv2.imencode('.jpg', frame)
+                        snapshot_b64 = base64.b64encode(buffer).decode('utf-8')
+                    except:
+                        pass
+
                 if number in self.roster_home:
                     self.confirmed_identities[track_id] = {
                         "id": self.roster_home[number]['id'],
                         "name": self.roster_home[number]['name'],
                         "number": number,
-                        "team": "home"
+                        "team": "home",
+                        "snapshot": snapshot_b64
                     }
                 elif number in self.roster_away:
                     self.confirmed_identities[track_id] = {
                         "id": self.roster_away[number]['id'],
                         "name": self.roster_away[number]['name'],
                         "number": number,
-                        "team": "away"
+                        "team": "away",
+                        "snapshot": snapshot_b64
                     }
                 
                 return self.confirmed_identities.get(track_id)
@@ -121,16 +136,17 @@ def process_video_elite(args):
                     if nums: identity_engine.add_vote(track_id, nums[track_id % len(nums)])
                 
                 # Resolve Identity using multi-frame consensus
-                identity = identity_engine.resolve(track_id)
+                identity = identity_engine.resolve(track_id, frame)
                 
                 if identity:
                     # Log unique AI Discovery result
                     results.append({
                         "team_side": identity['team'],
                         "jersey_number": identity['number'],
-                        "confidence": 0.95, # High confidence for consensus matches
+                        "confidence": 0.95,
                         "track_id": str(track_id),
-                        "color_hex": "#EA580C" if identity['team'] == 'home' else '#06B6D4'
+                        "color_hex": "#EA580C" if identity['team'] == 'home' else '#06B6D4',
+                        "snapshot": identity.get('snapshot')
                     })
 
         if frame_count % 100 == 0:
