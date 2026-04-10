@@ -1,19 +1,20 @@
 import axios from "axios";
 
 /**
- * Service for handling R2 storage operations with 8GB+ Multipart Upload support.
+ * Service for handling R2 storage operations with Parallel Multipart Upload support.
  */
 export const storageService = {
   /**
-   * Uploads a video file using Multipart Upload for stability and speed.
+   * Uploads a video file using Parallel Multipart Upload for maximum speed.
    */
   async uploadVideo(
     file: File, 
     onProgress: (progress: number) => void,
     abortSignal?: AbortSignal
   ): Promise<string> {
-    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks for optimal performance
+    const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
     const totalParts = Math.ceil(file.size / CHUNK_SIZE);
+    const CONCURRENCY_LIMIT = 5; // Upload 5 parts simultaneously
 
     try {
       // 1. Initialize Multipart Upload
@@ -25,72 +26,89 @@ export const storageService = {
       const { uploadId, key } = initResponse.data;
 
       const uploadedParts: { etag: string; partNumber: number }[] = [];
-      let totalUploaded = 0;
+      const totalUploaded = 0;
+      const activeUploads = 0;
+      let nextPartToUpload = 1;
+      let hasError = false;
+      let lastErrorMessage = "";
 
-      // 2. Upload parts sequentially
-      for (let partNumber = 1; partNumber <= totalParts; partNumber++) {
-        // Check if aborted before starting a new part
-        if (abortSignal?.aborted) throw new Error("Upload cancelled by user");
+      // Progress tracker for all parts
+      const partsProgress: Record<number, number> = {};
+
+      const uploadPart = async (partNumber: number): Promise<void> => {
+        if (hasError || abortSignal?.aborted) return;
 
         const start = (partNumber - 1) * CHUNK_SIZE;
         const end = Math.min(start + CHUNK_SIZE, file.size);
         const chunk = file.slice(start, end);
 
-        // Get signed URL for this part
-        const signResponse = await axios.post("/api/storage/multipart?action=sign-part", {
-          uploadId,
-          key,
-          partNumber
-        }, { signal: abortSignal });
-        
-        const { url } = signResponse.data;
+        try {
+          // Get signed URL
+          const signResponse = await axios.post("/api/storage/multipart?action=sign-part", {
+            uploadId,
+            key,
+            partNumber
+          }, { signal: abortSignal });
+          
+          const { url } = signResponse.data;
 
-        // Upload the chunk
-        const uploadResponse = await axios.put(url, chunk, {
-          headers: { "Content-Type": file.type },
-          signal: abortSignal
-        });
+          // Upload chunk with progress tracking for this specific part
+          const uploadResponse = await axios.put(url, chunk, {
+            headers: { "Content-Type": file.type },
+            signal: abortSignal,
+            onUploadProgress: (progressEvent) => {
+              if (progressEvent.loaded) {
+                partsProgress[partNumber] = progressEvent.loaded;
+                const totalLoaded = Object.values(partsProgress).reduce((a, b) => a + b, 0);
+                onProgress(Math.round((totalLoaded / file.size) * 100));
+              }
+            }
+          });
 
-        const etag = uploadResponse.headers.etag;
-        if (!etag) throw new Error(`Failed to get ETag for part ${partNumber}`);
+          const etag = uploadResponse.headers.etag;
+          if (!etag) throw new Error(`Failed to get ETag for part ${partNumber}`);
 
-        uploadedParts.push({ etag, partNumber });
-        
-        totalUploaded += chunk.size;
-        onProgress(Math.round((totalUploaded / file.size) * 100));
-      }
+          uploadedParts.push({ etag, partNumber });
+        } catch (error: any) {
+          if (!axios.isCancel(error)) {
+            hasError = true;
+            lastErrorMessage = error.message;
+          }
+          throw error;
+        }
+      };
+
+      // Worker pool logic
+      const workers = Array.from({ length: Math.min(CONCURRENCY_LIMIT, totalParts) }).map(async () => {
+        while (nextPartToUpload <= totalParts && !hasError && !abortSignal?.aborted) {
+          const partNumber = nextPartToUpload++;
+          await uploadPart(partNumber);
+        }
+      });
+
+      await Promise.all(workers);
+
+      if (hasError) throw new Error(lastErrorMessage || "Parallel upload failed");
+      if (abortSignal?.aborted) throw new Error("CANCELLED");
 
       // 3. Complete Multipart Upload
-      console.log("Upload reached 100%. Finalizing 8GB+ file reassembly...");
-      console.log(`[StorageService] Sending completion request for uploadId: ${uploadId}, key: ${key}`);
-      console.log(`[StorageService] Completion payload:`, { uploadId, key, parts: uploadedParts.length });
+      console.log("Parallel upload complete. Finalizing reassembly...");
       
       const completeResponse = await axios.post("/api/storage/multipart?action=complete", {
         uploadId,
         key,
-        parts: uploadedParts
+        parts: uploadedParts.sort((a, b) => a.partNumber - b.partNumber)
       }, { signal: abortSignal });
 
-      console.log(`[StorageService] Completion response status: ${completeResponse.status}`);
-      console.log(`[StorageService] Completion response data:`, completeResponse.data);
-
-      if (completeResponse.status !== 200) {
-        throw new Error("Cloudflare R2 failed to reassemble the video parts.");
-      }
-
       if (!completeResponse.data?.success) {
-        console.error("[StorageService] R2 Completion failed:", completeResponse.data);
-        throw new Error(`R2 reassembly rejected: ${completeResponse.data?.message || 'Unknown error'}`);
+        throw new Error(completeResponse.data?.message || "R2 reassembly rejected.");
       }
 
-      console.log(`[StorageService] File successfully created at: ${completeResponse.data.location}`);
       return key;
     } catch (error: any) {
-      if (axios.isCancel(error) || error.name === 'CanceledError' || abortSignal?.aborted) {
-        console.log("Upload aborted by user");
+      if (axios.isCancel(error) || abortSignal?.aborted) {
         throw new Error("CANCELLED");
       }
-      console.error("Multipart Upload Error:", error);
       throw error;
     }
   },
@@ -111,11 +129,9 @@ export const storageService = {
 
   async processGame(data: any) {
     try {
-      console.log(`[StorageService] Triggering GPU analysis for Game: ${data.gameId}`);
       const response = await axios.post("/api/process-game", data);
       return response.data;
     } catch (error: any) {
-      console.error("[StorageService] Process Game Failed:", error.response?.data || error.message);
       throw new Error(error.response?.data?.message || "Failed to secure access to R2 video file.");
     }
   }
