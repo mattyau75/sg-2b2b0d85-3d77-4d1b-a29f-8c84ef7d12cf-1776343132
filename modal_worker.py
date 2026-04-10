@@ -120,7 +120,6 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None, l
     }
 
     # PATCH update: This is idempotent and doesn't require a prior SELECT
-    # We use Postgres 'jsonb_set' or just overwrite for the simple heartbeat
     payload = {
         "progress_percentage": progress,
         "ignition_status": "ignited",
@@ -132,9 +131,7 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None, l
         payload["status"] = status
 
     # For logs, we append to the existing array without fetching it first
-    # This avoids the 'NoneType' crash if metadata is null
     try:
-        # Note: We overwrite metadata for the first heartbeat to ensure 'worker_logs' exists
         if progress <= 25:
             payload["processing_metadata"] = {"worker_logs": [new_log]}
         
