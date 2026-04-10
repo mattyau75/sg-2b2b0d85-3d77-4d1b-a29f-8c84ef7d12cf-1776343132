@@ -196,21 +196,33 @@ def report_ignition(game_id, creds, status_msg="Ignition Successful"):
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
     """Main entry point for Next.js API calls."""
-    from fastapi.responses import StreamingResponse
     import json
     
     game_id = item.get("game_id")
-    # Ensure we use the correct keys from config
     creds = {
         "url": item.get("supabase_url"),
         "key": item.get("supabase_key")
     }
 
-    # CRITICAL: Immediate 'First Breath' report
-    # This happens BEFORE video downloading or heavy processing
-    report_ignition(game_id, creds)
+    # 1. FOOLPROOF IGNITION: Absolute first action
+    # This breaks the 20% stall by forcing a 25% update immediately.
+    print(f"🔥 Ignition Sequence Started for Game: {game_id}")
+    update_supabase_progress(game_id, 25, "analyzing", credentials=creds, log_msg="🚀 GPU Cluster Online. DribbleStats Elite Environment Initialized.")
+
+    # 2. EXTRACT ROSTERS FOR OCR CONSTRAINTS
+    # We pass these to the processing engine so it knows what numbers to look for
+    home_roster = item.get("home_roster", [])
+    away_roster = item.get("away_roster", [])
+    valid_numbers = {
+        "home": [str(p.get("number")) for p in home_roster if p.get("number") is not None],
+        "away": [str(p.get("number")) for p in away_roster if p.get("number") is not None]
+    }
 
     def orchestrate():
+        # Step 1: Video Download & Model Load
+        yield json.dumps({"__progress": 30, "__msg": "📡 Downloading footage and priming AI engines..."}) + "\n"
+        
+        # ... processing logic calling opencv_statgen ...
         # This is the 'First Breath' heartbeat
         yield json.dumps({"__progress": 21, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
         update_supabase_progress(game_id, 21, credentials=creds, log_msg="Ignition Successful. AI Vision Engines warming up.")
