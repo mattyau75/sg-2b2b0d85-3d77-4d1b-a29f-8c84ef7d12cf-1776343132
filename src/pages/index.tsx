@@ -18,7 +18,8 @@ import {
   Youtube,
   FileVideo,
   Plus,
-  RefreshCw
+  RefreshCw,
+  LayoutDashboard
 } from "lucide-react";
 import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -32,6 +33,7 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
+import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
 
@@ -44,7 +46,7 @@ const STATUS_PROGRESS: Record<string, number> = {
   'error': 0
 };
 
-export default function Home() {
+export default function Dashboard() {
   const router = useRouter();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
@@ -56,6 +58,9 @@ export default function Home() {
     speed: "0.4s/f"
   });
   const [loading, setLoading] = useState(true);
+  const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -150,6 +155,22 @@ export default function Home() {
   const handleNewJob = (jobId: string) => {
     // Note: The realtime subscription will now handle the status updates automatically
     // once the database record is created/updated by the Modal bridge.
+  };
+
+  const handleUploadSuccess = async (gameId: string) => {
+    setIsNewGameModalOpen(false);
+    
+    // Fetch the newly created game to pass to the Edit modal
+    const { data, error } = await supabase
+      .from('games')
+      .select('*')
+      .eq('id', gameId)
+      .single();
+    
+    if (data) {
+      setSelectedGameForEdit(data);
+      setIsEditModalOpen(true);
+    }
   };
 
   return (

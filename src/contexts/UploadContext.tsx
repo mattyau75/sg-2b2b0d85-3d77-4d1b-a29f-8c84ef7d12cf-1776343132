@@ -53,86 +53,55 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
   }, [activeUploads, toast]);
 
   const startUpload = useCallback(async (file: File, formData: any) => {
-    const uploadId = Math.random().toString(36).substring(7);
-    const controller = new AbortController();
-    abortControllers.current[uploadId] = controller;
-    
-    const newUpload: UploadTask = {
+    // 1. Create Game record in staging status
+    const { data: gameData, error: gameError } = await supabase
+      .from('games')
+      .insert([{
+        status: 'uploading',
+        camera_type: formData.cameraType || 'panning'
+      }])
+      .select()
+      .single();
+
+    if (gameError) throw gameError;
+
+    const uploadId = crypto.randomUUID();
+    const videoKey = `raw-footage/${gameData.id}-${file.name.replace(/\s+/g, '_')}`;
+
+    // Add task to tracking
+    setActiveUploads(prev => [...prev, {
       id: uploadId,
       fileName: file.name,
       progress: 0,
-      status: "uploading"
-    };
-
-    setActiveUploads(prev => [...prev, newUpload]);
+      status: "uploading",
+      gameId: gameData.id
+    }]);
 
     try {
-      // 1. Create game record
-      const { data: gameData, error: dbError } = await supabase
-        .from('games')
-        .insert({
-          home_team_id: formData.homeTeamId,
-          away_team_id: formData.awayTeamId,
-          status: 'scheduled'
-        })
-        .select()
-        .single();
+      // 2. Perform Multipart Upload
+      const abortController = new AbortController();
+      abortControllers.current[uploadId] = abortController;
 
-      if (dbError) throw dbError;
+      await storageService.uploadMultipart(file, videoKey, (progress) => {
+        setActiveUploads(prev => prev.map(t => 
+          t.id === uploadId ? { ...t, progress } : t
+        ));
+      }, abortController.signal);
 
-      setActiveUploads(prev => prev.map(u => 
-        u.id === uploadId ? { ...u, gameId: gameData.id } : u
-      ));
-
-      console.log(`[UploadContext] Starting multipart upload for: ${file.name}`);
-      
-      // 2. Upload video with progress tracking
-      const videoKey = await storageService.uploadVideo(file, (progress) => {
-        setActiveUploads(prev => prev.map(u => u.id === uploadId ? { ...u, progress } : u));
-      }, controller.signal);
-
-      console.log(`[UploadContext] Upload complete! Video key: ${videoKey}`);
-      
       // 3. Update game record with video path
       const { error: updateError } = await supabase
         .from('games')
-        .update({ video_path: videoKey, status: 'queued' })
+        .update({ 
+          video_path: videoKey, 
+          status: 'queued' 
+        })
         .eq('id', gameData.id);
 
       if (updateError) throw updateError;
 
-      // Navigate to the game page immediately so they can see logs/progress there too
-      router.push(`/games/${gameData.id}`);
-
-      // 4. Trigger GPU processing
-      setActiveUploads(prev => prev.map(u => 
-        u.id === uploadId ? { ...u, status: "processing" } : u
-      ));
-
-      console.log(`[UploadContext] Triggering GPU analysis for game: ${gameData.id}`);
-      
-      const response = await axios.post("/api/process-game", {
-        gameId: gameData.id,
-        videoPath: videoKey,
-        homeTeamId: formData.homeTeamId,
-        awayTeamId: formData.awayTeamId,
-        homeColor: formData.homeColor,
-        awayColor: formData.awayColor
-      });
-
-      if (response.status !== 200) {
-        throw new Error(`GPU Pipeline rejected: ${response.data?.message || 'Unknown error'}`);
-      }
-
-      console.log("[UploadContext] GPU analysis triggered successfully!");
-      
-      toast({
-        title: "Analysis Started",
-        description: "Video uploaded successfully. GPU analysis is now running.",
-      });
-
-      setActiveUploads(prev => prev.filter(u => u.id !== uploadId));
-      delete abortControllers.current[uploadId];
+      // REMOVED: Immediate redirect. Returning gameId instead.
+      setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
+      return gameData.id;
 
     } catch (error: any) {
       if (error.message === "CANCELLED") {
