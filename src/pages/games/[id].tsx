@@ -24,7 +24,9 @@ import {
   Video,
   AlertTriangle,
   Terminal,
-  Cpu
+  Cpu,
+  RotateCcw,
+  Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -160,6 +162,30 @@ export default function GameDetailPage() {
       console.error("[Module 2] API Trigger Error:", error);
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleResetAnalysis = async () => {
+    if (!gameId) return;
+    setResetting(true);
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({
+          status: 'scheduled',
+          last_error: null,
+          progress_percentage: 0,
+          processing_metadata: { ...(game?.processing_metadata || {}), worker_logs: [] }
+        } as any)
+        .eq('id', gameId);
+
+      if (error) throw error;
+      toast({ title: "Swarm Cluster Reset", description: "All status flags cleared. Ready for re-ignition." });
+      await fetchGameData(true);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Reset Failed", description: error.message });
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -374,75 +400,85 @@ export default function GameDetailPage() {
                 </div>
 
                 {/* AI Stage Stepper & Diagnostic Engine */}
-                {(isCurrentlyProcessing || game?.status === 'error' || game?.m2_complete) && (
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
-                    <div className="lg:col-span-8 space-y-6">
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-[0.2em]">
-                          <span className="flex items-center gap-2 text-primary"><Cpu className="h-3 w-3" /> GPU Swarm Cluster: Stage Progress</span>
-                          <span className={cn(game?.status === 'error' ? "text-red-500" : "text-accent")}>
-                            {game?.progress_percentage || 0}% Complete
-                          </span>
-                        </div>
-                        <Progress value={game?.progress_percentage || 0} className="h-1.5 bg-white/5" />
-                        
-                        <div className="grid grid-cols-4 gap-2 pt-2">
-                          {[
-                            { step: 1, label: "Init", threshold: 10 },
-                            { step: 2, label: "Colors", threshold: 30 },
-                            { step: 3, label: "Track", threshold: 70 },
-                            { step: 4, label: "Map", threshold: 95 }
-                          ].map((s) => (
-                            <div key={s.step} className="space-y-1">
-                              <div className={cn("h-1 rounded-full", (game?.progress_percentage || 0) >= s.threshold ? "bg-primary" : "bg-white/5")} />
-                              <span className={cn("text-[8px] font-black uppercase tracking-widest block text-center", (game?.progress_percentage || 0) >= s.threshold ? "text-primary" : "text-muted-foreground/40")}>
-                                {s.label}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
+                  <div className="lg:col-span-8 space-y-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-[0.2em]">
+                        <span className="flex items-center gap-2 text-primary"><Cpu className="h-3 w-3" /> GPU Swarm Cluster: Stage Progress</span>
+                        <span className={cn(game?.status === 'error' ? "text-red-500" : "text-accent")}>
+                          {game?.progress_percentage || 0}% Complete
+                        </span>
                       </div>
-
-                      <div className="pt-2">
-                        <WorkerLogs logs={workerLogs} className="h-[250px]" />
+                      <Progress value={game?.progress_percentage || 0} className="h-1.5 bg-white/5" />
+                      
+                      <div className="grid grid-cols-4 gap-2 pt-2">
+                        {[
+                          { step: 1, label: "Init", threshold: 10 },
+                          { step: 2, label: "Colors", threshold: 30 },
+                          { step: 3, label: "Track", threshold: 70 },
+                          { step: 4, label: "Map", threshold: 95 }
+                        ].map((s) => (
+                          <div key={s.step} className="space-y-1">
+                            <div className={cn("h-1 rounded-full", (game?.progress_percentage || 0) >= s.threshold ? "bg-primary" : "bg-white/5")} />
+                            <span className={cn("text-[8px] font-black uppercase tracking-widest block text-center", (game?.progress_percentage || 0) >= s.threshold ? "text-primary" : "text-muted-foreground/40")}>
+                              {s.label}
+                            </span>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    <div className="lg:col-span-4 space-y-4">
-                      <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3 h-full">
-                        <h4 className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2">
-                          <AlertTriangle className="h-3 w-3 text-amber-500" /> Diagnostic Engine
-                        </h4>
-                        <div className="space-y-2.5">
-                          {[
-                            { label: "App Server", status: "Online", icon: CheckCircle2, color: "text-emerald-500" },
-                            { label: "Database (Supabase)", status: isRealtimeActive ? "Connected" : "Syncing", icon: Activity, color: isRealtimeActive ? "text-emerald-500" : "text-amber-500" },
-                            { label: "GPU Swarm (Modal)", status: isCurrentlyProcessing ? "Active" : "Idle", icon: Sparkles, color: isCurrentlyProcessing ? "text-primary" : "text-muted-foreground" }
-                          ].map((d, i) => (
-                            <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5">
-                              <div className="flex flex-col">
-                                <span className="text-[9px] text-muted-foreground uppercase font-bold">{d.label}</span>
-                                <span className={cn("text-[10px] font-mono", d.color)}>{d.status}</span>
-                              </div>
-                              <d.icon className={cn("h-3.5 w-3.5", d.color)} />
+                    <div className="pt-2">
+                      <WorkerLogs logs={workerLogs} className="h-[250px]" />
+                    </div>
+                  </div>
+
+                  <div className="lg:col-span-4 space-y-4">
+                    <div className="p-4 rounded-xl bg-black/40 border border-white/5 space-y-3 h-full flex flex-col">
+                      <h4 className="text-[10px] font-black text-white uppercase tracking-widest flex items-center gap-2">
+                        <AlertTriangle className="h-3 w-3 text-amber-500" /> Diagnostic Engine
+                      </h4>
+                      <div className="space-y-2.5 flex-1">
+                        {[
+                          { label: "App Server", status: "Online", icon: CheckCircle2, color: "text-emerald-500" },
+                          { label: "Database (Supabase)", status: isRealtimeActive ? "Connected" : "Syncing", icon: Activity, color: isRealtimeActive ? "text-emerald-500" : "text-amber-500" },
+                          { label: "GPU Swarm (Modal)", status: isCurrentlyProcessing ? "Active" : "Idle", icon: Sparkles, color: isCurrentlyProcessing ? "text-primary" : "text-muted-foreground" }
+                        ].map((d, i) => (
+                          <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5">
+                            <div className="flex flex-col">
+                              <span className="text-[9px] text-muted-foreground uppercase font-bold">{d.label}</span>
+                              <span className={cn("text-[10px] font-mono", d.color)}>{d.status}</span>
                             </div>
-                          ))}
-                        </div>
-                        
-                        {game?.last_error && (
-                          <div className="mt-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 space-y-2">
-                            <div className="flex items-center gap-2 text-[9px] font-bold text-red-500 uppercase tracking-widest">
-                              <AlertTriangle className="h-3 w-3" /> Fatal Bottleneck
-                            </div>
-                            <p className="text-[10px] text-red-400/80 font-mono leading-relaxed">
-                              {game.last_error}
-                            </p>
+                            <d.icon className={cn("h-3.5 w-3.5", d.color)} />
                           </div>
-                        )}
+                        ))}
+                      </div>
+                      
+                      {game?.last_error && (
+                        <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 space-y-2">
+                          <div className="flex items-center gap-2 text-[9px] font-bold text-red-500 uppercase tracking-widest">
+                            <AlertTriangle className="h-3 w-3" /> Fatal Bottleneck
+                          </div>
+                          <p className="text-[10px] text-red-400/80 font-mono leading-relaxed truncate">
+                            {game.last_error}
+                          </p>
+                        </div>
+                      )}
+
+                      <div className="pt-2">
+                        <Button 
+                          variant="ghost" 
+                          onClick={handleResetAnalysis} 
+                          disabled={resetting}
+                          className="w-full h-9 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest border border-white/5"
+                        >
+                          {resetting ? <RefreshCw className="h-3 w-3 animate-spin mr-2" /> : <RotateCcw className="h-3 w-3 mr-2 text-primary" />}
+                          Reset Swarm Cluster
+                        </Button>
                       </div>
                     </div>
                   </div>
-                )}
+                </div>
 
                 <MappingDashboard 
                   gameId={game.id} 
