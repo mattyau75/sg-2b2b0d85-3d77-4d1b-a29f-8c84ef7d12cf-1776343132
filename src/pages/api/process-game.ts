@@ -62,9 +62,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: activeGame } = await supabase.from('games').select('id').eq('id', gameId).single();
     if (!activeGame) throw new Error("Game record lost during ignition sequence");
 
-    // 1. DIRECT PULSE INJECTION: Force 25% progress locally
+    // 1. LOCAL PULSE INJECTION: Force 25% progress locally
     console.log(`[ProcessGame] Injecting Ignition Pulse for game: ${gameId}`);
-    const { error: pulseError } = await supabase
+    await supabase
       .from('games')
       .update({ 
         status: 'analyzing', 
@@ -74,12 +74,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       })
       .eq('id', gameId);
 
-    if (pulseError) {
-      console.error("[ProcessGame] Pulse Injection Failed:", pulseError.message);
-      throw new Error(`Ignition Failed: ${pulseError.message}`);
-    }
-
-    // 2. DETACHED GPU TRIGGER: Don't 'await' the long process
+    // 2. DETACHED GPU TRIGGER
+    console.log(`[ProcessGame] Dispatching to GPU Swarm...`);
     modalService.processGame(signedUrl, {
       game_id: gameId,
       home_team_id: homeTeamId,
