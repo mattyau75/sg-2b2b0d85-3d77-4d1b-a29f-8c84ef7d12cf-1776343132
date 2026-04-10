@@ -101,6 +101,9 @@ export type Database = {
           ignition_status: string | null
           last_error: string | null
           last_heartbeat: string | null
+          m1_complete: boolean | null
+          m2_complete: boolean | null
+          m3_complete: boolean | null
           processing_metadata: Json | null
           progress_percentage: number | null
           status: string | null
@@ -126,6 +129,9 @@ export type Database = {
           ignition_status?: string | null
           last_error?: string | null
           last_heartbeat?: string | null
+          m1_complete?: boolean | null
+          m2_complete?: boolean | null
+          m3_complete?: boolean | null
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
@@ -151,6 +157,9 @@ export type Database = {
           ignition_status?: string | null
           last_error?: string | null
           last_heartbeat?: string | null
+          m1_complete?: boolean | null
+          m2_complete?: boolean | null
+          m3_complete?: boolean | null
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null

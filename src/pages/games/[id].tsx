@@ -15,7 +15,13 @@ import {
   Sparkles,
   Wifi,
   WifiOff,
-  Trophy
+  Trophy,
+  Lock,
+  CheckCircle2,
+  ChevronRight,
+  Activity,
+  BarChart3,
+  Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -40,7 +46,7 @@ export default function GameDetailPage() {
   
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("recognition");
+  const [activeTab, setActiveTab] = useState("m1");
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
@@ -51,9 +57,6 @@ export default function GameDetailPage() {
   const [resetting, setResetting] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
-
-  const isRosterPrepopulated = (homeRoster.length > 0 || awayRoster.length > 0);
-  const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
 
   const fetchGameData = useCallback(async (isUpdate = false) => {
     if (!gameId || !isValidUUID(gameId)) {
@@ -122,7 +125,7 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
-  const handleStartMapping = async () => {
+  const handleStartDiscovery = async () => {
     if (!gameId) return;
     setAnalyzing(true);
     try {
@@ -134,7 +137,7 @@ export default function GameDetailPage() {
         homeColor: game.home_team_color,
         awayColor: game.away_team_color
       });
-      toast({ title: "Module 2 Active", description: "GPU Swarm ignited for identity recognition." });
+      toast({ title: "Module 2 Active", description: "GPU Swarm ignited for personnel discovery." });
       await fetchGameData(true);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Trigger Failed", description: error.message });
@@ -143,25 +146,48 @@ export default function GameDetailPage() {
     }
   };
 
-  const handleResetAnalysis = async () => {
+  const handleCompleteModule = async (moduleId: number) => {
     if (!gameId) return;
-    setResetting(true);
+    const updateKey = `m${moduleId}_complete`;
     try {
-      await supabase.from('games').update({ status: null, progress_percentage: 0, last_error: null, ignition_status: null }).eq('id', gameId);
-      toast({ title: "Analysis Cancelled", description: "GPU Swarm halted." });
+      const { error } = await supabase
+        .from('games')
+        .update({ [updateKey]: true })
+        .eq('id', gameId);
+      
+      if (error) throw error;
+      toast({ title: `Module ${moduleId} Complete`, description: "Elite workflow advanced." });
       await fetchGameData(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Reset Failed", description: error.message });
-    } finally {
-      setResetting(false);
+      toast({ variant: "destructive", title: "Update Failed", description: error.message });
     }
   };
+
+  const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
+
+  const ModuleLocked = ({ moduleNum, requiredModule }: { moduleNum: number, requiredModule: string }) => (
+    <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 border border-dashed border-white/10 rounded-2xl bg-black/20">
+      <div className="h-16 w-16 rounded-full bg-muted/20 flex items-center justify-center">
+        <Lock className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <div className="space-y-2">
+        <h3 className="text-xl font-bold text-white uppercase tracking-tight">Module {moduleNum} Locked</h3>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Personnel Discovery requires high-precision calibration. Please complete <span className="text-primary font-bold">{requiredModule}</span> to proceed.
+        </p>
+      </div>
+      <Button variant="outline" onClick={() => setActiveTab(`m${moduleNum-1}`)} className="bg-background border-primary/20">
+        Return to Module {moduleNum-1} <ChevronRight className="ml-2 h-4 w-4" />
+      </Button>
+    </div>
+  );
 
   if (loading) return <Layout><div className="flex items-center justify-center min-h-[60vh]"><RefreshCw className="h-8 w-8 animate-spin text-primary" /></div></Layout>;
 
   return (
     <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'}`}>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        {/* Elite Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-2">
             <div className={cn("flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-mono border", isRealtimeActive ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20")}>
@@ -172,7 +198,7 @@ export default function GameDetailPage() {
 
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 uppercase font-mono text-[10px]">ELITE DISCOVERY ACTIVE</Badge>
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 uppercase font-mono text-[10px]">ELITE WORKFLOW ACTIVE</Badge>
               <h1 className="text-4xl font-extrabold tracking-tighter text-white">{game?.home_team?.name || "Home"} <span className="text-primary italic">vs</span> {game?.away_team?.name || "Away"}</h1>
             </div>
             <div className="flex items-center gap-4 text-sm text-muted-foreground font-mono">
@@ -186,6 +212,7 @@ export default function GameDetailPage() {
           </div>
         </div>
 
+        {/* Tactical Video Monitor */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8">
             <div className="aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/5 bg-black ring-1 ring-white/10">
@@ -193,59 +220,200 @@ export default function GameDetailPage() {
             </div>
           </div>
           <div className="lg:col-span-4">
-            <Card className="bg-card/40 border-white/5 h-full">
+            <Card className="bg-card/40 border-white/5 h-full overflow-hidden flex flex-col">
               <div className="p-6 border-b border-white/5 bg-gradient-to-br from-primary/5 to-transparent">
-                <h3 className="text-lg font-bold flex items-center gap-2 font-mono"><Trophy className="h-5 w-5 text-primary" /> SCOUTING CORE</h3>
+                <h3 className="text-lg font-bold flex items-center gap-2 font-mono"><Trophy className="h-5 w-5 text-primary" /> PROGRESS TRACKER</h3>
               </div>
-              <CardContent className="p-8 flex flex-col justify-center items-center h-[calc(100%-70px)] text-center">
-                <div className="text-sm font-bold text-muted-foreground uppercase tracking-widest mb-4">Elite Discovery Engine</div>
-                <div className="text-xs text-muted-foreground max-w-[200px]">Perform deep roster mapping and personnel analysis using GPU-accelerated vision.</div>
+              <CardContent className="p-6 flex-1 space-y-6">
+                {[
+                  { id: 1, label: "Calibration", complete: game?.m1_complete, icon: Settings2 },
+                  { id: 2, label: "Discovery", complete: game?.m2_complete, icon: Users },
+                  { id: 3, label: "Analysis", complete: game?.m3_complete, icon: Activity },
+                  { id: 4, label: "Insights", complete: false, icon: BarChart3 },
+                ].map((mod) => (
+                  <div key={mod.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", mod.complete ? "bg-emerald-500/20" : "bg-muted/20")}>
+                        <mod.icon className={cn("h-4 w-4", mod.complete ? "text-emerald-500" : "text-muted-foreground")} />
+                      </div>
+                      <span className={cn("text-xs font-bold uppercase tracking-widest", mod.complete ? "text-white" : "text-muted-foreground")}>Module {mod.id}: {mod.label}</span>
+                    </div>
+                    {mod.complete ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : mod.id === 1 || (mod.id === 2 && game?.m1_complete) || (mod.id === 3 && game?.m2_complete) ? <Badge variant="outline" className="text-[8px] text-primary border-primary/20">READY</Badge> : <Lock className="h-3 w-3 text-muted-foreground/30" />}
+                  </div>
+                ))}
               </CardContent>
             </Card>
           </div>
         </div>
 
+        {/* Modular Workflow Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-1 gap-2 mb-8">
-            <TabsTrigger value="recognition" className="data-[state=active]:bg-primary h-12 font-bold"><Users className="h-4 w-4 mr-2" /> Identity Mapping</TabsTrigger>
+          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-2 lg:grid-cols-4 gap-2 mb-8">
+            <TabsTrigger value="m1" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
+              <Settings2 className="h-4 w-4 mr-2" /> 01: Calibration
+            </TabsTrigger>
+            <TabsTrigger value="m2" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
+              <Users className="h-4 w-4 mr-2" /> 02: Discovery
+            </TabsTrigger>
+            <TabsTrigger value="m3" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
+              <Activity className="h-4 w-4 mr-2" /> 03: Analysis
+            </TabsTrigger>
+            <TabsTrigger value="m4" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
+              <BarChart3 className="h-4 w-4 mr-2" /> 04: Insights
+            </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="recognition">
-            <Card className="bg-card/40 border-white/5 p-6 space-y-6">
+          {/* MODULE 1: CALIBRATION */}
+          <TabsContent value="m1">
+            <Card className="bg-card/40 border-white/5 p-8 space-y-8">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <h3 className="text-xl font-bold flex items-center gap-2"><Users className="h-5 w-5 text-primary" /> AI Identity Mapping</h3>
-                  <p className="text-sm text-muted-foreground">Module 2: Verify and map identities to rostered players.</p>
+                  <h3 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tighter"><Settings2 className="h-6 w-6 text-primary" /> Module 1: Elite Calibration</h3>
+                  <p className="text-sm text-muted-foreground font-mono">Initialization, color clustering, and roster validation.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Button onClick={handleStartMapping} disabled={analyzing || (isCurrentlyProcessing && !game.last_error) || !isRosterPrepopulated} className={cn("font-bold h-10 px-8 uppercase tracking-tighter", isRosterPrepopulated ? "bg-primary" : "bg-muted")}>
-                    {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                    {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? "ANALYSIS ACTIVE" : "ANALYZE GAME"}
+                {!game?.m1_complete && (
+                  <Button onClick={() => handleCompleteModule(1)} className="bg-emerald-600 hover:bg-emerald-700 font-bold uppercase tracking-widest text-xs">
+                    Mark Calibration Ready <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
-                  {isCurrentlyProcessing && !game.last_error && <Button variant="outline" onClick={handleResetAnalysis} disabled={resetting} className="text-destructive h-10 font-bold uppercase tracking-tighter">CANCEL</Button>}
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                  <h4 className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Video Metadata</h4>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Camera Type</span>
+                      <span className="font-mono text-white uppercase">{game?.camera_type || 'panning'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Venue</span>
+                      <span className="font-mono text-white">{game?.venue || 'Not set'}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Video Stream</span>
+                      <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">ENCODED</Badge>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                  <h4 className="text-xs font-bold text-accent uppercase tracking-[0.2em]">Color Calibration</h4>
+                  <div className="flex items-center gap-8">
+                    <div className="space-y-2">
+                      <div className="text-[10px] text-muted-foreground uppercase font-bold">Home Team</div>
+                      <div className="h-12 w-24 rounded-lg border border-white/10 shadow-xl" style={{ backgroundColor: game?.home_team_color || '#333' }} />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-[10px] text-muted-foreground uppercase font-bold">Away Team</div>
+                      <div className="h-12 w-24 rounded-lg border border-white/10 shadow-xl" style={{ backgroundColor: game?.away_team_color || '#666' }} />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {(isCurrentlyProcessing || game?.status === 'error') && (
-                <div className="space-y-4 p-6 rounded-xl bg-primary/5 border border-primary/10">
-                  <div className="flex items-center justify-between text-xs font-mono">
-                    <span className="flex items-center gap-2 text-primary font-bold uppercase">{game?.status === 'error' ? 'HALTED' : 'GPU ACTIVE'}</span>
-                    <span className="flex items-center gap-2">{game?.progress_percentage || 0}% COMPLETE</span>
+              <div className="p-6 rounded-2xl border border-primary/20 bg-primary/5 flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Video className="h-6 w-6 text-primary" />
                   </div>
-                  <Progress value={game?.progress_percentage || 0} className="h-2" />
-                  <div className="pt-4"><WorkerLogs logs={workerLogs} /></div>
+                  <div>
+                    <div className="text-sm font-bold text-white uppercase tracking-tight">Footage Precision Check</div>
+                    <div className="text-xs text-muted-foreground">Review calibration metadata before triggering AI Swarm.</div>
+                  </div>
                 </div>
-              )}
-
-              {!isRosterPrepopulated ? (
-                <div className="p-12 text-center rounded-xl border border-dashed border-white/10">
-                  <p className="text-sm text-muted-foreground mb-4">Module 1 Setup Required: Please save Team Metadata first.</p>
-                  <Button variant="outline" onClick={() => setIsEditModalOpen(true)}><Settings2 className="h-4 w-4 mr-2" /> OPEN SETUP</Button>
-                </div>
-              ) : (
-                <MappingDashboard gameId={game.id} aiMappings={aiMappings} homeRoster={homeRoster} awayRoster={awayRoster} onRefresh={() => fetchGameData(true)} />
-              )}
+                <Button variant="outline" onClick={() => setIsEditModalOpen(true)} className="bg-background border-primary/20">
+                  RE-CALIBRATE <Settings2 className="h-4 w-4 ml-2" />
+                </Button>
+              </div>
             </Card>
+          </TabsContent>
+
+          {/* MODULE 2: DISCOVERY */}
+          <TabsContent value="m2">
+            {!game?.m1_complete ? (
+              <ModuleLocked moduleNum={2} requiredModule="Module 1: Calibration" />
+            ) : (
+              <Card className="bg-card/40 border-white/5 p-8 space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <h3 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tighter"><Users className="h-6 w-6 text-primary" /> Module 2: AI Roster Discovery</h3>
+                    <p className="text-sm text-muted-foreground font-mono">GPU-accelerated personnel mapping and identity validation.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {!game?.m2_complete && (
+                      <Button onClick={() => handleCompleteModule(2)} variant="outline" className="border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold uppercase tracking-widest text-xs">
+                        Finalize Mappings <CheckCircle2 className="ml-2 h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button onClick={handleStartDiscovery} disabled={analyzing || (isCurrentlyProcessing && !game.last_error)} className={cn("font-bold h-10 px-8 uppercase tracking-tighter", "bg-primary")}>
+                      {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                      {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? "ANALYSIS ACTIVE" : "IGNITE SWARM"}
+                    </Button>
+                  </div>
+                </div>
+
+                {(isCurrentlyProcessing || game?.status === 'error') && (
+                  <div className="space-y-4 p-6 rounded-2xl bg-primary/5 border border-primary/10">
+                    <div className="flex items-center justify-between text-xs font-mono">
+                      <span className="flex items-center gap-2 text-primary font-bold uppercase">{game?.status === 'error' ? 'HALTED' : 'GPU ACTIVE'}</span>
+                      <span className="flex items-center gap-2">{game?.progress_percentage || 0}% COMPLETE</span>
+                    </div>
+                    <Progress value={game?.progress_percentage || 0} className="h-2" />
+                    <div className="pt-4"><WorkerLogs logs={workerLogs} /></div>
+                  </div>
+                )}
+
+                <MappingDashboard gameId={game.id} aiMappings={aiMappings} homeRoster={homeRoster} awayRoster={awayRoster} onRefresh={() => fetchGameData(true)} />
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* MODULE 3: ANALYSIS */}
+          <TabsContent value="m3">
+            {!game?.m2_complete ? (
+              <ModuleLocked moduleNum={3} requiredModule="Module 2: Discovery" />
+            ) : (
+              <Card className="bg-card/40 border-white/5 p-12 text-center space-y-6">
+                <div className="h-20 w-20 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto">
+                  <Activity className="h-10 w-10 text-accent animate-pulse" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-3xl font-black uppercase tracking-tighter italic">Module 3: Tactical Analysis</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto font-mono text-sm">
+                    Personnel mapped. Transitioning to event tracking, shot detection, and play-by-play generation.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <Badge className="bg-accent/20 text-accent border-accent/30 py-1 px-4 uppercase font-mono text-xs">READY FOR PROCESSING</Badge>
+                </div>
+                <Button className="bg-accent hover:bg-accent/90 font-black h-12 px-10 uppercase tracking-widest text-xs">
+                  EXECUTE EVENT TRACKING
+                </Button>
+              </Card>
+            )}
+          </TabsContent>
+
+          {/* MODULE 4: INSIGHTS */}
+          <TabsContent value="m4">
+            {!game?.m3_complete ? (
+              <ModuleLocked moduleNum={4} requiredModule="Module 3: Analysis" />
+            ) : (
+              <Card className="bg-card/40 border-white/5 p-12 text-center space-y-6">
+                <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
+                  <BarChart3 className="h-10 w-10 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-3xl font-black uppercase tracking-tighter">Module 4: Elite Insights</h3>
+                  <p className="text-muted-foreground max-w-md mx-auto font-mono text-sm">
+                    Intelligence synthesis. Generating efficiency reports, personnel trends, and scout-ready highlights.
+                  </p>
+                </div>
+                <div className="flex items-center justify-center gap-4">
+                  <Badge className="bg-primary/20 text-primary border-primary/30 py-1 px-4 uppercase font-mono text-xs">AWAITING ANALYTICS PAYLOAD</Badge>
+                </div>
+              </Card>
+            )}
           </TabsContent>
         </Tabs>
 
