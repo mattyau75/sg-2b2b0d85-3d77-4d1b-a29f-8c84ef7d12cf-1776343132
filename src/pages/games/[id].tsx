@@ -326,7 +326,7 @@ export default function GameDetailPage() {
                     { (analyzing || isCurrentlyProcessing) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" /> }
                     { analyzing || isCurrentlyProcessing 
                       ? "ANALYSIS IN PROGRESS" 
-                      : isAnalysisComplete ? "RE-RUN AI ENGINE" : "PREPARE AI ENGINE" 
+                      : isAnalysisComplete ? "RE-RUN AI ANALYSIS" : "ANALYZE GAME & MAP IDENTITIES" 
                     }
                   </Button>
                   
