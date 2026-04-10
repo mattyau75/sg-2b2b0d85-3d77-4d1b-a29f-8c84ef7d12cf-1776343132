@@ -59,6 +59,7 @@ export default function GameDetailPage() {
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
   const [manualMappings, setManualMappings] = useState<Record<string, string>>({});
   const [analyzing, setAnalyzing] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const isAnalysisComplete = game?.status === 'completed';
   const isSyncComplete = stats && stats.length > 0;
@@ -83,6 +84,29 @@ export default function GameDetailPage() {
       toast({ variant: "destructive", title: "Trigger Failed", description: error.message });
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleResetAnalysis = async () => {
+    if (!gameId || !isValidUUID(gameId)) return;
+    setResetting(true);
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({ 
+          status: null, 
+          progress_percentage: 0,
+          last_error: null 
+        })
+        .eq('id', gameId);
+      
+      if (error) throw error;
+      toast({ title: "Analysis Cancelled", description: "GPU Swarm halted. Module 2 has been reset." });
+      fetchGameData();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Reset Failed", description: error.message });
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -329,6 +353,17 @@ export default function GameDetailPage() {
                       : (isAnalysisComplete || game?.status === 'error') ? "RE-RUN AI ANALYSIS" : "ANALYZE GAME & MAP IDENTITIES" 
                     }
                   </Button>
+
+                  {isCurrentlyProcessing && !game.last_error && (
+                    <Button 
+                      variant="outline" 
+                      onClick={handleResetAnalysis}
+                      disabled={resetting}
+                      className="border-destructive/20 hover:bg-destructive/10 text-destructive h-10 font-bold uppercase tracking-tighter"
+                    >
+                      {resetting ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : "CANCEL ANALYSIS"}
+                    </Button>
+                  )}
                   
                   <Badge variant="outline" className={cn(
                     "px-4 py-1 border-primary/20 font-mono h-10 uppercase tracking-tighter font-black",
