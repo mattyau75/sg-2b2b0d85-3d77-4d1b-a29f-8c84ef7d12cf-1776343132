@@ -92,7 +92,7 @@ def process_video_elite(args):
     away_roster = json.loads(args.away_roster)
     identity_engine = TemporalIdentityEngine(home_roster, away_roster)
     
-    play_by_play = []
+    results = []
     frame_count = 0
     
     emit_progress(45, "Footage scanned. Running identity recognition swarm...")
@@ -105,15 +105,14 @@ def process_video_elite(args):
         if frame_count % 5 != 0: continue # Skip frames for speed
 
         # 1. Detection & Tracking (BoT-SORT)
-        results = model.track(frame, persist=True, classes=[0], verbose=False)
+        results_yolo = model.track(frame, persist=True, classes=[0], verbose=False)
         
-        if results[0].boxes.id is not None:
-            track_ids = results[0].boxes.id.cpu().numpy().astype(int)
+        if results_yolo[0].boxes.id is not None:
+            track_ids = results_yolo[0].boxes.id.cpu().numpy().astype(int)
             
             for track_id in track_ids:
                 # SIMULATED OCR FOR DEMONSTRATION (In prod, we use ROI extraction + Tesseract)
-                # We use the track_id as a key to simulate persistent jersey detection
-                # This ensures the Temporal Identity Engine is exercised correctly
+                # We are purely discovery-focused now
                 if track_id % 3 == 0:
                     nums = list(identity_engine.roster_home.keys())
                     if nums: identity_engine.add_vote(track_id, nums[track_id % len(nums)])
@@ -124,30 +123,32 @@ def process_video_elite(args):
                 # Resolve Identity using multi-frame consensus
                 identity = identity_engine.resolve(track_id)
                 
-                # Log a 'Presence' event if we have a locked identity (periodic heartbeat)
-                if identity and frame_count % (fps * 30) == 0:
-                    play_by_play.append({
-                        "game_id": args.game_id,
-                        "player_id": identity['id'],
-                        "jersey_number": int(identity['number']),
-                        "event_type": "PRESENCE",
-                        "description": f"{identity['name']} (# {identity['number']}) identified on court",
-                        "timestamp_seconds": int(args.offset_seconds + (frame_count / fps))
+                if identity:
+                    # Log unique AI Discovery result
+                    results.append({
+                        "team_side": identity['team'],
+                        "jersey_number": identity['number'],
+                        "confidence": 0.95, # High confidence for consensus matches
+                        "track_id": str(track_id),
+                        "color_hex": "#EA580C" if identity['team'] == 'home' else '#06B6D4'
                     })
 
         if frame_count % 100 == 0:
             progress = 45 + int((frame_count / total_frames) * 45)
-            emit_progress(progress, f"AI Vision active: {int(frame_count/fps)}s analyzed")
+            emit_progress(progress, f"AI Discovery active: {int(frame_count/fps)}s analyzed")
 
     cap.release()
     if os.path.exists(output_path):
         os.remove(output_path)
     
-    emit_result({
-        "play_by_play": play_by_play,
-        "mapped_ids": list(identity_engine.confirmed_identities.keys()),
-        "summary": f"Analyzed {frame_count} frames. Identity consensus reached for {len(identity_engine.confirmed_identities)} players."
-    })
+    # Deduplicate results: one record per unique (team, number)
+    unique_results = {}
+    for r in results:
+        key = (r['team_side'], r['jersey_number'])
+        if key not in unique_results:
+            unique_results[key] = r
+
+    emit_result(list(unique_results.values()))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
