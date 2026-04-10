@@ -110,7 +110,8 @@ def update_supabase_progress(game_id, progress, status=None, credentials=None):
         payload["status"] = status
         
     try:
-        requests.patch(f"{supabase_url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload)
+        response = requests.patch(f"{supabase_url}/rest/v1/games?id=eq.{game_id}", headers=headers, json=payload)
+        response.raise_for_status()
     except Exception as e:
         print(f"Failed to sync progress to DB: {e}")
 
