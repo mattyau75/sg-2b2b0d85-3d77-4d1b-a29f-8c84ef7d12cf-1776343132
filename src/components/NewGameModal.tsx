@@ -72,16 +72,22 @@ export function NewGameModal({ isOpen, onClose, onUploadSuccess }: NewGameModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCancel}>
-      <DialogContent className="max-w-xl bg-card border-border p-0 overflow-hidden shadow-2xl">
-        <DialogHeader className="px-8 pt-8 pb-4">
-          <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-            <Video className="h-6 w-6 text-primary" />
-            Step 1: Rapid Video Ingestion
-          </DialogTitle>
-          <DialogDescription className="text-muted-foreground">
-            Drop your game footage here to begin the elite discovery pipeline.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl bg-[#0B0E14] border-white/5 p-0 overflow-hidden shadow-2xl shadow-black/50">
+        <div className="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
+          <DialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                <Video className="h-4 w-4 text-primary" />
+              </div>
+              <DialogTitle className="text-2xl font-black tracking-tight text-white uppercase">
+                Step 1 : Upload Game Video
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em]">
+              High-Density Ingestion Engine • Raw Footage Input
+            </DialogDescription>
+          </DialogHeader>
+        </div>
 
         <div className="px-8 py-6">
           <div 
