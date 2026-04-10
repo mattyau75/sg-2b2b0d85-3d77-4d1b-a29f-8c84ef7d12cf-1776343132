@@ -129,12 +129,14 @@ def analyze(item: dict):
         "key": item.get("supabase_key")
     }
 
+    # CRITICAL: Immediate check-in before the streaming loop
+    update_supabase_progress(game_id, 20, "analyzing", credentials=creds)
+
     def orchestrate():
-        # Initial heartbeat to confirm worker is alive and reporting
-        update_supabase_progress(game_id, 20, "analyzing", credentials=creds)
         yield json.dumps({"__progress": 20, "__msg": "📡 GPU Node Online. Downloading video..."}) + "\n"
         
         try:
+            # Video split phase
             chunks = split_video.remote(item["video_url"])
             update_supabase_progress(game_id, 25, credentials=creds)
             yield json.dumps({"__progress": 25, "__msg": f"🔥 Igniting GPU Swarm ({len(chunks)} nodes active)..."}) + "\n"
