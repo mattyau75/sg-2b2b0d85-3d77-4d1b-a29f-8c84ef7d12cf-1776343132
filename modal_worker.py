@@ -68,13 +68,13 @@ def process_chunk(chunk_data: dict, config: dict):
     import sys
     import json
     
-    # Map API keys to script arguments
+    # Map API keys to script arguments exactly as expected by opencv_statgen.py
     cmd = [
         sys.executable, "/app/opencv_statgen.py",
         "--url", chunk_data["url"],
+        "--game-id", str(config.get("game_id")),
         "--offset-seconds", str(chunk_data["start"]),
-        "--home", config.get("home_team", "Home"),
-        "--away", config.get("away_team", "Away"),
+        "--chunk-id", str(chunk_data.get("chunk_id", 0)),
         "--home-roster", json.dumps(config.get("home_roster", [])),
         "--away-roster", json.dumps(config.get("away_roster", []))
     ]
