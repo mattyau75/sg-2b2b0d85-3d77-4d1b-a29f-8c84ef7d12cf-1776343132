@@ -31,11 +31,15 @@ def analyze(item: dict):
     Orchestration endpoint for GPU-accelerated discovery with Intricate Diagnostics.
     """
     game_id = item.get("game_id")
+    video_path = item.get("video_path")
     url = item.get("supabase_url")
     key = item.get("supabase_key") 
     
-    if not game_id or not url or not key:
-        return {"status": "error", "message": "Missing Handshake Credentials"}
+    if not game_id or not video_path:
+        return {
+            "status": "error", 
+            "message": f"Handshake Failed: Missing critical metadata. Received: {list(item.keys())}"
+        }
 
     headers = {
         "apikey": key,

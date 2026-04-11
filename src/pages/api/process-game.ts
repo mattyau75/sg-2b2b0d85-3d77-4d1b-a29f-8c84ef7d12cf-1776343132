@@ -20,8 +20,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
     
-    if (!gameId || !videoPath) {
-      return res.status(400).json({ message: "Missing required game metadata (ID or Video Path)" });
+    // Support both camelCase and snake_case during transition for robustness
+    const finalGameId = gameId || req.body.game_id;
+    const finalVideoPath = videoPath || req.body.video_path;
+
+    if (!finalGameId || !finalVideoPath) {
+      return res.status(400).json({ 
+        message: "Missing required game metadata (game_id or video_path)",
+        received: { gameId: !!finalGameId, videoPath: !!finalVideoPath }
+      });
     }
 
     const bucketName = process.env.R2_BUCKET_NAME;
@@ -29,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Robust path resolution logic
     // We will try several variations of the key to ensure we find the file
-    let primaryKey = videoPath.trim();
+    let primaryKey = finalVideoPath.trim();
     
     // 1. Decode URL characters
     try { primaryKey = decodeURIComponent(primaryKey); } catch (e) {}
@@ -95,7 +102,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
       supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
       supabase.from('players').select('id, name, number').eq('team_id', awayTeamId),
-      supabase.from('games').select('camera_type').eq('id', gameId).single()
+      supabase.from('games').select('camera_type').eq('id', finalGameId).single()
     ]);
 
     // Extract a clean filename for the GPU Volume lookup
@@ -103,11 +110,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
     const gpuConfig = {
-      game_id: gameId, 
+      game_id: finalGameId, 
+      video_path: confirmedKey,
       video_url: signedUrl,
       video_filename: videoFilename,
-      home_team_id: homeTeamId,
-      away_team_id: awayTeamId,
+      home_team_id: homeTeamId || req.body.home_team_id,
+      away_team_id: awayTeamId || req.body.away_team_id,
       homeColor,
       awayColor,
       camera_type: gameData?.camera_type || "panning",
@@ -127,22 +135,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated_at: new Date().toISOString(),
       last_error: null,
       video_path: confirmedKey 
-    } as any).eq('id', gameId);
+    } as any).eq('id', finalGameId);
 
     // Fire and forget GPU handoff
-    modalService.processGame(signedUrl, { game_id: gameId, ...gpuConfig }).catch(err => {
+    modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
       supabase.from('games').update({ 
         status: 'error', 
         last_error: `GPU Connection Failed: ${err.message}`,
         ignition_status: 'failed'
-      } as any).eq('id', gameId);
+      } as any).eq('id', finalGameId);
     });
 
     return res.status(202).json({ 
       success: true, 
       message: "Ignition Sequence Started", 
-      id: gameId,
+      id: finalGameId,
       confirmedKey
     });
   } catch (error: any) {
