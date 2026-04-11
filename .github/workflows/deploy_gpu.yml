@@ -5,6 +5,9 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   deploy:
     name: Deploy to Modal
@@ -29,8 +32,16 @@ jobs:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
+          if [ -z "$MODAL_TOKEN_ID" ] || [ -z "$MODAL_TOKEN_SECRET" ]; then
+            echo "❌ ERROR: MODAL_TOKEN_ID or MODAL_TOKEN_SECRET is missing in GitHub Secrets."
+            exit 1
+          fi
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
 
       - name: Deploy to Modal
         run: |
+          if [ ! -f "modal_worker.py" ]; then
+            echo "❌ ERROR: modal_worker.py not found in the repository root."
+            exit 1
+          fi
           modal deploy modal_worker.py
