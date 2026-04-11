@@ -137,37 +137,53 @@ export default function GameDetailPage() {
       toast({ variant: "destructive", title: "Module 1 Incomplete", description: "Calibration must be finalized before Discovery." });
       return;
     }
+    
     setAnalyzing(true);
     setIsWarming(true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      toast({ 
+        title: "Cluster Cold-Start Detected", 
+        description: "GPU resources are still warming up. Connection is established, awaiting telemetry.",
+        variant: "default"
+      });
+    }, 5000);
+
     try {
-      // Ensure we use the absolute path for the API route
-      const response = await axios.post("/api/process-game", {
-        gameId: game.id,
-        videoPath: game.video_path,
-        homeTeamId: game.home_team_id,
-        awayTeamId: game.away_team_id,
-        homeColor: game.home_team_color,
-        awayColor: game.away_team_color,
-        cameraType: game.camera_type || "panning"
+      const response = await fetch('/api/process-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId, mode: 'discovery' }),
+        signal: controller.signal
       });
 
-      if (response.status === 202) {
+      clearTimeout(timeoutId);
+
+      if (response.ok) {
         toast({ 
           title: "AI Swarm Ignited", 
-          description: "GPU cluster is warming up. This may take 30-60s for a cold start." 
+          description: "GPU cluster is now processing your footage." 
         });
         await fetchGameData(true);
+      } else {
+        const errorData = await response.json();
+        toast({ 
+          variant: "destructive", 
+          title: "Handshake Failed", 
+          description: errorData.message || "Failed to establish GPU connection. Please verify Modal Secrets." 
+        });
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.message || error.message || "Unknown discovery error";
-      toast({ 
-        variant: "destructive", 
-        title: "Ignition Failed", 
-        description: `Endpoint Error: ${errorMessage}` 
-      });
-      console.error("[Module 2] API Trigger Error:", error);
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        toast({ variant: "destructive", title: "Connection Timeout", description: "The GPU swarm took too long to respond. Please try again." });
+      } else {
+        toast({ variant: "destructive", title: "System Error", description: error.message || "An unexpected error occurred during ignition." });
+      }
     } finally {
       setAnalyzing(false);
+      setIsWarming(false);
     }
   };
 
