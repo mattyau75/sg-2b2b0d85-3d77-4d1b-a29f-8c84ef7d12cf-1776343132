@@ -3,29 +3,41 @@ import os
 import json
 from datetime import datetime
 
-# Deployment Ignition: 2026-04-11T22:42:00
-app = modal.App("dribbleai-stats-analyze")
-
-# Define the image with necessary dependencies
+# Setup the Modal image with dependencies for Basketball AI
 image = modal.Image.debian_slim().pip_install(
     "requests",
     "supabase",
     "opencv-python-headless",
-    "numpy"
+    "numpy",
+    "torch",
+    "torchvision",
+    "ultralytics"
 )
 
-@app.function(image=image, timeout=600)
-@modal.web_endpoint(method="POST")
-async def analyze(payload: dict):
-    game_id = payload.get("game_id")
-    video_path = payload.get("video_path")
+app = modal.App("basketball-scout-ai")
+
+@app.function(image=image, gpu="A10G", timeout=3600)
+def process_game_video(game_id: str, video_url: str):
+    """
+    Primary entry point for the GPU worker.
+    This function is triggered by the Next.js API.
+    """
+    print(f"Starting high-precision analysis for game {game_id}...")
     
-    print(f"Starting GPU Swarm Analysis for Game: {game_id}")
-    # Logic for analysis would go here
-    
-    return {
-        "status": "success", 
-        "message": "GPU Swarm Ignited", 
+    # AI Logic Placeholder
+    results = {
         "game_id": game_id,
-        "timestamp": datetime.now().isoformat()
+        "status": "completed",
+        "detected_players": [],
+        "timestamp": datetime.now().isoformat(),
+        "engine": "Elite-AI-v1"
     }
+    
+    return results
+
+@app.local_entrypoint()
+def main(game_id: str = "test-game"):
+    print(f"Triggering local test for {game_id}")
+    # This allows for manual testing from the CLI
+    # results = process_game_video.remote(game_id, "http://example.com/video.mp4")
+    # print(results)
