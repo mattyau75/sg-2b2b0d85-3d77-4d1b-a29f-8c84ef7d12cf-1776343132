@@ -65,11 +65,23 @@ def analyze(item: dict):
         except Exception as e:
             print(f"Diagnostic Emission Failed: {e}")
 
+    # 0. CREDENTIAL AUDIT (Immediate Fail-Fast)
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not supabase_url or not supabase_key:
+        return {
+            "status": "error",
+            "message": "🚨 DISCREPANCY DETECTED: Missing SUPABASE_SERVICE_ROLE_KEY in Modal Secrets. GPU cannot report back to App."
+        }
+
     # 1. IGNITION & VOLUME HANDSHAKE
     emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 10)
     emit_log("⚡ Cluster Warming: Allocating system resources and mounting volumes...", "info", 12)
     
-    video_filename = item.get("video_filename")
+    video_filename = item.get("video_filename", "latest_footage.mp4")
+    # Sanitize filename for local storage stability
+    video_filename = "".join([c for c in video_filename if c.isalnum() or c in "._-"])
     local_path = f"/data/{video_filename}"
     
     if os.path.exists(local_path):

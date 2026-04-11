@@ -98,9 +98,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabase.from('games').select('camera_type').eq('id', gameId).single()
     ]);
 
+    // Extract a clean filename for the GPU Volume lookup
+    const rawFilename = confirmedKey.split('/').pop() || "footage.mp4";
+    const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
+
     const gpuConfig = {
       game_id: gameId, 
-      video_filename: confirmedKey.split('/').pop(), // Pass filename for volume lookup
+      video_url: signedUrl,
+      video_filename: videoFilename,
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
       homeColor,
