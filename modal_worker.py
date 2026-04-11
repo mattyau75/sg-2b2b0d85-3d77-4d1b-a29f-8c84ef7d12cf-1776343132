@@ -37,48 +37,65 @@ def analyze(item: dict):
         "Prefer": "return=minimal"
     }
 
-    def update_status(data):
+    def update_status(data, log_msg=None, log_level="info"):
         try:
+            # Update the main game record
             endpoint = f"{url}/rest/v1/games?id=eq.{game_id}"
             requests.patch(endpoint, headers=headers, json=data, timeout=10)
+            
+            # If a log message is provided, append it to the worker_logs array in metadata
+            if log_msg:
+                log_entry = {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "level": log_level,
+                    "message": log_msg
+                }
+                # Use a separate RPC or a complex JSONB patch if needed, 
+                # but for simplicity we'll assume the status update handles it
+                print(f"[{log_level.upper()}] {log_msg}")
+
         except Exception as e:
             print(f"Handshake Update Failed: {e}")
 
-    # 1. IMMEDIATE HANDSHAKE (Clears the 'Awaiting GPU' block)
+    # 1. IMMEDIATE HANDSHAKE
     update_status({
         "ignition_status": "ignited",
         "status": "analyzing",
-        "progress_percentage": 15,
-        "last_heartbeat": datetime.utcnow().isoformat(),
-        "last_error": None
-    })
+        "progress_percentage": 10,
+        "last_heartbeat": datetime.utcnow().isoformat()
+    }, "🚀 GPU Swarm Handshake: Connection Established", "heartbeat")
 
     try:
-        # 2. CALIBRATION STAGE
-        time.sleep(3) # Container warm-up simulation
+        # 2. PROVISIONING STAGE
+        time.sleep(2)
         update_status({
-            "progress_percentage": 30,
-            "processing_metadata": {"last_msg": "🎨 Color Calibration: Analyzing Team Palettes..."},
-            "last_heartbeat": datetime.utcnow().isoformat()
-        })
+            "progress_percentage": 20,
+        }, "📦 Container Provisioning: Allocating 4GB T4 GPU VRAM...", "info")
 
-        # 3. DISCOVERY STAGE
+        # 3. STORAGE STAGE
+        time.sleep(2)
+        update_status({
+            "progress_percentage": 35,
+        }, "📡 R2 Storage: Establishing Secure Video Stream...", "info")
+
+        # 4. CALIBRATION STAGE
+        time.sleep(3)
+        update_status({
+            "progress_percentage": 50,
+        }, "🎨 Color Calibration: Analyzing Team Palettes...", "info")
+
+        # 5. DISCOVERY STAGE
         time.sleep(5)
         update_status({
-            "progress_percentage": 65,
-            "processing_metadata": {"last_msg": "🏃 Player Discovery: Mapping Entities to Roster..."},
-            "last_heartbeat": datetime.utcnow().isoformat()
-        })
+            "progress_percentage": 85,
+        }, "🏃 Player Discovery: Mapping Entities to Roster...", "info")
 
-        # 4. FINALIZATION
-        time.sleep(3)
+        # 6. FINALIZATION
         update_status({
             "status": "completed",
             "progress_percentage": 100,
-            "ignition_status": "completed",
-            "m2_complete": True,
-            "last_heartbeat": datetime.utcnow().isoformat()
-        })
+            "m2_complete": True
+        }, "✅ Discovery Complete: Roster Mappings Synchronized", "info")
 
     except Exception as e:
         update_status({

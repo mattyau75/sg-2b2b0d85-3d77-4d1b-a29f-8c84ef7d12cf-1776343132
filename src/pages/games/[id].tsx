@@ -413,10 +413,10 @@ export default function GameDetailPage() {
                       
                       <div className="grid grid-cols-4 gap-2 pt-2">
                         {[
-                          { step: 1, label: "Init", threshold: 10 },
-                          { step: 2, label: "Colors", threshold: 30 },
-                          { step: 3, label: "Track", threshold: 70 },
-                          { step: 4, label: "Map", threshold: 95 }
+                          { step: 1, label: "Ignition", threshold: 10 },
+                          { step: 2, label: "Provision", threshold: 30 },
+                          { step: 3, label: "Stream", threshold: 70 },
+                          { step: 4, label: "Finalize", threshold: 95 }
                         ].map((s) => (
                           <div key={s.step} className="space-y-1">
                             <div className={cn("h-1 rounded-full", (game?.progress_percentage || 0) >= s.threshold ? "bg-primary" : "bg-white/5")} />
@@ -429,7 +429,7 @@ export default function GameDetailPage() {
                     </div>
 
                     <div className="pt-2">
-                      <WorkerLogs logs={workerLogs} className="h-[250px]" />
+                      <WorkerLogs logs={workerLogs} className="h-[280px]" />
                     </div>
                   </div>
 
