@@ -1,11 +1,11 @@
-<![CDATA[---
+---
 title: Fix Module 2 Auto-Start & Handshake Connectivity
-status: in_progress
+status: done
 priority: urgent
 ...
-- [ ] Add "Awaiting Manual Ignition" state to the Progress Tracker
-- [ ] Implement strict session-based 'analyzing' state guard
-- [ ] Verify Supabase SERVICE_ROLE_KEY handshake in worker
-]]>
-
-[Tool result trimmed: kept first 100 chars and last 100 chars of 565 chars.]
+## Checklist:
+- [x] Implement session-based 'analyzing' state guard
+- [x] Add "Reset Swarm Cluster" manual override
+- [x] Add "Awaiting Manual Ignition" state logic
+- [x] Implement GPU Cold-Start diagnostic banner
+- [x] Verify Supabase SERVICE_ROLE_KEY handshake in worker
