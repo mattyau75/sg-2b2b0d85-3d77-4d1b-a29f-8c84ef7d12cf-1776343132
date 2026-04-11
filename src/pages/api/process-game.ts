@@ -5,7 +5,6 @@ import { modalService } from "@/services/modalService";
 import { HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { generateGpuToken } from "@/services/jwtService";
-import { simulateAnalysis } from "@/lib/mockAnalysisService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log(`[API] ${req.method} /api/process-game triggered`);
@@ -20,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader("Expires", "0");
 
   try {
-    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor, use_mock } = req.body;
+    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
     
     // Support both camelCase and snake_case
     const finalGameId = gameId || req.body.game_id;
@@ -99,30 +98,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(404).json({ 
         message: `Video file not found in storage. Checked keys: ${keysToTry.join(', ')}`,
         triedKeys: keysToTry
-      });
-    }
-
-    // Handle Mock Mode Bypass
-    if (use_mock) {
-      console.log(`[ProcessGame] 🛠️ TRIGGERING LOCAL MOCK SIMULATION for Game: ${finalGameId}`);
-      
-      // Update status to analyzing immediately
-      await supabase.from('games').update({ 
-        status: 'analyzing', 
-        progress_percentage: 5, 
-        ignition_status: 'mock_ignited',
-        updated_at: new Date().toISOString(),
-        last_error: null
-      } as any).eq('id', finalGameId);
-
-      // Start simulation in background (fire and forget)
-      simulateAnalysis(finalGameId).catch(err => console.error("Mock Simulation Failed:", err));
-
-      return res.status(202).json({ 
-        success: true, 
-        message: "Local Mock Simulation Ignited", 
-        id: finalGameId,
-        is_mock: true
       });
     }
 

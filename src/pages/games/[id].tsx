@@ -165,7 +165,7 @@ export default function GameDetailPage() {
     };
   }, [gameId, isCurrentlyProcessing]);
 
-  const handleStartDiscovery = async (isDryRun: boolean = false, isMock: boolean = false) => {
+  const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
     setManualStartRequested(true);
@@ -204,8 +204,7 @@ export default function GameDetailPage() {
         body: JSON.stringify({ 
           game_id: gameId, 
           video_path: game.video_path, 
-          dry_run: isDryRun,
-          use_mock: isMock 
+          dry_run: isDryRun
         }),
         signal: controller.signal
       });
@@ -670,15 +669,6 @@ export default function GameDetailPage() {
                       )}
 
                       <div className="pt-2 space-y-2">
-                        <Button 
-                          variant="ghost" 
-                          onClick={() => handleStartDiscovery(false, true)}
-                          disabled={analyzing || isCurrentlyProcessing}
-                          className="w-full h-9 bg-emerald-500/5 hover:bg-emerald-500/10 text-[9px] font-black uppercase tracking-widest border border-emerald-500/10 text-emerald-500"
-                        >
-                          <Zap className="h-3 w-3 mr-2" />
-                          Run Local Mock Discovery
-                        </Button>
                         <Button 
                           variant="ghost" 
                           onClick={handleVerifyHandshake}
