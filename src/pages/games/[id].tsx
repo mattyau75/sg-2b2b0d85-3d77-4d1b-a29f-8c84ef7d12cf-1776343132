@@ -535,13 +535,12 @@ export default function GameDetailPage() {
                           Execute Dry-Run Test
                         </Button>
                         <Button 
-                          variant="ghost" 
-                          onClick={handleResetAnalysis} 
-                          disabled={resetting}
-                          className="w-full h-9 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest border border-white/5"
+                          onClick={() => handleStartDiscovery(false)} 
+                          disabled={analyzing || (isCurrentlyProcessing && !game.last_error)} 
+                          className={cn("font-bold h-10 px-8 uppercase tracking-tighter", "bg-primary")}
                         >
-                          {resetting ? <RefreshCw className="h-3 w-3 animate-spin mr-2" /> : <RotateCcw className="h-3 w-3 mr-2 text-primary" />}
-                          Reset AI Detection
+                          {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+                          {(analyzing || (isCurrentlyProcessing && !game.last_error)) ? "ANALYZING..." : "ANALYZE AI DETECTION"}
                         </Button>
                       </div>
                     </div>
