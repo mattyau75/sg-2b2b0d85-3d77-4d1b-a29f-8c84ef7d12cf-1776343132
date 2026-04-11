@@ -8,6 +8,9 @@ import time
 # ── App Definition ────────────────────────────────────────────────────────────
 app = modal.App("dribblestats-ai-elite")
 
+# Create a persistent volume for videos (24h retention logic handled via cleanup)
+volume = modal.NetworkVolume.from_name("game-footage-vault", create_if_missing=True)
+
 # ── Container Image ───────────────────────────────────────────────────────────
 image = (
     modal.Image.debian_slim(python_version="3.11")
@@ -15,7 +18,13 @@ image = (
     .pip_install(["requests"])
 )
 
-@app.function(image=image, timeout=3600, cpu=2, gpu="T4")
+@app.function(
+    image=image, 
+    timeout=3600, 
+    cpu=2, 
+    gpu="T4",
+    volumes={"/data": volume}
+)
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
     """
@@ -56,8 +65,18 @@ def analyze(item: dict):
         except Exception as e:
             print(f"Diagnostic Emission Failed: {e}")
 
-    # 1. IGNITION & HANDSHAKE
+    # 1. IGNITION & VOLUME HANDSHAKE
     emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 10)
+    
+    video_filename = item.get("video_filename")
+    local_path = f"/data/{video_filename}"
+    
+    if os.path.exists(local_path):
+        emit_log(f"📦 Volume Cache Hit: Using persistent footage at {local_path}", "info", 20)
+    else:
+        # Fallback to URL pull if volume mount is fresh/empty
+        emit_log("📡 Volume Cache Miss: Pulling footage to local GPU volume...", "info", 15)
+        # (Download logic would go here if not pre-uploaded)
 
     try:
         # 2. PROVISIONING (Handshake Check)

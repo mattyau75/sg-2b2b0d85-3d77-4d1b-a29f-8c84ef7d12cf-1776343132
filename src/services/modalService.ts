@@ -39,6 +39,7 @@ export const modalService = {
 
       const response = await axios.post(modalEndpoint, {
         video_url: signedUrl,
+        video_filename: config.video_filename,
         game_id: config.game_id,
         supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
         supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, // Pass for direct updates

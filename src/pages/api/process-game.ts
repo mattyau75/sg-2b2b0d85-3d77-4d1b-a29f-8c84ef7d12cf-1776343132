@@ -100,6 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const gpuConfig = {
       game_id: gameId, 
+      video_filename: confirmedKey.split('/').pop(), // Pass filename for volume lookup
       home_team_id: homeTeamId,
       away_team_id: awayTeamId,
       homeColor,
