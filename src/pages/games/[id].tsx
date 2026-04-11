@@ -135,7 +135,7 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
-  const handleStartDiscovery = async (isDryRun = false) => {
+  const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     if (!game.m1_complete) {
       setBanner({
@@ -527,7 +527,7 @@ export default function GameDetailPage() {
                       <div className="pt-2 space-y-2">
                         <Button 
                           variant="ghost" 
-                          onClick={() => handleStartDiscovery(true)}
+                          onClick={() => { handleStartDiscovery(true); }}
                           disabled={analyzing || resetting}
                           className="w-full h-9 bg-accent/5 hover:bg-accent/10 text-[9px] font-black uppercase tracking-widest border border-accent/10 text-accent"
                         >
@@ -535,7 +535,7 @@ export default function GameDetailPage() {
                           Execute Dry-Run Test
                         </Button>
                         <Button 
-                          onClick={() => handleStartDiscovery(false)} 
+                          onClick={() => { handleStartDiscovery(false); }} 
                           disabled={analyzing || (isCurrentlyProcessing && !game.last_error)} 
                           className={cn("font-bold h-10 px-8 uppercase tracking-tighter", "bg-primary")}
                         >
