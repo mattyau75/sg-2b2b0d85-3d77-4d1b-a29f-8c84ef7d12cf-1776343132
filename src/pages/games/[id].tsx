@@ -437,8 +437,17 @@ export default function GameDetailPage() {
                       </div>
                     </div>
 
-                    <div className="pt-2">
-                      <WorkerLogs logs={workerLogs} className="h-[280px]" />
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                          <Terminal className="h-3 w-3" /> Live Technical Trace
+                          {(analyzing || isWarming) && <span className="flex h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />}
+                        </h4>
+                        <Badge variant="outline" className="text-[8px] font-mono border-white/10 text-muted-foreground">
+                          {workerLogs.length} Packets Received
+                        </Badge>
+                      </div>
+                      <WorkerLogs logs={workerLogs} className="h-[300px] border border-white/10 bg-black/40 rounded-xl" />
                     </div>
                   </div>
 
