@@ -40,14 +40,14 @@ export const modalService = {
       const response = await axios.post(modalEndpoint, {
         video_url: signedUrl,
         game_id: config.game_id,
+        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+        supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, // Pass for direct updates
         home_team_id: config.home_team_id,
         away_team_id: config.away_team_id,
         home_color: config.homeColor || "#FFFFFF",
         away_color: config.awayColor || "#0B0F19",
         home_roster: config.home_roster || [],
         away_roster: config.away_roster || [],
-        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
         config: {
           ...config,
           temporal_tracking: true,

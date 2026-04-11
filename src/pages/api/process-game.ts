@@ -117,9 +117,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: 'analyzing', 
       progress_percentage: 10, 
       ignition_status: 'ignited',
+      last_heartbeat: new Date().toISOString(), // Initial heartbeat
       updated_at: new Date().toISOString(),
       last_error: null,
-      video_path: confirmedKey // Update the record with the confirmed working key
+      video_path: confirmedKey 
     } as any).eq('id', gameId);
 
     // Fire and forget GPU handoff
