@@ -1,6 +1,6 @@
 ---
 title: Implement Modal Volume Chunked Storage & Persistence
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: [devops, gpu, modal, storage]
