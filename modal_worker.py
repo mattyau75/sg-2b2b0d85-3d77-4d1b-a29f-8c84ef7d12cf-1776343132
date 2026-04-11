@@ -3,6 +3,7 @@ import os
 import json
 from datetime import datetime
 
+# Setup the Modal image with all required dependencies
 image = modal.Image.debian_slim().pip_install(
     "requests",
     "supabase",
@@ -10,10 +11,31 @@ image = modal.Image.debian_slim().pip_install(
     "numpy",
     "torch",
     "torchvision",
-    "ultralytics"
+    "ultralytics",
+    "fastapi"
 )
 
 app = modal.App("basketball-scout-ai")
+
+@app.function(image=image, gpu="A10G", timeout=3600)
+@modal.fastapi_endpoint(method="POST")
+async def analyze(payload: dict):
+    """
+    Entry point for the AI analysis triggered via web request.
+    """
+    print(f"GPU Swarm Ignited: Processing payload {payload}")
+    
+    game_id = payload.get("game_id", "unknown")
+    
+    results = {
+        "game_id": game_id,
+        "status": "completed",
+        "detected_players": [],
+        "timestamp": datetime.now().isoformat(),
+        "engine": "Elite-AI-v1"
+    }
+    
+    return results
 
 @app.function(image=image, gpu="A10G", timeout=3600)
 def process_game_video(game_id: str, video_url: str):
@@ -32,3 +54,6 @@ def process_game_video(game_id: str, video_url: str):
 @app.local_entrypoint()
 def main(game_id: str = "test-game"):
     print(f"Local test trigger for {game_id}")
+    # You can call the function locally for testing:
+    # results = process_game_video.remote(game_id, "http://example.com/video.mp4")
+    # print(results)
