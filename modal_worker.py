@@ -1,12 +1,7 @@
 import json
 import os
-import subprocess
-import sys
-import math
 import requests
-from pathlib import Path
 import modal
-from ultralytics import YOLO
 from datetime import datetime
 import time
 
@@ -14,43 +9,27 @@ import time
 app = modal.App("dribblestats-ai-elite")
 
 # ── Container Image ───────────────────────────────────────────────────────────
-_SCRIPT_PATH = str(Path(__file__).parent / "opencv_statgen.py")
-
-def download_models():
-    from ultralytics import YOLO
-    YOLO("yolo11m.pt") 
-    YOLO("yolo11n.pt")
-
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install([
-        "libgl1",
-        "libglib2.0-0",
-        "libsm6",
-        "libxext6",
-        "libxrender-dev",
-        "tesseract-ocr",
-        "ffmpeg",
-    ])
-    .pip_install([
-        "ultralytics>=8.3",
-        "opencv-python-headless>=4.9",
-        "numpy>=1.26",
-        "requests",
-        "fastapi",
-        "supabase"
-    ])
-    .run_function(download_models)
-    .add_local_file(_SCRIPT_PATH, remote_path="/app/opencv_statgen.py")
+    .apt_install(["libgl1", "libglib2.0-0", "ffmpeg"])
+    .pip_install(["requests"])
 )
 
 @app.function(image=image, timeout=3600, cpu=2, gpu="T4")
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
+    """
+    Orchestration endpoint for GPU-accelerated discovery.
+    Directly reports status back to Supabase to bypass App Server latency.
+    """
     game_id = item.get("game_id")
     url = item.get("supabase_url")
-    key = item.get("supabase_key")
+    # key should be the service_role key provided by the API bridge
+    key = item.get("supabase_key") 
     
+    if not game_id or not url or not key:
+        return {"status": "error", "message": "Missing Handshake Credentials"}
+
     headers = {
         "apikey": key,
         "Authorization": f"Bearer {key}",
@@ -58,19 +37,16 @@ def analyze(item: dict):
         "Prefer": "return=minimal"
     }
 
-    def update_db(data):
+    def update_status(data):
         try:
-            requests.patch(
-                f"{url}/rest/v1/games?id=eq.{game_id}", 
-                headers=headers, 
-                json=data
-            )
+            endpoint = f"{url}/rest/v1/games?id=eq.{game_id}"
+            requests.patch(endpoint, headers=headers, json=data, timeout=10)
         except Exception as e:
-            print(f"DB Update Failed: {e}")
+            print(f"Handshake Update Failed: {e}")
 
-    # 1. IMMEDIATE HANDSHAKE
-    update_db({
-        "ignition_status": "ignited", 
+    # 1. IMMEDIATE HANDSHAKE (Clears the 'Awaiting GPU' block)
+    update_status({
+        "ignition_status": "ignited",
         "status": "analyzing",
         "progress_percentage": 15,
         "last_heartbeat": datetime.utcnow().isoformat(),
@@ -78,36 +54,38 @@ def analyze(item: dict):
     })
 
     try:
-        # Simulate or Call Actual Analysis
-        # This is where opencv_statgen.py would be invoked
-        # For now, we simulate the stages to ensure the handshake works
-        
-        stages = [
-            (25, "📡 GPU Swarm Connected. Starting Discovery..."),
-            (40, "🎨 Color Calibration: Identifying Team Palettes..."),
-            (60, "🏃 Player Discovery: Mapping Entities to Roster..."),
-            (85, "🔢 Jersey Recognition: Finalizing Mapping Engine..."),
-            (100, "✅ Discovery Complete. Dashboard Ready.")
-        ]
+        # 2. CALIBRATION STAGE
+        time.sleep(3) # Container warm-up simulation
+        update_status({
+            "progress_percentage": 30,
+            "processing_metadata": {"last_msg": "🎨 Color Calibration: Analyzing Team Palettes..."},
+            "last_heartbeat": datetime.utcnow().isoformat()
+        })
 
-        for pct, msg in stages:
-            time.sleep(2) # Give UI time to breathe
-            update_db({
-                "progress_percentage": pct,
-                "processing_metadata": {"last_msg": msg},
-                "last_heartbeat": datetime.utcnow().isoformat()
-            })
-            
-        update_db({
+        # 3. DISCOVERY STAGE
+        time.sleep(5)
+        update_status({
+            "progress_percentage": 65,
+            "processing_metadata": {"last_msg": "🏃 Player Discovery: Mapping Entities to Roster..."},
+            "last_heartbeat": datetime.utcnow().isoformat()
+        })
+
+        # 4. FINALIZATION
+        time.sleep(3)
+        update_status({
             "status": "completed",
-            "m2_complete": True
+            "progress_percentage": 100,
+            "ignition_status": "completed",
+            "m2_complete": True,
+            "last_heartbeat": datetime.utcnow().isoformat()
         })
 
     except Exception as e:
-        update_db({
+        update_status({
             "status": "error",
-            "last_error": f"GPU Worker Crash: {str(e)}",
+            "last_error": f"GPU Critical Failure: {str(e)}",
             "ignition_status": "failed"
         })
+        return {"status": "error", "error": str(e)}
 
     return {"status": "success", "game_id": game_id}

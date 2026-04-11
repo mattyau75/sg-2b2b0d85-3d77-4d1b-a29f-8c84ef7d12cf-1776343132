@@ -109,7 +109,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_roster: awayRoster || [],
       scouting_mode: "deep_recognition",
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY // Use elevated key for the worker
     };
 
     // Update game status to signify ingestion start
