@@ -54,6 +54,3 @@ def process_game_video(game_id: str, video_url: str):
 @app.local_entrypoint()
 def main(game_id: str = "test-game"):
     print(f"Local test trigger for {game_id}")
-    # You can call the function locally for testing:
-    # results = process_game_video.remote(game_id, "http://example.com/video.mp4")
-    # print(results)
