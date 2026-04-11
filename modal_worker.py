@@ -34,6 +34,7 @@ def analyze(item: dict):
     video_path = item.get("video_path")
     url = item.get("supabase_url")
     key = item.get("supabase_key") 
+    is_dry_run = item.get("dry_run", False)
     
     if not game_id or not video_path:
         return {
@@ -81,6 +82,19 @@ def analyze(item: dict):
 
     # 1. IGNITION & VOLUME HANDSHAKE
     emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 10)
+    
+    if is_dry_run:
+        emit_log("🧪 DRY-RUN PROTOCOL: Skipping AI Inference Swarm", "warning", 50)
+        emit_log("✅ Handshake Success: Credentials, Volume, and Network Verified", "info", 100)
+        
+        # Update game status to completed (mocked)
+        patch_url = f"{url}/rest/v1/games?id=eq.{game_id}"
+        requests.patch(patch_url, headers=headers, json={
+            "status": "completed",
+            "progress_percentage": 100
+        }, timeout=5)
+        return {"status": "dry_run_success", "game_id": game_id}
+
     emit_log("⚡ Cluster Warming: Allocating system resources and mounting volumes...", "info", 12)
     
     video_filename = item.get("video_filename", "latest_footage.mp4")

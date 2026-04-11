@@ -135,7 +135,7 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
-  const handleStartDiscovery = async () => {
+  const handleStartDiscovery = async (isDryRun = false) => {
     if (!gameId || !game) return;
     if (!game.m1_complete) {
       setBanner({
@@ -163,7 +163,7 @@ export default function GameDetailPage() {
       const response = await fetch('/api/process-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId, mode: 'discovery' }),
+        body: JSON.stringify({ game_id: gameId, video_path: game.video_path, dry_run: isDryRun }),
         signal: controller.signal
       });
 
@@ -524,7 +524,16 @@ export default function GameDetailPage() {
                         </div>
                       )}
 
-                      <div className="pt-2">
+                      <div className="pt-2 space-y-2">
+                        <Button 
+                          variant="ghost" 
+                          onClick={() => handleStartDiscovery(true)}
+                          disabled={analyzing || resetting}
+                          className="w-full h-9 bg-accent/5 hover:bg-accent/10 text-[9px] font-black uppercase tracking-widest border border-accent/10 text-accent"
+                        >
+                          <Zap className="h-3 w-3 mr-2" />
+                          Execute Dry-Run Test
+                        </Button>
                         <Button 
                           variant="ghost" 
                           onClick={handleResetAnalysis} 

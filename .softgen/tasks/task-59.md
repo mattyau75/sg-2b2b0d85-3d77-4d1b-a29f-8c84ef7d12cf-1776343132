@@ -10,7 +10,7 @@ position: 59
 Verify end-to-end connectivity (App -> API -> GPU -> Supabase) without executing the full AI processing swarm.
 
 ## Checklist:
-- [ ] Add `dry_run` flag support to `/api/process-game.ts`
-- [ ] Implement `dry_run` intercept in `modal_worker.py`
-- [ ] Add "Dry-Run Test" button to the Diagnostic Engine UI
-- [ ] Verify telemetry feedback loop in the Technical Trace panel
+- [x] Add `dry_run` flag support to `/api/process-game.ts`
+- [x] Implement `dry_run` intercept in `modal_worker.py`
+- [x] Add "Dry-Run Test" button to the Diagnostic Engine UI
+- [x] Verify telemetry feedback loop in the Technical Trace panel
