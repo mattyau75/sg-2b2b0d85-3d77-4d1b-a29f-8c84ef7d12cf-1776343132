@@ -67,6 +67,7 @@ def analyze(item: dict):
 
     # 1. IGNITION & VOLUME HANDSHAKE
     emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 10)
+    emit_log("⚡ Cluster Warming: Allocating system resources and mounting volumes...", "info", 12)
     
     video_filename = item.get("video_filename")
     local_path = f"/data/{video_filename}"

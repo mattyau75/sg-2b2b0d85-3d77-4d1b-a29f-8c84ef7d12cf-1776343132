@@ -14,6 +14,6 @@ Ensure no module auto-starts and each depends on the explicit completion of the 
 
 ## Checklist:
 - [x] Remove auto-start logic from `process-game.ts`
-- [ ] Add "Cluster Warming" visual state to `games/[id].tsx`
-- [ ] Implement prop-based "Locked" state for Module 3 until M2 is complete
-- [ ] Add explicit manual "Initialize" button for each stage
+- [x] Add "Cluster Warming" visual state to `games/[id].tsx`
+- [x] Implement prop-based "Locked" state for Module 3 until M2 is complete
+- [x] Add explicit manual "Initialize" button for each stage

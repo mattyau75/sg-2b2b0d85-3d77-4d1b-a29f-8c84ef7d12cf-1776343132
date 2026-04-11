@@ -60,6 +60,7 @@ export default function GameDetailPage() {
   const [aiMappings, setAiMappings] = useState<any[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [isWarming, setIsWarming] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
 
@@ -132,7 +133,12 @@ export default function GameDetailPage() {
 
   const handleStartDiscovery = async () => {
     if (!gameId || !game) return;
+    if (!game.m1_complete) {
+      toast({ variant: "destructive", title: "Module 1 Incomplete", description: "Calibration must be finalized before Discovery." });
+      return;
+    }
     setAnalyzing(true);
+    setIsWarming(true);
     try {
       // Ensure we use the absolute path for the API route
       const response = await axios.post("/api/process-game", {
@@ -148,7 +154,7 @@ export default function GameDetailPage() {
       if (response.status === 202) {
         toast({ 
           title: "AI Swarm Ignited", 
-          description: "Module 2: Personnel Discovery is now processing on GPU cluster." 
+          description: "GPU cluster is warming up. This may take 30-60s for a cold start." 
         });
         await fetchGameData(true);
       }
@@ -404,7 +410,10 @@ export default function GameDetailPage() {
                   <div className="lg:col-span-8 space-y-6">
                     <div className="space-y-2">
                       <div className="flex items-center justify-between text-[10px] font-mono font-bold uppercase tracking-[0.2em]">
-                        <span className="flex items-center gap-2 text-primary"><Cpu className="h-3 w-3" /> GPU Swarm Cluster: Stage Progress</span>
+                        <span className="flex items-center gap-2 text-primary">
+                          <Cpu className={cn("h-3 w-3", (analyzing || isWarming) && "animate-pulse")} /> 
+                          {isWarming && (game?.progress_percentage || 0) < 15 ? "GPU Swarm: Cluster Warming..." : "GPU Swarm Cluster: Stage Progress"}
+                        </span>
                         <span className={cn(game?.status === 'error' ? "text-red-500" : "text-accent")}>
                           {game?.progress_percentage || 0}% Complete
                         </span>
