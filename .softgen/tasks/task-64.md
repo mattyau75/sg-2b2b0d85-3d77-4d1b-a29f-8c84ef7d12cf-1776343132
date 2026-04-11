@@ -12,7 +12,7 @@ created_at: 2026-04-11T22:42:30Z
 Bypass failing GitHub/Modal workflow by providing a local simulation of the AI discovery process. This ensures the UI is functional even without an active GPU cluster.
 
 ## Checklist:
-- [ ] Create mockAnalysisService.ts to simulate progress and worker logs
-- [ ] Update /api/process-game.ts to support a 'mock' mode
-- [ ] Implement state updates in Supabase to reflect mock progress
-- [ ] Verify UI components (WorkerLogs, Progress) respond to mock data
+- [x] Create mockAnalysisService.ts to simulate progress and worker logs
+- [x] Update /api/process-game.ts to support a 'mock' mode
+- [x] Implement state updates in Supabase to reflect mock progress
+- [x] Verify UI components (WorkerLogs, Progress) respond to mock data
