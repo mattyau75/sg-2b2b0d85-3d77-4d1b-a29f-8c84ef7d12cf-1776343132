@@ -119,39 +119,21 @@ export default function AnalysisQueuePage() {
   const handleRetry = async (id: string) => {
     setIsRefreshing(true);
     try {
-      // 1. Fetch game data with robust team relation mapping
-      const { data: game, error: fetchError } = await supabase
+      // Reset status to scheduled only. No automatic GPU re-ignition.
+      const { error } = await supabase
         .from('games')
-        .select(`
-          *,
-          home_team:teams!games_home_team_id_fkey(id, name, primary_color),
-          away_team:teams!games_away_team_id_fkey(id, name, primary_color)
-        `)
-        .eq('id', id)
-        .single();
+        .update({ 
+          status: 'scheduled', 
+          last_error: null, 
+          progress_percentage: 0 
+        } as any)
+        .eq('id', id);
 
-      if (fetchError || !game) throw fetchError || new Error("Game not found");
-
-      // 2. Trigger the GPU analysis API with the latest directory metadata
-      const payload = { 
-        gameId: id,
-        videoPath: game.video_path,
-        homeTeamId: game.home_team_id,
-        awayTeamId: game.away_team_id,
-        homeColor: game.home_team_color || game.home_team?.primary_color || "#FFFFFF",
-        awayColor: game.away_team_color || game.away_team?.primary_color || "#0B0F19",
-        config: {
-          inference_mode: "high_accuracy",
-          is_heavy_file: true
-        }
-      };
-
-      console.log("[Queue] Re-triggering analysis with directory metadata:", payload);
-      await axios.post("/api/process-game", payload);
+      if (error) throw error;
 
       toast({ 
-        title: "Analysis Re-triggered", 
-        description: `GPU re-engaged for ${game.home_team?.name} vs ${game.away_team?.name}.` 
+        title: "Analysis Scheduled", 
+        description: "Status reset to scheduled. Please initiate manual discovery from the game dashboard." 
       });
       fetchJobs();
     } catch (err: any) {
