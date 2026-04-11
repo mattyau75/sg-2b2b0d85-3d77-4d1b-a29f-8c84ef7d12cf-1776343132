@@ -74,9 +74,24 @@ def analyze(item: dict):
     if os.path.exists(local_path):
         emit_log(f"📦 Volume Cache Hit: Using persistent footage at {local_path}", "info", 20)
     else:
-        # Fallback to URL pull if volume mount is fresh/empty
-        emit_log("📡 Volume Cache Miss: Pulling footage to local GPU volume...", "info", 15)
-        # (Download logic would go here if not pre-uploaded)
+        # High-performance streaming download to persistent volume
+        emit_log("📡 Volume Cache Miss: Streaming footage to local GPU volume...", "info", 15)
+        try:
+            video_url = item.get("video_url")
+            if not video_url:
+                raise Exception("Missing Video Source URL")
+                
+            with requests.get(video_url, stream=True, timeout=30) as r:
+                r.raise_for_status()
+                with open(local_path, 'wb') as f:
+                    for chunk in r.iter_content(chunk_size=8192 * 1024): # 8MB chunks
+                        if chunk:
+                            f.write(chunk)
+            
+            emit_log("✅ Volume Synchronized: Footage locked in GPU local storage", "info", 20)
+        except Exception as e:
+            emit_log(f"⚠️ Volume Ingestion Failed: {str(e)}", "warning")
+            # Fallback will happen naturally if path check fails later
 
     try:
         # 2. PROVISIONING (Handshake Check)
