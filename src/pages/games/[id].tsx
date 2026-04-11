@@ -544,6 +544,17 @@ export default function GameDetailPage() {
                     <p className="text-sm text-muted-foreground font-mono">GPU-accelerated personnel mapping and identity validation.</p>
                   </div>
                   <div className="flex items-center gap-3">
+                    {isCurrentlyProcessing && !game.last_error && (
+                      <Button 
+                        onClick={handleCancelAnalysis} 
+                        disabled={isCancelling}
+                        variant="destructive" 
+                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 font-bold uppercase tracking-widest text-xs"
+                      >
+                        {isCancelling ? <RefreshCw className="h-3 w-3 mr-2 animate-spin" /> : <X className="h-3 w-3 mr-2" />}
+                        Cancel Swarm
+                      </Button>
+                    )}
                     {!game?.m2_complete && (
                       <Button onClick={() => handleCompleteModule(2)} variant="outline" className="border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 font-bold uppercase tracking-widest text-xs">
                         Finalize Mappings <CheckCircle2 className="ml-2 h-4 w-4" />
