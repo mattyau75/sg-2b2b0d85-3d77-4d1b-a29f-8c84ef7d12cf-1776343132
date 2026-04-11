@@ -1,4 +1,5 @@
 name: Deploy to Modal.com
+
 on:
   push:
     branches: [ main ]
@@ -8,6 +9,7 @@ jobs:
   deploy:
     name: Deploy to Modal
     runs-on: ubuntu-latest
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -17,15 +19,18 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Modal
+      - name: Install Modal CLI
         run: |
           python -m pip install --upgrade pip
           pip install modal
 
-      - name: Deploy to Modal
+      - name: Authenticate with Modal
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
+
+      - name: Deploy to Modal
+        run: |
           modal deploy modal_worker.py
