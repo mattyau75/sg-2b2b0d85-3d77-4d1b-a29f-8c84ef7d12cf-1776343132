@@ -4,6 +4,7 @@ import { r2Client } from "@/lib/r2Client";
 import { modalService } from "@/services/modalService";
 import { HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { generateGpuToken } from "@/services/jwtService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log(`[API] ${req.method} /api/process-game triggered`);
@@ -104,6 +105,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: confirmedKey });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
+    // Generate Dynamic Scoped JWT for GPU-to-DB Auth
+    const gpuToken = generateGpuToken(finalGameId);
+
     // Fetch team rosters for mapping
     const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
       supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
@@ -120,6 +124,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_path: confirmedKey,
       video_url: signedUrl,
       video_filename: videoFilename,
+      gpu_token: gpuToken, // Pass the dynamic JWT
       home_team_id: homeTeamId || req.body.home_team_id,
       away_team_id: awayTeamId || req.body.away_team_id,
       homeColor,
