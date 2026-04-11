@@ -272,6 +272,11 @@ export default function GameDetailPage() {
         });
       } else {
         toast({ title: "Handshake Established", description: "GPU cluster successfully verified credentials and storage access." });
+        setBanner({
+          title: "Swarm Verified & Active",
+          message: "GPU Swarm Handshake successful. Cluster is provisioned and awaiting ignition pulse.",
+          severity: "success"
+        });
       }
     } catch (error: any) {
       setBanner({
