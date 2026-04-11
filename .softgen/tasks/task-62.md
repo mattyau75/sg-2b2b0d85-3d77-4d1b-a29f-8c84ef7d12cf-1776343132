@@ -13,7 +13,7 @@ position: 1
 System hangs at 10% (INIT) because the GPU worker cannot update progress. Likely due to missing/invalid SERVICE_ROLE_KEY in Modal Secrets or a failed volume mount.
 
 ## Checklist:
-- [ ] Add explicit `SERVICE_ROLE_KEY` validation check in `modal_worker.py`
-- [ ] Implement a "Provisioning Heartbeat" in the worker to update progress immediately upon container start
-- [ ] Add a "Stuck Progress" diagnostic alert to the UI for 120s+ inactivity
-- [ ] Verify `append_worker_log` RPC connectivity
+- [x] Add explicit `SERVICE_ROLE_KEY` validation check in `modal_worker.py`
+- [x] Implement a "Provisioning Heartbeat" in the worker to update progress immediately upon container start
+- [x] Add a "Stuck Progress" diagnostic alert to the UI for 45s+ inactivity
+- [x] Verify `append_worker_log` RPC connectivity

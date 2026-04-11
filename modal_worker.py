@@ -81,7 +81,7 @@ def analyze(item: dict):
         }
 
     # 1. IGNITION & VOLUME HANDSHAKE
-    emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 10)
+    emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 15)
     
     if is_dry_run:
         emit_log("🧪 DRY-RUN PROTOCOL: Skipping AI Inference Swarm", "warning", 50)

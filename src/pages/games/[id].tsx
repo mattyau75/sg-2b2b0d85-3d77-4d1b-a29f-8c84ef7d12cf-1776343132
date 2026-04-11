@@ -66,6 +66,7 @@ export default function GameDetailPage() {
   const [isWarming, setIsWarming] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
   const [manualStartRequested, setManualStartRequested] = useState(false);
+  const [provisioningTimeout, setProvisioningTimeout] = useState<NodeJS.Timeout | null>(null);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   
@@ -142,11 +143,25 @@ export default function GameDetailPage() {
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
-    // Explicitly set manual start flag to prevent auto-ignition loops
     setManualStartRequested(true);
     setAnalyzing(true);
     setIsWarming(true);
     setBanner(null);
+
+    // Clear any existing timeout
+    if (provisioningTimeout) clearTimeout(provisioningTimeout);
+
+    // Set a 45s safety alert for progress hangs
+    const timeout = setTimeout(() => {
+      if (game?.progress_percentage === 10) {
+        setBanner({
+          title: "Provisioning Bottleneck Detected",
+          message: "The GPU Swarm is active but the App has not received a heartbeat. Please verify that SUPABASE_SERVICE_ROLE_KEY is correctly added to your Modal.com Secrets.",
+          severity: "warning"
+        });
+      }
+    }, 45000);
+    setProvisioningTimeout(timeout);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
