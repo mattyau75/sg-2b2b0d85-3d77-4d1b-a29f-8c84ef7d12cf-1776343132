@@ -473,7 +473,7 @@ export default function GameDetailPage() {
                           className="w-full h-9 bg-white/5 hover:bg-white/10 text-[9px] font-black uppercase tracking-widest border border-white/5"
                         >
                           {resetting ? <RefreshCw className="h-3 w-3 animate-spin mr-2" /> : <RotateCcw className="h-3 w-3 mr-2 text-primary" />}
-                          Reset Swarm Cluster
+                          Reset AI Detection
                         </Button>
                       </div>
                     </div>
