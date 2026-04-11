@@ -1,6 +1,6 @@
 ---
 title: Implement Zero-Fail Handshake for GPU Worker
-status: in_progress
+status: done
 priority: urgent
 type: bug
 tags: [backend, gpu, supabase]
