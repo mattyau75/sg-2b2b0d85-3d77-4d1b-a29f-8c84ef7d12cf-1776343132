@@ -68,6 +68,7 @@ export default function GameDetailPage() {
   const [manualStartRequested, setManualStartRequested] = useState(false);
   const [provisioningTimeout, setProvisioningTimeout] = useState<NodeJS.Timeout | null>(null);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
+  const [isCurrentlyProcessing, setIsCurrentlyProcessing] = useState(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   
   // Diagnostic Banner State
@@ -139,6 +140,30 @@ export default function GameDetailPage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
+
+  // Real-time heartbeat listener
+  useEffect(() => {
+    if (!gameId || !isCurrentlyProcessing) return;
+
+    const channel = supabase
+      .channel(`game_logs_${gameId}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'games', 
+        filter: `id=eq.${gameId}` 
+      }, (payload: any) => {
+        const metadata = payload.new.processing_metadata;
+        if (metadata && metadata.worker_logs) {
+          setWorkerLogs(metadata.worker_logs);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameId, isCurrentlyProcessing]);
 
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
