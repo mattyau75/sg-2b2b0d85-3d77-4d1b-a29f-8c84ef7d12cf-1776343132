@@ -23,7 +23,8 @@ image = (
     timeout=3600, 
     cpu=2, 
     gpu="T4",
-    volumes={"/data": volume}
+    volumes={"/data": volume},
+    secrets=[modal.Secret.from_name("supabase-auth")]
 )
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
