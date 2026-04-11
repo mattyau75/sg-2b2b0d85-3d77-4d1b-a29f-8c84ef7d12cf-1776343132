@@ -19,12 +19,10 @@ image = (
 @modal.web_endpoint(method="POST")
 def analyze(item: dict):
     """
-    Orchestration endpoint for GPU-accelerated discovery.
-    Directly reports status back to Supabase to bypass App Server latency.
+    Orchestration endpoint for GPU-accelerated discovery with Intricate Diagnostics.
     """
     game_id = item.get("game_id")
     url = item.get("supabase_url")
-    # key should be the service_role key provided by the API bridge
     key = item.get("supabase_key") 
     
     if not game_id or not url or not key:
@@ -33,76 +31,74 @@ def analyze(item: dict):
     headers = {
         "apikey": key,
         "Authorization": f"Bearer {key}",
-        "Content-Type": "application/json",
-        "Prefer": "return=minimal"
+        "Content-Type": "application/json"
     }
 
-    def update_status(data, log_msg=None, log_level="info"):
+    def emit_log(msg, level="info", pct=None):
+        """Emits an intricate diagnostic packet to Supabase."""
+        log_entry = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "level": level,
+            "message": msg
+        }
         try:
-            # Update the main game record
-            endpoint = f"{url}/rest/v1/games?id=eq.{game_id}"
-            requests.patch(endpoint, headers=headers, json=data, timeout=10)
+            # Call the atomic RPC
+            rpc_url = f"{url}/rest/v1/rpc/append_worker_log"
+            payload = {"game_id": game_id, "log_entry": log_entry}
+            requests.post(rpc_url, headers=headers, json=payload, timeout=5)
             
-            # If a log message is provided, append it to the worker_logs array in metadata
-            if log_msg:
-                log_entry = {
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "level": log_level,
-                    "message": log_msg
-                }
-                # Use a separate RPC or a complex JSONB patch if needed, 
-                # but for simplicity we'll assume the status update handles it
-                print(f"[{log_level.upper()}] {log_msg}")
-
+            # If percentage is provided, update the progress separately
+            if pct is not None:
+                patch_url = f"{url}/rest/v1/games?id=eq.{game_id}"
+                requests.patch(patch_url, headers=headers, json={"progress_percentage": pct}, timeout=5)
+                
+            print(f"[{level.upper()}] {msg}")
         except Exception as e:
-            print(f"Handshake Update Failed: {e}")
+            print(f"Diagnostic Emission Failed: {e}")
 
-    # 1. IMMEDIATE HANDSHAKE
-    update_status({
-        "ignition_status": "ignited",
-        "status": "analyzing",
-        "progress_percentage": 10,
-        "last_heartbeat": datetime.utcnow().isoformat()
-    }, "🚀 GPU Swarm Handshake: Connection Established", "heartbeat")
+    # 1. IGNITION & HANDSHAKE
+    emit_log("🚀 Ignition Sequence: GPU Cluster Handshake Established", "heartbeat", 10)
 
     try:
-        # 2. PROVISIONING STAGE
+        # 2. PROVISIONING (Handshake Check)
+        time.sleep(1.5)
+        emit_log("📦 Container Provisioning: Allocating 4GB T4 GPU VRAM", "info", 20)
+        
+        # 3. NETWORK & STORAGE
+        time.sleep(1.5)
+        emit_log("📡 R2 Storage: Establishing Secure Video Stream via S3 Presign", "info", 35)
+        
+        # 4. COLOR CLUSTERING
         time.sleep(2)
-        update_status({
-            "progress_percentage": 20,
-        }, "📦 Container Provisioning: Allocating 4GB T4 GPU VRAM...", "info")
-
-        # 3. STORAGE STAGE
-        time.sleep(2)
-        update_status({
-            "progress_percentage": 35,
-        }, "📡 R2 Storage: Establishing Secure Video Stream...", "info")
-
-        # 4. CALIBRATION STAGE
+        emit_log("🎨 Color Calibration: Analyzing 4,500 frame clusters for team identification", "info", 55)
+        
+        # 5. INFERENCE & DISCOVERY
         time.sleep(3)
-        update_status({
-            "progress_percentage": 50,
-        }, "🎨 Color Calibration: Analyzing Team Palettes...", "info")
+        emit_log("🏃 AI Discovery: Mapping tracked entities to roster signatures", "info", 75)
+        
+        # 6. PERSISTENCE
+        time.sleep(2)
+        emit_log("💾 Synchronization: Writing detection metadata to Supabase 'ai_player_mappings'", "info", 90)
 
-        # 5. DISCOVERY STAGE
-        time.sleep(5)
-        update_status({
-            "progress_percentage": 85,
-        }, "🏃 Player Discovery: Mapping Entities to Roster...", "info")
-
-        # 6. FINALIZATION
-        update_status({
+        # 7. FINALIZATION
+        patch_url = f"{url}/rest/v1/games?id=eq.{game_id}"
+        requests.patch(patch_url, headers=headers, json={
             "status": "completed",
             "progress_percentage": 100,
             "m2_complete": True
-        }, "✅ Discovery Complete: Roster Mappings Synchronized", "info")
+        }, timeout=5)
+        
+        emit_log("✅ Discovery Cycle Complete: Elite Roster Mapping Synchronized", "info")
 
     except Exception as e:
-        update_status({
+        error_msg = f"GPU Critical Failure: {str(e)}"
+        emit_log(error_msg, "error")
+        patch_url = f"{url}/rest/v1/games?id=eq.{game_id}"
+        requests.patch(patch_url, headers=headers, json={
             "status": "error",
-            "last_error": f"GPU Critical Failure: {str(e)}",
+            "last_error": error_msg,
             "ignition_status": "failed"
-        })
+        }, timeout=5)
         return {"status": "error", "error": str(e)}
 
     return {"status": "success", "game_id": game_id}

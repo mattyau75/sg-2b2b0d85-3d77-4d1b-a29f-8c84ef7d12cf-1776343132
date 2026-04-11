@@ -1,4 +1,4 @@
- 
+/* eslint-disable @typescript-eslint/no-empty-object-type */
 export type Json =
   | string
   | number
@@ -547,6 +547,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      append_worker_log: {
+        Args: { game_id: string; log_entry: Json }
+        Returns: undefined
+      }
       worker_heartbeat: {
         Args: {
           game_id: string

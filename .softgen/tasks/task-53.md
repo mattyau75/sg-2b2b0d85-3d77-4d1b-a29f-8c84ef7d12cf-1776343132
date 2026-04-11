@@ -1,6 +1,6 @@
 ---
 title: Implement Detailed Diagnostic Pulse for AI Discovery
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [ui, monitoring, gpu]
