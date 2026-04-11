@@ -35,6 +35,7 @@ import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
 import { WorkerLogs, type LogEntry } from "@/components/WorkerLogs";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
+import { DiagnosticBanner, type BannerSeverity } from "@/components/DiagnosticBanner";
 import axios from "axios";
 import { MappingDashboard } from "@/components/MappingDashboard";
 
@@ -63,6 +64,9 @@ export default function GameDetailPage() {
   const [isWarming, setIsWarming] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
+  
+  // Diagnostic Banner State
+  const [banner, setBanner] = useState<{ title: string; message: string; severity: BannerSeverity } | null>(null);
 
   const fetchGameData = useCallback(async (isUpdate = false) => {
     if (!gameId || !isValidUUID(gameId)) {
@@ -134,19 +138,24 @@ export default function GameDetailPage() {
   const handleStartDiscovery = async () => {
     if (!gameId || !game) return;
     if (!game.m1_complete) {
-      toast({ variant: "destructive", title: "Module 1 Incomplete", description: "Calibration must be finalized before Discovery." });
+      setBanner({
+        title: "Module 1 Incomplete",
+        message: "Calibration must be finalized before Discovery. High-precision personnel mapping requires valid team color clusters.",
+        severity: "warning"
+      });
       return;
     }
     
     setAnalyzing(true);
     setIsWarming(true);
+    setBanner(null); // Clear previous banners
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => {
-      toast({ 
-        title: "Cluster Cold-Start Detected", 
-        description: "GPU resources are still warming up. Connection is established, awaiting telemetry.",
-        variant: "default"
+      setBanner({
+        title: "Cluster Cold-Start Detected",
+        message: "GPU resources are still warming up. Connection is established, awaiting telemetry. This typically takes 30-60s on first ignition.",
+        severity: "info"
       });
     }, 5000);
 
@@ -161,25 +170,30 @@ export default function GameDetailPage() {
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        toast({ 
-          title: "AI Swarm Ignited", 
-          description: "GPU cluster is now processing your footage." 
-        });
+        toast({ title: "AI Swarm Ignited", description: "GPU cluster is now processing your footage." });
         await fetchGameData(true);
       } else {
         const errorData = await response.json();
-        toast({ 
-          variant: "destructive", 
-          title: "Handshake Failed", 
-          description: errorData.message || "Failed to establish GPU connection. Please verify Modal Secrets." 
+        setBanner({
+          title: "Handshake Failed",
+          message: errorData.message || "Failed to establish GPU connection. Please verify your SUPABASE_SERVICE_ROLE_KEY in Modal Secrets.",
+          severity: "error"
         });
       }
     } catch (error: any) {
       clearTimeout(timeoutId);
       if (error.name === 'AbortError') {
-        toast({ variant: "destructive", title: "Connection Timeout", description: "The GPU swarm took too long to respond. Please try again." });
+        setBanner({
+          title: "Connection Timeout",
+          message: "The GPU swarm took too long to respond. The cluster may be experiencing high load or a cold-start delay. Please try again in 30 seconds.",
+          severity: "warning"
+        });
       } else {
-        toast({ variant: "destructive", title: "System Error", description: error.message || "An unexpected error occurred during ignition." });
+        setBanner({
+          title: "System Error",
+          message: error.message || "An unexpected error occurred during ignition. Check the Technical Trace below for details.",
+          severity: "error"
+        });
       }
     } finally {
       setAnalyzing(false);
@@ -420,6 +434,17 @@ export default function GameDetailPage() {
                     </Button>
                   </div>
                 </div>
+
+                {/* Diagnostic Banner System */}
+                {banner && (
+                  <DiagnosticBanner 
+                    title={banner.title}
+                    message={banner.message}
+                    severity={banner.severity}
+                    onClose={() => setBanner(null)}
+                    className="mb-4"
+                  />
+                )}
 
                 {/* AI Stage Stepper & Diagnostic Engine */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
