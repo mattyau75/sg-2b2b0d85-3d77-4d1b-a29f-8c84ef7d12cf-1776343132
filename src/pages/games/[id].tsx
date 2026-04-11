@@ -299,7 +299,11 @@ export default function GameDetailPage() {
           status: 'scheduled',
           last_error: null,
           progress_percentage: 0,
-          processing_metadata: { ...(game?.processing_metadata || {}), worker_logs: [] }
+          processing_metadata: { 
+            ...(game?.processing_metadata || {}), 
+            worker_logs: [],
+            last_heartbeat: null
+          }
         } as any)
         .eq('id', gameId);
 
@@ -324,7 +328,11 @@ export default function GameDetailPage() {
           last_error: 'Analysis cancelled by user.',
           progress_percentage: 0,
           ignition_status: 'cancelled',
-          processing_metadata: { ...(game?.processing_metadata || {}), worker_logs: [] }
+          processing_metadata: { 
+            ...(game?.processing_metadata || {}), 
+            worker_logs: [],
+            last_heartbeat: null
+          }
         } as any)
         .eq('id', gameId);
 
