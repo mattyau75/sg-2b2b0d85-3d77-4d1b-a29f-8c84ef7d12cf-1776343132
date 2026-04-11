@@ -64,6 +64,8 @@ export default function GameDetailPage() {
   const [resetting, setResetting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isWarming, setIsWarming] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [manualStartRequested, setManualStartRequested] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   
@@ -139,15 +141,9 @@ export default function GameDetailPage() {
 
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
-    if (!game.m1_complete) {
-      setBanner({
-        title: "Module 1 Incomplete",
-        message: "Calibration must be finalized before Discovery. High-precision personnel mapping requires valid team color clusters.",
-        severity: "warning"
-      });
-      return;
-    }
     
+    // Explicitly set manual start flag to prevent auto-ignition loops
+    setManualStartRequested(true);
     setAnalyzing(true);
     setIsWarming(true);
     setBanner(null);
@@ -200,6 +196,51 @@ export default function GameDetailPage() {
     } finally {
       setAnalyzing(false);
       setIsWarming(false);
+    }
+  };
+
+  const handleVerifyHandshake = async () => {
+    if (!gameId || !game) return;
+    setIsVerifying(true);
+    setBanner(null);
+
+    try {
+      const response = await fetch('/api/process-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ game_id: gameId, video_path: game.video_path, dry_run: true }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        let errorMessage = errorData.message || "Failed to establish GPU connection.";
+        let severity: BannerSeverity = "error";
+
+        if (errorMessage.includes("SUPABASE_SERVICE_ROLE_KEY")) {
+          errorMessage = "CREDENTIAL BOTTLENECK: The SUPABASE_SERVICE_ROLE_KEY is missing or invalid in your Modal.com Secrets. The GPU cannot report back progress.";
+        } else if (errorMessage.includes("Video file not found")) {
+          errorMessage = "STORAGE BOTTLENECK: The video file is not accessible in R2. Please re-upload or check your R2_ACCESS_KEY_ID permissions.";
+        } else if (response.status === 504) {
+          errorMessage = "NETWORK BOTTLENECK: GPU Swarm timed out during handshake. This typically indicates a cluster cold-start delay. Retrying in 30s is recommended.";
+          severity = "warning";
+        }
+
+        setBanner({
+          title: "Handshake Bottleneck Detected",
+          message: errorMessage,
+          severity: severity
+        });
+      } else {
+        toast({ title: "Handshake Established", description: "GPU cluster successfully verified credentials and storage access." });
+      }
+    } catch (error: any) {
+      setBanner({
+        title: "Communication Error",
+        message: error.message || "Handshake request failed at the App Server level.",
+        severity: "error"
+      });
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -554,17 +595,15 @@ export default function GameDetailPage() {
                       )}
 
                       <div className="pt-2 space-y-2">
-                        {isCurrentlyProcessing && (
-                          <Button 
-                            variant="ghost" 
-                            onClick={handleCancelAnalysis} 
-                            disabled={isCancelling}
-                            className="w-full h-9 bg-red-500/5 hover:bg-red-500/10 text-[9px] font-black uppercase tracking-widest border border-red-500/10 text-red-500"
-                          >
-                            {isCancelling ? <RefreshCw className="h-3 w-3 mr-2 animate-spin" /> : <X className="h-3 w-3 mr-2" />}
-                            Cancel Active Swarm
-                          </Button>
-                        )}
+                        <Button 
+                          variant="ghost" 
+                          onClick={handleVerifyHandshake}
+                          disabled={isVerifying || analyzing}
+                          className="w-full h-9 bg-accent/5 hover:bg-accent/10 text-[9px] font-black uppercase tracking-widest border border-accent/10 text-accent"
+                        >
+                          {isVerifying ? <RefreshCw className="h-3 w-3 mr-2 animate-spin" /> : <Terminal className="h-3 w-3 mr-2" />}
+                          Verify Swarm Handshake
+                        </Button>
                         <Button 
                           variant="ghost" 
                           onClick={() => { handleStartDiscovery(true); }}

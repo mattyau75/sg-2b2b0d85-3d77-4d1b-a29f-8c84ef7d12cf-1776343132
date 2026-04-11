@@ -32,7 +32,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     const bucketName = process.env.R2_BUCKET_NAME;
-    if (!bucketName) throw new Error("R2_BUCKET_NAME environment variable is missing");
+    if (!bucketName) {
+      return res.status(500).json({ message: "CONFIG ERROR: R2_BUCKET_NAME environment variable is missing from App Server." });
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return res.status(500).json({ message: "CREDENTIAL ERROR: SUPABASE_SERVICE_ROLE_KEY is missing from App Server environment." });
+    }
 
     // Robust path resolution logic
     // We will try several variations of the key to ensure we find the file
