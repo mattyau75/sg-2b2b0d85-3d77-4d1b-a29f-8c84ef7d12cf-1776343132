@@ -467,9 +467,17 @@ export default function GameDetailPage() {
                   <p className="text-sm text-muted-foreground font-mono">Initialization, color clustering, and roster validation.</p>
                 </div>
                 {!game?.m1_complete && (
-                  <Button onClick={() => handleCompleteModule(1)} className="bg-emerald-600 hover:bg-emerald-700 font-bold uppercase tracking-widest text-xs">
+                  <Button 
+                    onClick={() => handleCompleteModule(1)} 
+                    className="bg-emerald-600 hover:bg-emerald-700 font-bold uppercase tracking-widest text-xs shadow-lg shadow-emerald-500/20 border border-emerald-400/20"
+                  >
                     Mark Calibration Ready <ChevronRight className="ml-2 h-4 w-4" />
                   </Button>
+                )}
+                {game?.m1_complete && (
+                  <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 px-4 py-1.5 uppercase font-black text-[10px] tracking-widest">
+                    <CheckCircle2 className="h-3 w-3 mr-2" /> Calibration Verified
+                  </Badge>
                 )}
               </div>
 
