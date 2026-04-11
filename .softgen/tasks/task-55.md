@@ -1,6 +1,6 @@
 ---
 title: Implement Strict Sequential Module Control
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: [ui, logic, flow]
