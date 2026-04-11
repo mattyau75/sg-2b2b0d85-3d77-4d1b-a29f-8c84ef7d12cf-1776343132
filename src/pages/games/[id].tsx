@@ -68,7 +68,7 @@ export default function GameDetailPage() {
   const [manualStartRequested, setManualStartRequested] = useState(false);
   const [provisioningTimeout, setProvisioningTimeout] = useState<NodeJS.Timeout | null>(null);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
-  const [isCurrentlyProcessing, setIsCurrentlyProcessing] = useState(false);
+  const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   
   // Diagnostic Banner State
@@ -354,8 +354,6 @@ export default function GameDetailPage() {
       toast({ variant: "destructive", title: "Update Failed", description: error.message });
     }
   };
-
-  const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
 
   const ModuleLocked = ({ moduleNum, requiredModule }: { moduleNum: number, requiredModule: string }) => (
     <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 border border-dashed border-white/10 rounded-2xl bg-black/20">
