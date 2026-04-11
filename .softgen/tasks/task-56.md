@@ -1,6 +1,6 @@
 ---
 title: Enhance Visibility of Diagnostic Trace Panel
-status: in_progress
+status: done
 priority: high
 created_by: agent
 created_at: 2026-04-11
