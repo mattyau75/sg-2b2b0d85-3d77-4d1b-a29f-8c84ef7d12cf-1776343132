@@ -45,8 +45,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const keysToTry = [
       primaryKey,
-      `raw-footage/${primaryKey.split('/').pop()}`, 
-      primaryKey.replace('raw-footage/raw-footage/', 'raw-footage/') 
+      `videos/${primaryKey.split('/').pop()}`, 
+      `raw-footage/${primaryKey.split('/').pop()}`,
+      primaryKey.replace('raw-footage/', 'videos/')
     ];
 
     let confirmedKey = "";
@@ -55,9 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // TRY EVERY POSSIBLE COMBINATION
     const aggressiveKeys = [
       ...keysToTry,
-      primaryKey.split('/').pop() || "", // Just the filename
-      `uploads/${primaryKey.split('/').pop()}`, // Try uploads folder
-      `temp/${primaryKey.split('/').pop()}`   // Try temp folder
+      primaryKey.split('/').pop() || ""
     ].filter(Boolean);
 
     for (const key of aggressiveKeys) {
@@ -69,14 +68,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       } catch (e) {}
     }
 
-    // FINAL FALLBACK: Recursive scan of the entire bucket for the game ID
+    // FINAL FALLBACK: Scan 'videos/' folder specifically for the filename part
     if (!confirmedKey) {
-      console.log(`[ProcessGame] 🔍 SEARCHING ENTIRE BUCKET for: ${gameId}`);
-      const listAll = await r2Client.send(new ListObjectsV2Command({ Bucket: bucketName }));
-      const match = listAll.Contents?.find(obj => obj.Key?.includes(gameId));
+      console.log(`[ProcessGame] 🔍 SCANNING 'videos/' FOLDER for filename match`);
+      const listAll = await r2Client.send(new ListObjectsV2Command({ Bucket: bucketName, Prefix: "videos/" }));
+      const fileNamePart = primaryKey.split('-').pop() || primaryKey;
+      const match = listAll.Contents?.find(obj => obj.Key?.includes(fileNamePart));
       if (match?.Key) {
         confirmedKey = match.Key;
-        console.log(`[ProcessGame] 🎯 Found through Global Scan: ${confirmedKey}`);
+        console.log(`[ProcessGame] 🎯 Found in videos/ via partial match: ${confirmedKey}`);
       }
     }
 

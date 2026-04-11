@@ -12,6 +12,9 @@ export const storageService = {
     onProgress: (progress: number) => void,
     abortSignal?: AbortSignal
   ): Promise<string> {
+    const timestamp = Date.now();
+    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const key = `videos/${timestamp}-${sanitizedName}`;
     const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB chunks
     const totalParts = Math.ceil(file.size / CHUNK_SIZE);
     const CONCURRENCY_LIMIT = 5; // Upload 5 parts simultaneously
@@ -23,7 +26,7 @@ export const storageService = {
         contentType: file.type
       }, { signal: abortSignal });
       
-      const { uploadId, key } = initResponse.data;
+      const { uploadId } = initResponse.data;
 
       const uploadedParts: { etag: string; partNumber: number }[] = [];
       const totalUploaded = 0;
