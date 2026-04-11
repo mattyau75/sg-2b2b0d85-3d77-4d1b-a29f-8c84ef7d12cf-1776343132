@@ -71,13 +71,14 @@ def analyze(item: dict):
             print(f"Diagnostic Emission Failed: {e}")
 
     # 0. CREDENTIAL AUDIT (Immediate Fail-Fast)
+    # Check for both full name and shorthand to ensure handshake success
     supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY") or os.environ.get("SERVICE_ROLE_KEY")
     
     if not supabase_url or not supabase_key:
         return {
             "status": "error",
-            "message": "🚨 DISCREPANCY DETECTED: Missing SUPABASE_SERVICE_ROLE_KEY in Modal Secrets. GPU cannot report back to App."
+            "message": "🚨 DISCREPANCY DETECTED: Missing SUPABASE_SERVICE_ROLE_KEY or SERVICE_ROLE_KEY in Modal Secrets. GPU cannot report back to App."
         }
 
     # 1. IGNITION & VOLUME HANDSHAKE
