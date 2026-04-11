@@ -26,7 +26,8 @@ import {
   Terminal,
   Cpu,
   RotateCcw,
-  Zap
+  Zap,
+  X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -61,6 +62,7 @@ export default function GameDetailPage() {
   const [aiMappings, setAiMappings] = useState<any[]>([]);
   const [analyzing, setAnalyzing] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [isWarming, setIsWarming] = useState(false);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
@@ -222,6 +224,33 @@ export default function GameDetailPage() {
       toast({ variant: "destructive", title: "Reset Failed", description: error.message });
     } finally {
       setResetting(false);
+    }
+  };
+
+  const handleCancelAnalysis = async () => {
+    if (!gameId) return;
+    setIsCancelling(true);
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({
+          status: 'scheduled',
+          last_error: 'Analysis cancelled by user.',
+          progress_percentage: 0,
+          ignition_status: 'cancelled',
+          processing_metadata: { ...(game?.processing_metadata || {}), worker_logs: [] }
+        } as any)
+        .eq('id', gameId);
+
+      if (error) throw error;
+      setAnalyzing(false);
+      setIsWarming(false);
+      toast({ title: "Swarm Decommissioned", description: "GPU analysis cancelled and state reset." });
+      await fetchGameData(true);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Cancellation Failed", description: error.message });
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -525,6 +554,17 @@ export default function GameDetailPage() {
                       )}
 
                       <div className="pt-2 space-y-2">
+                        {isCurrentlyProcessing && (
+                          <Button 
+                            variant="ghost" 
+                            onClick={handleCancelAnalysis} 
+                            disabled={isCancelling}
+                            className="w-full h-9 bg-red-500/5 hover:bg-red-500/10 text-[9px] font-black uppercase tracking-widest border border-red-500/10 text-red-500"
+                          >
+                            {isCancelling ? <RefreshCw className="h-3 w-3 mr-2 animate-spin" /> : <X className="h-3 w-3 mr-2" />}
+                            Cancel Active Swarm
+                          </Button>
+                        )}
                         <Button 
                           variant="ghost" 
                           onClick={() => { handleStartDiscovery(true); }}

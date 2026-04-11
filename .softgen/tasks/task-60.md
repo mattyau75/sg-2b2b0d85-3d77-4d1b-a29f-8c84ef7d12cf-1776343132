@@ -9,3 +9,4 @@ priority: urgent
 - [x] Add "Awaiting Manual Ignition" state logic
 - [x] Implement GPU Cold-Start diagnostic banner
 - [x] Verify Supabase SERVICE_ROLE_KEY handshake in worker
+- [x] Add "Cancel Active Swarm" emergency stop button
