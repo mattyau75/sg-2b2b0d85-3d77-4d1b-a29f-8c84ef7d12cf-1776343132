@@ -1,10 +1,7 @@
 name: Deploy to Modal.com
-# Triggered update to force GitHub workflow recognition
-
 on:
   push:
-    paths:
-      - 'modal_worker.py'
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
