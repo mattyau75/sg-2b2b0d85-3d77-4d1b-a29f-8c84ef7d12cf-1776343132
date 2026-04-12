@@ -1,22 +1,21 @@
 ---
 title: "Replace Toast with Banner Notification System"
-status: "in_progress"
-priority: "high"
+status: "done"
+priority: "medium"
 type: "chore"
-tags: ["ui", "notifications", "banners"]
+tags: ["ui", "refactor", "notifications"]
 created_by: "agent"
-created_at: "2026-04-12T00:50:00Z"
+created_at: "2026-04-12T00:54:00Z"
 position: 65
 ---
 
 ## Notes:
-Replace all `useToast` references with a persistent, closable banner notification system.
+Modernize the notification system to use a closable banner instead of disappearing toasts, providing better persistence for critical diagnostic data.
 
 ## Checklist:
-- [ ] Create `DiagnosticBanner.tsx`: A reusable banner component with an "x" close button and support for different notification types (info, error, success).
-- [ ] Implement `NotificationProvider`: A global context to manage active banners.
-- [ ] Update `src/pages/_app.tsx`: Add the provider and global banner display.
-- [ ] Replace `useToast` in `src/pages/games/[id].tsx`: Switch to banner notifications for analysis status.
-- [ ] Replace `useToast` in `src/pages/roster/[id].tsx`: Switch to banner notifications for player updates.
-- [ ] Replace `useToast` in `src/pages/index.tsx`: Switch to banner notifications for dashboard actions.
-- [ ] Audit and replace remaining `useToast` references across the codebase.
+- [x] Create `DiagnosticBanner.tsx`: Base component with severity levels and "X" close button.
+- [x] Implement `GlobalBannerContainer`: Centralized state management for application-wide alerts.
+- [x] Update `_app.tsx`: Register the global container to handle `showBanner` events.
+- [x] Audit `games/[id].tsx`, `roster/[id].tsx`, and `index.tsx` for toast-to-banner conversion.
+- [x] Replace `useToast` in `NewGameModal`, `EditGameTeamsModal`, and `MappingDashboard`.
+- [x] Update `UploadContext` to use banners for upload progress and cancellations.
