@@ -153,6 +153,35 @@ export default function Dashboard() {
     setIsNewGameModalOpen(false);
     showBanner("Game metadata initialized and video upload verified.", "success", "Ingestion Successful");
     
+    // START INSTANT-ZERO TRACE LISTENER
+    // This ensures we see logs from 0s even before the API returns
+    const traceChannel = supabase
+      .channel(`trace-${gameId}`)
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'game_analysis',
+          filter: `game_id=eq.${gameId}`
+        },
+        (payload) => {
+          const update = payload.new as any;
+          setActiveJobs(prev => {
+            const existing = prev.find(j => j.id === gameId);
+            if (existing) {
+              return prev.map(j => j.id === gameId ? {
+                ...j,
+                status: update.status,
+                progress: update.progress_percentage || j.progress
+              } : j);
+            }
+            return prev;
+          });
+        }
+      )
+      .subscribe();
+
     const { data, error } = await supabase
       .from('games')
       .select('*')
