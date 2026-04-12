@@ -8,8 +8,8 @@ import { modalService } from "@/services/modalService";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 🛡️ EXTRACT IDENTIFIER FROM ALL POSSIBLE LOCATIONS
-  const { gameId, metadata } = req.body;
+  // 🛡️ EXTRACT PAYLOAD IMMEDIATELY
+  const { gameId, videoUrl, metadata } = req.body;
   const finalGameId = gameId || metadata?.gameId || metadata?.id;
 
   if (!finalGameId) {
@@ -19,7 +19,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 🛡️ PRIME HANDSHAKE: THE VERY FIRST COMMAND
+    // 🤝 PRIME HANDSHAKE: THE VERY FIRST OPERATIONAL COMMAND
     const { error: handshakeError } = await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
@@ -27,10 +27,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Started..."
     });
 
-    if (handshakeError) throw new Error(`Database Handshake Failure: ${handshakeError.message}`);
+    if (handshakeError) {
+      console.error("Prime Handshake Failed:", handshakeError);
+      throw new Error(`Database Handshake Failure: ${handshakeError.message}`);
+    }
 
     // 2. SYSTEM INTEGRITY CHECK
-    if (!videoUrl) throw new Error("Missing required video URL for AI discovery.");
+    if (!videoUrl) {
+      throw new Error("Missing required video URL for AI discovery.");
+    }
 
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
