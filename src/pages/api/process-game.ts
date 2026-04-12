@@ -2,13 +2,28 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
 import { triggerAnalysis } from "@/services/modalService";
 
+/**
+ * ELITE IGNITION API: Module 2 - Discovery Swarm
+ * This handler manages the prime handshake and GPU ignition.
+ */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
+  if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
-  // 🛡️ ATOMIC ID EXTRACTION: Supporting all naming conventions
-  const { gameId, game_id, metadata } = req.body;
+  // 1. ATOMIC PAYLOAD EXTRACTION (The "ID Bridge")
+  const { 
+    gameId, 
+    game_id, 
+    videoUrl, 
+    video_path,
+    metadata,
+    dry_run 
+  } = req.body;
+
+  // Supporting both camelCase and snake_case for the Game ID
   const finalGameId = gameId || game_id || metadata?.gameId || metadata?.game_id || metadata?.id;
+  const finalVideoUrl = videoUrl || video_path || metadata?.videoUrl || metadata?.video_path;
 
+  // 🛡️ FATAL ERROR GUARD: Ensure Game ID is valid
   if (!finalGameId) {
     return res.status(400).json({ 
       message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." 
@@ -16,7 +31,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 🤝 PRIME HANDSHAKE: Establish DB link as the absolute first command
+    // 🛡️ PRIME DIRECTIVE: ESTABLISH HANDSHAKE FIRST (0s)
+    // This is the absolute first command to run
     const { error: handshakeError } = await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
@@ -24,38 +40,49 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Started..."
     });
 
-    if (handshakeError) throw handshakeError;
+    if (handshakeError) {
+      console.error("Prime Handshake Failed:", handshakeError);
+      return res.status(500).json({ message: "Database Handshake Failure: " + handshakeError.message });
+    }
 
-    // 2. AUTHORIZATION & METADATA PREP
+    // 2. LOG SYSTEM VALIDATION
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "authorizing",
       progress_percentage: 5,
-      status_message: "🔐 AUTH: Authorizing GPU cluster and verifying video payload..."
+      status_message: "🔐 AUTH: Verifying video payload & system integrity..."
     });
 
-    if (!videoUrl) throw new Error("Missing required video URL for AI processing.");
+    if (!finalVideoUrl) throw new Error("Missing required video URL for AI processing.");
 
-    // 3. TRIGGER GPU IGNITION
+    // 3. TRIGGER GPU IGNITION (HANDOFF)
     await triggerAnalysis({
       gameId: finalGameId,
-      videoUrl,
-      metadata: metadata || { id: finalGameId },
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      videoUrl: finalVideoUrl,
+      metadata: { ...metadata, dryRun: dry_run || false },
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
     });
 
-    return res.status(200).json({ message: "Ignition signal dispatched successfully." });
+    // 4. CONFIRM HANDOFF SUCCESS
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "dispatched",
+      progress_percentage: 14,
+      status_message: "🚀 DISPATCHED: AI Swarm has been notified. Waiting for GPU awakening (15%+)..."
+    });
+
+    return res.status(200).json({ success: true, message: "Ignition handoff successful" });
 
   } catch (error: any) {
     console.error("❌ IGNITION FAILURE:", error);
     
-    // FORENSIC ERROR LOGGING: Push directly to trace
+    // FORENSIC ERROR LOGGING: Push the error directly to the trace panel
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "error",
       progress_percentage: 0,
-      status_message: `🚨 HANDSHAKE ERROR: ${error.message || "Unknown ignition failure"}`
+      status_message: `🚨 HANDSHAKE ERROR: ${error.message || "Unknown system failure"}`
     });
 
     return res.status(500).json({ message: error.message });
