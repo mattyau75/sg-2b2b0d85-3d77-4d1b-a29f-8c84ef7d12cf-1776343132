@@ -40,10 +40,7 @@ jobs:
 
       - name: Deploy to Modal
         run: |
-          if [ ! -f "modal_worker.py" ]; then
-            echo "❌ ERROR: modal_worker.py not found in the repository root."
-            exit 1
-          fi
+          # Force deployment of the specific worker file to the specific app name
           modal deploy modal_worker.py
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}

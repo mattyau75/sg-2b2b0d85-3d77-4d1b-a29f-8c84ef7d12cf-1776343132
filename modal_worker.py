@@ -5,7 +5,7 @@ from datetime import datetime
 import time
 
 # 1. DEFINE THE APP WITH SIMPLIFIED NAMING
-# This creates the URL: https://{username}--basketball-scout-analyze.modal.run
+# This creates the URL: https://mattjeffs--basketball-scout-analyze.modal.run
 app = modal.App("basketball-scout")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
