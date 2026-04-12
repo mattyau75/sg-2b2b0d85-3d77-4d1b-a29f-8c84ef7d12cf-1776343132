@@ -2,56 +2,40 @@ import axios from "axios";
 
 /**
  * ELITE MODAL SERVICE BRIDGE
- * Hard-coded to your verified Modal.com endpoint.
- * This service handles the Prime Handshake and GPU Ignition.
+ * Hard-coded to your verified Modal.com GPU Cluster
  */
-
 export const modalService = {
   /**
-   * TRIGGER ANALYSIS
-   * The primary ignition command for Module 2.
-   * Dispatches the secure video payload and Supabase keys to the GPU.
+   * TRIGGER ANALYSIS: The Primary Ignition Command
    */
-  triggerAnalysis: async (config: {
-    game_id: string;
-    video_url: string;
-    video_filename: string;
-    supabase_url?: string;
-    supabase_key?: string;
-    pipeline_mode?: string;
-  }) => {
-    const MODAL_ENDPOINT = "https://softgenai--basketball-scout-ai-process-game.modal.run";
+  async triggerAnalysis(options: {
+    gameId: string;
+    videoUrl: string;
+    supabaseUrl: string;
+    supabaseKey: string;
+    metadata?: any;
+  }) {
+    const MODAL_ENDPOINT = "https://softgen--basketball-scout-ai-analyze.modal.run";
     
     try {
-      console.log("📡 DISPATCHING HANDSHAKE TO GPU:", config.game_id);
-      
-      const response = await axios.post(MODAL_ENDPOINT, config, {
-        headers: {
-          "Content-Type": "application/json",
-          "Accept": "application/json"
-        },
-        timeout: 30000 // 30s timeout for handshake
+      console.log("📡 DISPATCHING HANDSHAKE TO MODAL:", options.gameId);
+      const response = await axios.post(MODAL_ENDPOINT, {
+        game_id: options.gameId,
+        video_url: options.videoUrl,
+        supabase_url: options.supabaseUrl,
+        supabase_key: options.supabaseKey,
+        metadata: options.metadata || {},
+        pipeline_mode: "analyze"
+      }, {
+        headers: { "Content-Type": "application/json" },
+        timeout: 10000 // 10s handshake timeout
       });
 
       return response.data;
     } catch (error: any) {
-      const errorMessage = error.response?.data?.detail || error.message || "GPU Endpoint Unreachable";
+      const errorMessage = error.response?.data?.message || error.message || "GPU Handshake Timeout";
       console.error("❌ GPU IGNITION FAILURE:", errorMessage);
       throw new Error(errorMessage);
     }
-  },
-
-  /**
-   * Legacy support for processGame calls
-   */
-  processGame: async (game_id: string, options: any) => {
-    return modalService.triggerAnalysis({
-      game_id,
-      video_url: options.video_url || "",
-      video_filename: options.video_filename || "video.mp4",
-      supabase_url: options.supabaseUrl,
-      supabase_key: options.supabaseKey,
-      pipeline_mode: "analyze"
-    });
   }
 };

@@ -3,84 +3,66 @@ import { supabase } from "@/integrations/supabase/client";
 import { modalService } from "@/services/modalService";
 
 /**
- * PRIME IGNITION HANDLER
- * The gateway for Module 2: AI Discovery.
- * This handler is architected for the "Prime Handshake" first.
+ * ELITE IGNITION API: The Prime Handshake Gatekeeper
  */
-
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 1. EXTRACT PARAMS
   const { gameId, videoUrl, metadata } = req.body;
   const finalGameId = gameId || metadata?.gameId;
 
   if (!finalGameId) {
-    return res.status(400).json({ message: "Handshake Aborted: Missing Game Identity (ID)" });
+    return res.status(400).json({ message: "Missing required Game ID for ignition." });
   }
 
   try {
-    // 🛡️ PRIME DIRECTIVE: THE ELITE ETERNAL HANDSHAKE
-    // This is the absolute first command to run in the pipeline
+    // 🛡️ PRIME HANDSHAKE: THE VERY FIRST COMMAND
     const { error: handshakeError } = await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
       progress_percentage: 1,
-      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
+      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Started..."
     });
 
-    if (handshakeError) {
-      console.error("Prime Handshake Failed:", handshakeError);
-      return res.status(500).json({ message: "Prime Handshake Failure: " + handshakeError.message });
-    }
+    if (handshakeError) throw new Error(`Database Handshake Failure: ${handshakeError.message}`);
 
-    // 2. SYSTEM VALIDATION LOG
+    // 2. SYSTEM INTEGRITY CHECK
+    if (!videoUrl) throw new Error("Missing required video URL for AI discovery.");
+
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "authorizing",
-      progress_percentage: 5,
-      status_message: "🔐 AUTH: Verifying system integrity and GPU permissions..."
+      progress_percentage: 10,
+      status_message: "🔐 AUTH: Synchronizing credentials with GPU cluster..."
     });
 
-    if (!videoUrl) {
-      throw new Error("Missing video payload. Handshake requires a valid S2/R2 URL.");
-    }
-
-    // 3. PREPARE SECURE GPU PAYLOAD
-    const videoFilename = videoUrl.split('/').pop() || 'game-video.mp4';
-    const gpuConfig = {
-      game_id: finalGameId,
-      video_url: videoUrl,
-      video_filename: videoFilename,
-      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY, // Dynamic handshake key
-      pipeline_mode: "analyze"
-    };
+    // 3. TRIGGER TRI-DIRECTIONAL HANDSHAKE (API -> GPU)
+    await modalService.triggerAnalysis({
+      gameId: finalGameId,
+      videoUrl: videoUrl,
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+      metadata: metadata
+    });
 
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "dispatching",
       progress_percentage: 14,
-      status_message: "📡 NETWORK: Handshaking with Modal GPU at verified endpoint..."
+      status_message: "📡 NETWORK: Handshake received by Modal. GPU Awakening..."
     });
 
-    // 4. TRIGGER GPU IGNITION
-    const modalResponse = await modalService.triggerAnalysis(gpuConfig);
-
-    return res.status(200).json({ 
-      message: "Prime Ignition Successful", 
-      gpu_handshake: modalResponse 
-    });
+    return res.status(200).json({ success: true, gameId: finalGameId });
 
   } catch (error: any) {
-    console.error("❌ PRIME IGNITION FAILURE:", error);
+    console.error("❌ IGNITION FAILURE:", error);
     
-    // 🚨 EMERGENCY TRACE LOGGING: Log the failure immediately to the panel
+    // FORENSIC ERROR BROADCAST
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "error",
       progress_percentage: 0,
-      status_message: `🚨 HANDSHAKE ERROR: ${error.message || "Unknown system failure"}`
+      status_message: `🚨 HANDSHAKE ERROR: ${error.message || "Unknown ignition failure"}`
     });
 
     return res.status(500).json({ message: error.message });
