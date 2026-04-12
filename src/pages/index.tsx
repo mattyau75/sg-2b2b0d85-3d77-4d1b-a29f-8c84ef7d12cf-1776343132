@@ -66,6 +66,9 @@ export default function Dashboard() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
 
+  // 🛡️ REALTIME CLEANUP GUARD: Prevent channel noise
+  const [activeChannel, setActiveChannel] = useState<any>(null);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -199,27 +202,37 @@ export default function Dashboard() {
   };
 
   const handleIgniteAI = async (gameId: string) => {
-    if (!gameId || gameId === 'undefined') {
-      toast({ title: "Ignition Failed", description: "Missing Game ID", variant: "destructive" });
-      return;
+    if (!gameId) return;
+
+    // 1. CLEAR PREVIOUS NOISE
+    if (activeChannel) {
+      console.log("🧹 CLEANUP: Closing stale handshake channel...");
+      await supabase.removeChannel(activeChannel);
     }
 
     try {
       setIgnitingGameId(gameId);
+      const stableGameId = gameId.toLowerCase(); // 🛡️ NORMALIZE FOR FILTER
+
       setWorkerLogs([{
         id: `init-${Date.now()}`,
         timestamp: new Date().toISOString(),
         level: 'info',
-        message: '📡 SYSTEM: Synchronizing Eternal Handshake...',
+        message: '📡 SYSTEM: Synchronizing Atomic Handshake...',
         module: 'DASHBOARD'
       }]);
 
-      // 1. ESTABLISH LISTENER FIRST
+      // 2. ESTABLISH CLEAN CHANNEL
       const channel = supabase
-        .channel(`prime-sync-${gameId}`)
+        .channel(`prime-sync-${stableGameId}`)
         .on(
           'postgres_changes',
-          { event: 'INSERT', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId}` },
+          { 
+            event: 'INSERT', 
+            schema: 'public', 
+            table: 'game_analysis', 
+            filter: `game_id=eq.${stableGameId}` 
+          },
           (payload) => {
             const entry = payload.new as any;
             setWorkerLogs(prev => {
@@ -239,17 +252,17 @@ export default function Dashboard() {
         )
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            console.log("✅ HANDSHAKE: Realtime Channel Active. Igniting API...");
+            setActiveChannel(channel);
+            console.log("✅ HANDSHAKE: Clean Channel Active.");
             
-            // 2. WAIT FOR STABILIZATION (500ms)
-            await new Promise(resolve => setTimeout(resolve, 500));
+            // Wait for synchronization stabilization
+            await new Promise(resolve => setTimeout(resolve, 800));
 
-            // 3. EXECUTE API IGNITION
             try {
               const response = await fetch('/api/process-game', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameId })
+                body: JSON.stringify({ gameId: stableGameId })
               });
 
               if (!response.ok) {
