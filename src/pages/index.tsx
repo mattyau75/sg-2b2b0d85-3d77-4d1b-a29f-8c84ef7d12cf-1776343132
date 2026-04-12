@@ -69,8 +69,21 @@ export default function Dashboard() {
 
   // 🛡️ MANUAL STEPPER STATE
   const [manualMode, setManualMode] = useState(false);
-  const [currentManualStep, setCurrentManualStep] = useState(0);
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
   const [isSubscribed, setIsSubscribed] = useState(false);
+
+  const checkSequence = (step: number) => {
+    if (step > 0 && !completedSteps.includes(step - 1)) {
+      const stepNames = ["SYNC REALTIME", "VERIFY PAYLOAD", "IGNITE GPU SWARM", "FINALIZE M2"];
+      toast({
+        title: "Sequence Blocked",
+        description: `Please complete Phase ${step}: ${stepNames[step - 1]} before proceeding.`,
+        variant: "destructive"
+      });
+      return false;
+    }
+    return true;
+  };
 
   // 🛡️ REALTIME CLEANUP GUARD: Prevent channel noise
   const [activeChannel, setActiveChannel] = useState<any>(null);
@@ -339,6 +352,7 @@ export default function Dashboard() {
   };
 
   const handleManualStep1 = async (gameId: string) => {
+    if (!checkSequence(0)) return;
     if (!gameId) return;
     setIgnitingGameId(gameId);
     setWorkerLogs([{
@@ -370,8 +384,8 @@ export default function Dashboard() {
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
           setIsSubscribed(true);
+          setCompletedSteps(prev => [...new Set([...prev, 0])]);
           setActiveChannel(channel);
-          setCurrentManualStep(1);
           setWorkerLogs(prev => [...prev, {
             id: `m1-sub-${Date.now()}`,
             timestamp: new Date().toISOString(),
@@ -384,6 +398,7 @@ export default function Dashboard() {
   };
 
   const handleManualStep2 = async () => {
+    if (!checkSequence(1)) return;
     if (!ignitingGameId) return;
     setWorkerLogs(prev => [...prev, {
       id: `m2-${Date.now()}`,
@@ -401,10 +416,11 @@ export default function Dashboard() {
       status_message: "🛰️ STEP 2 COMPLETE: Forensic Payload Validated for GPU Ignition."
     });
 
-    if (!error) setCurrentManualStep(2);
+    if (!error) setCompletedSteps(prev => [...new Set([...prev, 1])]);
   };
 
   const handleManualStep3 = async () => {
+    if (!checkSequence(2)) return;
     if (!ignitingGameId) return;
     setWorkerLogs(prev => [...prev, {
       id: `m3-${Date.now()}`,
@@ -420,15 +436,11 @@ export default function Dashboard() {
       body: JSON.stringify({ gameId: ignitingGameId.toLowerCase() })
     });
 
-    if (response.ok) {
-      setCurrentManualStep(3);
-    } else {
-      const err = await response.json();
-      toast({ title: "Ignition Failed", description: err.message, variant: "destructive" });
-    }
+    if (response.ok) setCompletedSteps(prev => [...new Set([...prev, 2])]);
   };
 
   const handleManualStep4 = async () => {
+    if (!checkSequence(3)) return;
     if (!ignitingGameId) return;
     const { error } = await supabase
       .from("games")
@@ -436,10 +448,9 @@ export default function Dashboard() {
       .eq('id', ignitingGameId);
 
     if (!error) {
-      setCurrentManualStep(4);
+      setCompletedSteps(prev => [...new Set([...prev, 3])]);
       toast({ title: "Module 2 Complete", description: "The Swarm analysis has been finalized." });
       setManualMode(false);
-      setCurrentManualStep(0);
     }
   };
 
@@ -626,29 +637,50 @@ export default function Dashboard() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {manualMode && activeJobs.length > 0 && (
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-3 mb-4">
-                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest text-center">Manual Ignition Stepper</p>
-                    <div className="grid grid-cols-1 gap-2">
-                      {currentManualStep === 0 && (
-                        <Button size="sm" className="w-full text-[10px] h-8" onClick={() => handleManualStep1(activeJobs[0].id)}>
-                          STAGE 1: SYNC REALTIME
-                        </Button>
-                      )}
-                      {currentManualStep === 1 && (
-                        <Button size="sm" variant="secondary" className="w-full text-[10px] h-8" onClick={handleManualStep2}>
-                          STAGE 2: VERIFY PAYLOAD
-                        </Button>
-                      )}
-                      {currentManualStep === 2 && (
-                        <Button size="sm" className="w-full text-[10px] h-8 bg-accent text-black hover:bg-accent/90" onClick={handleManualStep3}>
-                          STAGE 3: IGNITE GPU SWARM
-                        </Button>
-                      )}
-                      {currentManualStep === 3 && (
-                        <Button size="sm" variant="outline" className="w-full text-[10px] h-8 border-primary text-primary" onClick={handleManualStep4}>
-                          STAGE 4: FINALIZE MODULE 2
-                        </Button>
-                      )}
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-4 mb-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Manual Command Center</p>
+                      <Badge variant="outline" className="text-[9px] border-primary/30 text-primary">OPERATOR MODE</Badge>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <Button 
+                        variant={completedSteps.includes(0) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(0) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={() => handleManualStep1(activeJobs[0].id)}
+                      >
+                        {completedSteps.includes(0) ? "✅ PHASE 1: SYNCED" : "1. SYNC REALTIME"}
+                      </Button>
+
+                      <Button 
+                        variant={completedSteps.includes(1) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(1) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep2}
+                      >
+                        {completedSteps.includes(1) ? "✅ PHASE 2: VERIFIED" : "2. VERIFY PAYLOAD"}
+                      </Button>
+
+                      <Button 
+                        variant={completedSteps.includes(2) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(2) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep3}
+                      >
+                        {completedSteps.includes(2) ? "✅ PHASE 3: IGNITED" : "3. IGNITE GPU"}
+                      </Button>
+
+                      <Button 
+                        variant={completedSteps.includes(3) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(3) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep4}
+                      >
+                        {completedSteps.includes(3) ? "✅ PHASE 4: LOCKED" : "4. FINALIZE M2"}
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-1 justify-center">
+                      {[0, 1, 2, 3].map((s) => (
+                        <div key={s} className={`h-1 w-8 rounded-full ${completedSteps.includes(s) ? "bg-green-500" : "bg-primary/20"}`} />
+                      ))}
                     </div>
                   </div>
                 )}
