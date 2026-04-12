@@ -76,7 +76,8 @@ def unified_pipeline_async(payload: dict):
             "status": "completed",
             "m2_complete": True,
             "m3_complete": True,
-            "progress_percentage": 100
+            "progress_percentage": 100,
+            "updated_at": datetime.now().isoformat()
         }).eq("id", game_id).execute()
     except Exception as e:
         print(f"❌ FATAL GPU HANDSHAKE ERROR: {e}")
