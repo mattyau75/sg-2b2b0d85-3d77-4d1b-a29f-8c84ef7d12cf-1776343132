@@ -5,7 +5,6 @@ from datetime import datetime
 import time
 
 # 1. DEFINE THE APP WITH VERIFIED NAMING
-# Matches your URL: https://mattjeffs--basketball-scout-ai-analyze.modal.run
 app = modal.App("basketball-scout-ai")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
@@ -30,17 +29,18 @@ def analyze(payload: dict):
     """
     ELITE GPU ENTRY POINT
     Hardened for instant feedback and robust error reporting.
+    Ignores Modal secrets to use fresh dynamic payload keys.
     """
     start_time = time.time()
     
-    # Extract payload with fallbacks - matches process-game.ts names exactly
+    # FORCED PAYLOAD EXTRACTION - This bypasses any Modal.com Dashboard secrets
     game_id = payload.get("game_id")
     supabase_url = payload.get("supabase_url")
-    supabase_key = payload.get("supabase_key") # Uses Service Role Key
+    supabase_key = payload.get("supabase_key") # The fresh Service Role Key
     video_url = payload.get("video_url")
 
     if not all([game_id, supabase_url, supabase_key]):
-        return {"status": "error", "message": "Missing critical authentication or game metadata."}
+        return {"status": "error", "message": "CRITICAL: Missing dynamic credentials from website payload."}
 
     # Initialize Supabase Client (Master Service Role)
     from supabase import create_client, Client
