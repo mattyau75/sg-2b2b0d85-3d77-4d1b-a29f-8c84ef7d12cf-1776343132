@@ -115,6 +115,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rawFilename = confirmedKey.split('/').pop() || "footage.mp4";
     const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
+    // INSTANT-ZERO LOGGING: Initialize the trace before calling the GPU
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "initializing",
+      progress: 5,
+      log_level: "info",
+      message: "🚀 ELITE IGNITION SEQUENCE: Authorizing GPU Cluster..."
+    });
+
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "authorizing",
+      progress: 10,
+      log_level: "info",
+      message: "🔐 AUTH: Generating secure video payload & fresh Supabase keys..."
+    });
+
     // PREPARE GPU PAYLOAD
     const gpuConfig = {
       game_id: finalGameId, 
@@ -124,6 +141,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
       pipeline_mode: "analyze"
     };
+
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "dispatching",
+      progress: 14,
+      log_level: "info",
+      message: "📡 NETWORK: Handshaking with Modal GPU at verified endpoint..."
+    });
+
+    // TRIGGER GPU
+    const modalResponse = await modalService.triggerAnalysis(gpuConfig);
 
     // Ignition Step 1: Tell the DB we are starting (15%)
     await supabase.from('games').update({ 
