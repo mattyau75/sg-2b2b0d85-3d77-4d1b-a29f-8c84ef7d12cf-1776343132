@@ -5,7 +5,7 @@ import axios from "axios";
  * Hard-coded to your verified Dashboard URL for 100% Reliability.
  */
 export const modalService = {
-  processGame: async (gameId: string, options: { 
+  processGame: async (game_id: string, options: { 
     supabaseUrl: string, 
     supabaseKey: string, 
     metadata?: any 
@@ -17,7 +17,7 @@ export const modalService = {
 
     try {
       const response = await axios.post(url, {
-        game_id: gameId,
+        game_id: game_id,
         supabase_url: options.supabaseUrl,
         supabase_key: options.supabaseKey, // This is the Service Role Key
         ...options.metadata
