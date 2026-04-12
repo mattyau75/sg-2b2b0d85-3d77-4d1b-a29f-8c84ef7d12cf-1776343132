@@ -198,7 +198,7 @@ export default function Dashboard() {
 
   const handleIgniteAI = async (gameId: string) => {
     try {
-      // INSTANT-ZERO CUMULATIVE INITIALIZATION
+      // 1. CLEAR PREVIOUS TRACE & START OPTIMISTIC LOGGING
       setWorkerLogs([{
         id: 'init-0',
         timestamp: new Date().toISOString(),
@@ -207,6 +207,38 @@ export default function Dashboard() {
         module: 'SYSTEM'
       }]);
       
+      // 2. LAUNCH IMMEDIATE REALTIME TRACE LISTENER
+      const traceChannel = supabase
+        .channel(`trace-${gameId}-${Date.now()}`)
+        .on(
+          'postgres_changes',
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'game_analysis',
+            filter: `game_id=eq.${gameId}`
+          },
+          (payload) => {
+            const update = payload.new as any;
+            if (update.status_message) {
+              setWorkerLogs(prev => {
+                // Prevent duplicate messages
+                const exists = prev.some(l => l.message === update.status_message);
+                if (exists) return prev;
+                
+                return [...prev, {
+                  id: update.id,
+                  timestamp: update.updated_at || new Date().toISOString(),
+                  level: update.status === 'error' ? 'error' : 'info',
+                  message: update.status_message,
+                  module: 'GPU'
+                }];
+              });
+            }
+          }
+        )
+        .subscribe();
+
       setIgnitingGameId(gameId);
       
       const response = await fetch('/api/process-game', {
