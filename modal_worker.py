@@ -5,7 +5,7 @@ from datetime import datetime
 import time
 
 # Create the Modal App with the EXACT name used in the URL
-app = modal.App("basketball-scout-gpu")
+app = modal.App("basketball-scout-ai-analyze")
 
 # Setup Image with all AI dependencies
 image = modal.Image.debian_slim().pip_install(

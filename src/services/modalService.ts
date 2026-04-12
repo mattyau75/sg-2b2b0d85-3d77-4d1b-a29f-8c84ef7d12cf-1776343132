@@ -34,7 +34,7 @@ export const modalService = {
     // 2. App name and Function name must be separated by SINGLE DASH (-)
     // 3. Entire string must be lowercase
     const userName = (process.env.MODAL_USER_NAME || "mattjeffs").toLowerCase().replace(/_/g, "-");
-    const appName = "basketball-scout-gpu";
+    const appName = "basketball-scout-ai-analyze";
     const functionName = "process-game-factory";
     
     const url = `https://${userName}--${appName}-${functionName}.modal.run`;
