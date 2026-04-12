@@ -209,7 +209,7 @@ export default function Dashboard() {
       setWorkerLogs([initialLog]);
       setIgnitingGameId(gameId);
 
-      // 2. START CUMULATIVE ACCUMULATOR
+      // 2. START CUMULATIVE ACCUMULATOR (INSERT-ONLY)
       const channel = supabase
         .channel(`eternal-handshake-${gameId}`)
         .on(
@@ -222,16 +222,26 @@ export default function Dashboard() {
           },
           (payload) => {
             const entry = payload.new as any;
-            setWorkerLogs(prev => {
-              // Cumulative stack: never overwrite, only append
-              return [...prev, {
-                id: entry.id,
-                timestamp: entry.created_at || new Date().toISOString(),
-                level: entry.status === 'error' ? 'error' : 'info',
-                message: entry.status_message,
-                module: 'GPU'
-              }];
-            });
+            
+            // Handle Progress Bar updates separately from logs
+            if (entry.progress_percentage !== undefined) {
+              setActiveJobs(prev => prev.map(j => 
+                j.id === gameId ? { ...j, progress: entry.progress_percentage, status: entry.status } : j
+              ));
+            }
+
+            if (entry.status_message) {
+              setWorkerLogs(prev => {
+                if (prev.some(log => log.message === entry.status_message)) return prev;
+                return [...prev, {
+                  id: entry.id,
+                  timestamp: entry.created_at || new Date().toISOString(),
+                  level: entry.status === 'error' ? 'error' : (entry.status === 'cancelled' ? 'warn' : 'info'),
+                  message: entry.status_message,
+                  module: 'GPU'
+                }];
+              });
+            }
           }
         )
         .subscribe();
@@ -252,6 +262,37 @@ export default function Dashboard() {
     } catch (err) {
       console.error("Error initiating AI:", err);
       showBanner(`Error initiating analysis for ${selectedGameForEdit?.home_team?.name || 'Game'}.`, "error", "Workflow Failed");
+    }
+  };
+
+  const handleKillSwarm = async (gameId: string) => {
+    try {
+      showBanner("Initiating emergency GPU shutdown...", "info", "Kill Signal Sent");
+      
+      // 1. SIGNAL CANCELLATION TO DATABASE
+      await supabase
+        .from("game_analysis")
+        .insert({
+          game_id: gameId,
+          status: 'cancelled',
+          status_message: '🛑 KILL SIGNAL: Manual termination requested by admin.',
+          progress_percentage: 0
+        });
+
+      // 2. UPDATE LOCAL UI
+      setActiveJobs(prev => prev.map(j => 
+        j.id === gameId ? { ...j, status: 'cancelled' } : j
+      ));
+      
+      setWorkerLogs(prev => [...prev, {
+        id: `kill-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level: 'warn',
+        message: '🛑 SYSTEM: Shutdown command dispatched to GPU.',
+        module: 'SYSTEM'
+      }]);
+    } catch (err) {
+      console.error("Kill Swarm Error:", err);
     }
   };
 

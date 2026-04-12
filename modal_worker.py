@@ -18,8 +18,24 @@ image = (
     )
 )
 
+def check_cancellation(supabase, game_id):
+    """BIDIRECTIONAL HANDSHAKE: Check if user killed the swarm"""
+    try:
+        res = supabase.table("game_analysis") \
+            .select("status") \
+            .eq("game_id", game_id) \
+            .order("updated_at", desc=True) \
+            .limit(1) \
+            .execute()
+        
+        if res.data and res.data[0].get("status") == "cancelled":
+            return True
+    except Exception:
+        pass
+    return False
+
 def log_progress(supabase, game_id, progress, status, message):
-    """PERSISTENT STATE-SYNC ENGINE: Cumulative INSERT Pattern"""
+    """CUMULATIVE INSERT PATTERN: Every event is a new row for the trace"""
     try:
         supabase.table("game_analysis").insert({
             "game_id": game_id,
@@ -27,6 +43,13 @@ def log_progress(supabase, game_id, progress, status, message):
             "status": status,
             "status_message": message
         }).execute()
+        
+        # Also update the Master Game Record for high-level UI
+        supabase.table("games").update({
+            "progress_percentage": progress,
+            "status": status
+        }).eq("id", game_id).execute()
+        
     except Exception as e:
         print(f"⚠️ Trace Sync Error: {e}")
 
