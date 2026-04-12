@@ -49,8 +49,9 @@ const isValidUUID = (uuid: string) => {
 
 export default function GameDetailPage() {
   const router = useRouter();
-  const { id: gameId } = router.query;
-  const { showBanner } = useUpload();
+  const { id: gameIdRaw } = router.query;
+  const gameId = Array.isArray(gameIdRaw) ? gameIdRaw[0] : gameIdRaw;
+  
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("m1");
@@ -66,14 +67,13 @@ export default function GameDetailPage() {
   const [isWarming, setIsWarming] = useState(false);
   const [manualStartRequested, setManualStartRequested] = useState(false);
   const [provisioningTimeout, setProvisioningTimeout] = useState<NodeJS.Timeout | null>(null);
-  const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
   const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   
-  // Diagnostic Banner State (Local override for specific GPU errors)
+  // Diagnostic Banner State
   const [banner, setBanner] = useState<{ title: string; message: string; severity: BannerSeverity } | null>(null);
 
-  // NEW: Pre-Ignition Health State
+  // Pre-Ignition Health State
   const [healthStatus, setHealthStatus] = useState<{
     supabase: 'valid' | 'invalid' | 'checking',
     storage: 'valid' | 'invalid' | 'checking'
@@ -95,9 +95,6 @@ export default function GameDetailPage() {
       if (gameError) throw gameError;
       setGame(gameData);
       
-      const metadata = gameData.processing_metadata as any;
-      setWorkerLogs(metadata?.worker_logs || []);
-
       const { data: mappingsData } = await supabase
         .from('ai_player_mappings')
         .select('*, player:players(*)')
@@ -125,15 +122,7 @@ export default function GameDetailPage() {
     }
   }, [gameId, videoUrl]);
 
-  useEffect(() => {
-    if (gameId) {
-      fetchGameData();
-      checkSystemHealth();
-    }
-  }, [gameId]);
-
   const checkSystemHealth = async () => {
-    // Proactive check for Service Role Key and R2
     try {
       const res = await fetch('/api/storage/test-connection');
       const data = await res.json();
@@ -147,23 +136,27 @@ export default function GameDetailPage() {
   };
 
   useEffect(() => {
+    if (gameId) {
+      fetchGameData();
+      checkSystemHealth();
+    }
+  }, [gameId, fetchGameData]);
+
+  useEffect(() => {
     if (!gameId || !isValidUUID(gameId)) return;
 
     const channel = supabase
       .channel(`game-analysis-${gameId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
         const newGameData = payload.new;
-        setGame(prev => ({ ...prev, ...newGameData }));
-        const metadata = newGameData.processing_metadata as any;
-        if (metadata?.worker_logs) setWorkerLogs(metadata.worker_logs);
-        if (newGameData.status === 'completed' || newGameData.status === 'error') fetchGameData(false);
+        setGame((prev: any) => ({ ...prev, ...newGameData }));
+        if (newGameData.status === 'completed' || newGameData.status === 'error') fetchGameData(true);
       })
       .subscribe((status) => setIsRealtimeActive(status === 'SUBSCRIBED'));
 
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
-  // Handle GPU Start with Cold-Start Protection
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
@@ -172,7 +165,6 @@ export default function GameDetailPage() {
     setIsWarming(true);
     setBanner(null);
 
-    // If it stays at 15% for too long, warn the user about provisioning
     if (provisioningTimeout) clearTimeout(provisioningTimeout);
     const timeout = setTimeout(() => {
       if (game?.progress_percentage === 15) {
@@ -193,7 +185,6 @@ export default function GameDetailPage() {
           game_id: gameId, 
           video_path: game.video_path, 
           dry_run: isDryRun,
-          // Explicitly pass these for legacy support if env is lagging
           homeColor: game.home_team_color,
           awayColor: game.away_team_color
         })
@@ -205,7 +196,6 @@ export default function GameDetailPage() {
         showBanner("GPU Swarm Ignition Successful", "success", "Swarm Launched");
         await fetchGameData(true);
       } else {
-        // Handle the "STALL DETECTED" errors explicitly
         showBanner(data.message || "Ignition Failed", "error", "System Stall");
         setBanner({
           title: "Critical System Stall",
@@ -386,39 +376,6 @@ export default function GameDetailPage() {
           </div>
         </div>
 
-        {/* Tactical Video Monitor */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8">
-            <div className="aspect-video rounded-2xl overflow-hidden shadow-2xl border border-white/5 bg-black ring-1 ring-white/10">
-              {videoUrl && <VideoPlayer url={videoUrl} className="w-full h-full" />}
-            </div>
-          </div>
-          <div className="lg:col-span-4">
-            <Card className="bg-card/40 border-white/5 h-full overflow-hidden flex flex-col">
-              <div className="p-6 border-b border-white/5 bg-gradient-to-br from-primary/5 to-transparent">
-                <h3 className="text-lg font-bold flex items-center gap-2 font-mono"><Trophy className="h-5 w-5 text-primary" /> PROGRESS TRACKER</h3>
-              </div>
-              <CardContent className="p-6 flex-1 space-y-6">
-                {[
-                  { id: 1, label: "Calibration", complete: game?.m1_complete, icon: Settings2 },
-                  { id: 2, label: "Discovery Swarm", complete: game?.m2_complete, icon: Zap },
-                  { id: 3, label: "Mapping Engine", complete: game?.status === 'completed', icon: Fingerprint },
-                ].map((mod) => (
-                  <div key={mod.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", mod.complete ? "bg-emerald-500/20" : "bg-muted/20")}>
-                        <mod.icon className={cn("h-4 w-4", mod.complete ? "text-emerald-500" : "text-muted-foreground")} />
-                      </div>
-                      <span className={cn("text-xs font-bold uppercase tracking-widest", mod.complete ? "text-white" : "text-muted-foreground")}>Step {mod.id}: {mod.label}</span>
-                    </div>
-                    {mod.complete ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : (mod.id === 1 || (mod.id === 2 && game?.m1_complete) || (mod.id === 3 && game?.m2_complete)) ? <Badge variant="outline" className="text-[8px] text-primary border-primary/20">READY</Badge> : <LockIcon className="h-3 w-3 text-muted-foreground/30" />}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
         {/* Modular Workflow Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-1 md:grid-cols-3 gap-2 mb-8">
@@ -454,55 +411,6 @@ export default function GameDetailPage() {
                   </Badge>
                 )}
               </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
-                  <h4 className="text-xs font-bold text-primary uppercase tracking-[0.2em]">Video Metadata</h4>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Camera Type</span>
-                      <span className="font-mono text-white uppercase">{game?.camera_type || 'panning'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Venue</span>
-                      <span className="font-mono text-white">{game?.venue?.name || 'Not set'}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Video Stream</span>
-                      <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20">ENCODED</Badge>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
-                  <h4 className="text-xs font-bold text-accent uppercase tracking-[0.2em]">Color Calibration</h4>
-                  <div className="flex items-center gap-8">
-                    <div className="space-y-2">
-                      <div className="text-[10px] text-muted-foreground uppercase font-bold">Home Team</div>
-                      <div className="h-12 w-24 rounded-lg border border-white/10 shadow-xl" style={{ backgroundColor: game?.home_team_color || '#333' }} />
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-[10px] text-muted-foreground uppercase font-bold">Away Team</div>
-                      <div className="h-12 w-24 rounded-lg border border-white/10 shadow-xl" style={{ backgroundColor: game?.away_team_color || '#666' }} />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <Video className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-white uppercase tracking-tight">Footage Precision Check</div>
-                    <div className="text-xs text-muted-foreground">Review calibration metadata before triggering AI Swarm.</div>
-                  </div>
-                </div>
-                <Button variant="outline" onClick={() => setIsEditModalOpen(true)} className="bg-background border-primary/20">
-                  EDIT GAME & RE-CALIBRATE <Settings2 className="h-4 w-4 ml-2" />
-                </Button>
-              </div>
             </Card>
           </TabsContent>
 
@@ -514,20 +422,9 @@ export default function GameDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <h3 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tighter"><Zap className="h-6 w-6 text-primary" /> Module 2: Unified Discovery Swarm</h3>
-                    <p className="text-sm text-muted-foreground font-mono italic">GPU-accelerated raw entity detection, event tracking, and tactical analysis.</p>
+                    <p className="text-sm text-muted-foreground font-mono italic">GPU-accelerated raw entity detection and event tracking.</p>
                   </div>
                   <div className="flex items-center gap-3">
-                    {isCurrentlyProcessing && (
-                      <Button 
-                        onClick={handleCancelAnalysis} 
-                        disabled={isCancelling}
-                        variant="destructive" 
-                        className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 font-bold uppercase tracking-widest text-[10px] h-10"
-                      >
-                        {isCancelling ? <RefreshCw className="h-3 w-3 mr-2 animate-spin" /> : <X className="h-3 w-3 mr-2" />}
-                        Kill Swarm
-                      </Button>
-                    )}
                     <Button 
                       onClick={() => handleStartDiscovery(false)} 
                       disabled={analyzing || isCurrentlyProcessing} 
@@ -539,152 +436,33 @@ export default function GameDetailPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                  {/* MAIN PROGRESS ENGINE */}
-                  <div className="lg:col-span-8 space-y-6">
-                    <div className="p-8 rounded-2xl bg-white/5 border border-white/10 shadow-inner relative overflow-hidden group">
-                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                        <Cpu className="h-24 w-24 text-white" />
+                <div className="space-y-6">
+                  <div className="p-8 rounded-2xl bg-white/5 border border-white/10 shadow-inner relative overflow-hidden group">
+                    <div className="space-y-4 relative z-10">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-black uppercase tracking-[0.3em] text-white">GPU Swarm Status: {isCurrentlyProcessing ? "Active Analysis" : "Ready for Ignition"}</span>
+                        <span className="text-2xl font-black italic text-primary font-mono tracking-tighter">{game?.progress_percentage || 0}%</span>
                       </div>
-                      
-                      <div className="space-y-4 relative z-10">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={cn("h-3 w-3 rounded-full", isCurrentlyProcessing ? "bg-primary animate-pulse" : "bg-muted")} />
-                            <span className="text-xs font-black uppercase tracking-[0.3em] text-white">GPU Swarm Status: {isCurrentlyProcessing ? "Active Analysis" : "Ready for Ignition"}</span>
-                          </div>
-                          <span className="text-2xl font-black italic text-primary font-mono tracking-tighter">
-                            {game?.progress_percentage || 0}%
-                          </span>
-                        </div>
-                        
-                        <Progress value={game?.progress_percentage || 0} className="h-2 bg-white/5" />
-                        
-                        <div className="grid grid-cols-4 gap-4 pt-4">
-                          {[
-                            { label: "Ignition", threshold: 10 },
-                            { label: "Raw Discovery", threshold: 40 },
-                            { label: "Event Tracking", threshold: 75 },
-                            { label: "Final Pack", threshold: 95 }
-                          ].map((s) => (
-                            <div key={s.label} className="space-y-2">
-                              <div className={cn("h-1 rounded-full transition-all duration-700", (game?.progress_percentage || 0) >= s.threshold ? "bg-primary shadow-[0_0_10px_rgba(234,88,12,0.5)]" : "bg-white/5")} />
-                              <span className={cn("text-[9px] font-black uppercase tracking-widest block text-center", (game?.progress_percentage || 0) >= s.threshold ? "text-primary" : "text-muted-foreground/30")}>
-                                {s.label}
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="p-6 rounded-2xl border border-white/5 bg-card/20 space-y-4">
-                      <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                          <Terminal className="h-3 w-3" /> Live Technical Trace
-                        </h4>
-                        <div className="flex items-center gap-2">
-                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                          <span className="text-[9px] font-mono text-emerald-500 uppercase tracking-tighter">Live Pulse Active</span>
-                        </div>
-                      </div>
-                      
-                      {/* NEW: Pre-Ignition Health Check */}
-                      {!isCurrentlyProcessing && (
-                        <div className={cn(
-                          "p-3 mb-2 rounded border text-[10px] font-mono flex items-center justify-between",
-                          game?.progress_percentage === 0 ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                        )}>
-                          <div className="flex items-center gap-2">
-                            <Activity className="h-3 w-3" />
-                            <span>SYSTEM HEALTH: {game?.progress_percentage === 0 ? "READY FOR IGNITION" : "CALIBRATED"}</span>
-                          </div>
-                          <span className="opacity-50">v2.1.0-ELITE</span>
-                        </div>
-                      )}
-
-                      <div className="h-48 overflow-y-auto font-mono text-[11px] space-y-2 pr-4 custom-scrollbar">
-                        {game?.processing_metadata?.worker_logs?.map((log: any, i: number) => (
-                          <div key={i} className="flex gap-3 text-muted-foreground/80 hover:text-white transition-colors">
-                            <span className="text-primary/50 shrink-0">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
-                            <span className={cn(
-                              log.severity === 'error' ? 'text-red-400' : 
-                              log.severity === 'success' ? 'text-emerald-400 font-bold' : 
-                              'text-white/70'
-                            )}>
-                              {log.message}
-                            </span>
-                          </div>
-                        )) || (
-                          <div className="h-full flex items-center justify-center text-muted-foreground/20 italic">
-                            Awaiting GPU cluster heartbeat...
-                          </div>
-                        )}
-                      </div>
+                      <Progress value={game?.progress_percentage || 0} className="h-2 bg-white/5" />
                     </div>
                   </div>
 
-                  {/* SIDEBAR STATUS */}
-                  <div className="lg:col-span-4 space-y-6">
-                    <Card className="bg-white/5 border-white/5 overflow-hidden">
-                      <div className="p-4 border-b border-white/5 bg-primary/5">
-                        <h4 className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                          <ShieldCheck className="h-3 w-3 text-primary" /> System Health
-                        </h4>
-                      </div>
-                      <CardContent className="p-4 space-y-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground uppercase font-mono">Infrastructure</span>
-                          <div className="flex items-center gap-1.5">
-                            <Globe className="h-3 w-3 text-emerald-500" />
-                            <span className="text-[10px] font-bold text-white">Online</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground uppercase font-mono">Real-time Sync</span>
-                          <div className="flex items-center gap-1.5">
-                            <Activity className="h-3 w-3 text-emerald-500 animate-pulse" />
-                            <span className="text-[10px] font-bold text-white">Connected</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground uppercase font-mono">GPU State</span>
-                          <div className="flex items-center gap-1.5">
-                            <Cpu className={cn("h-3 w-3", isCurrentlyProcessing ? "text-primary animate-pulse" : "text-muted-foreground")} />
-                            <span className={cn("text-[10px] font-bold", isCurrentlyProcessing ? "text-primary" : "text-muted-foreground")}>
-                              {isCurrentlyProcessing ? "Processing" : "Idle"}
-                            </span>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    <div className="p-6 rounded-2xl bg-accent/5 border border-accent/20 space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-accent/10 flex items-center justify-center border border-accent/20">
-                          <Fingerprint className="h-5 w-5 text-accent" />
-                        </div>
-                        <div>
-                          <div className="text-[10px] font-black text-white uppercase tracking-tight">Post-Analysis Bridge</div>
-                          <div className="text-[9px] text-muted-foreground font-mono uppercase">Move to Mapping Engine</div>
-                        </div>
-                      </div>
-                      <Button 
-                        onClick={() => setActiveTab("m5")} 
-                        className="w-full bg-accent hover:bg-accent/80 text-black font-black uppercase italic tracking-tighter text-[11px] h-10"
-                        disabled={!game?.m2_complete}
-                      >
-                        Launch Mapping Dashboard <ChevronRight className="ml-2 h-3 w-3" />
-                      </Button>
+                  <div className="p-6 rounded-2xl border border-white/5 bg-card/20 space-y-4">
+                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                      <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <Terminal className="h-3 w-3" /> Live Technical Trace
+                      </h4>
                     </div>
-
-                    <Button 
-                      onClick={handleResetAnalysis} 
-                      variant="ghost" 
-                      className="w-full text-muted-foreground hover:text-red-400 hover:bg-red-400/5 text-[9px] font-black uppercase tracking-widest h-8"
-                    >
-                      <RefreshCw className="h-3 w-3 mr-2" /> Reset Swarm Cluster
-                    </Button>
+                    <div className="h-48 overflow-y-auto font-mono text-[11px] space-y-2 pr-4 custom-scrollbar">
+                      {game?.processing_metadata?.worker_logs?.map((log: any, i: number) => (
+                        <div key={i} className="flex gap-3 text-muted-foreground/80 hover:text-white transition-colors">
+                          <span className="text-primary/50 shrink-0">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
+                          <span className={cn(log.severity === 'error' ? 'text-red-400' : log.severity === 'success' ? 'text-emerald-400 font-bold' : 'text-white/70')}>
+                            {log.message}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </Card>
