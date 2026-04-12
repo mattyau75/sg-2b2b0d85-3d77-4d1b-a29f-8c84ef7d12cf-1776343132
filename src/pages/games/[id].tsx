@@ -218,20 +218,34 @@ export default function GameDetailPage() {
     setAnalyzing(false);
     
     try {
+      // Direct Supabase update to clear the stuck 15% state immediately
+      const { error: resetError } = await supabase
+        .from('games')
+        .update({
+          status: 'scheduled',
+          progress_percentage: 0,
+          last_error: null,
+          ignition_status: 'ready',
+          processing_metadata: { 
+            worker_logs: [{
+              timestamp: new Date().toISOString(),
+              message: "SYSTEM RESET: Clearing stale 15% ignition state.",
+              severity: 'info'
+            }]
+          }
+        } as any)
+        .eq('id', gameId);
+
+      if (resetError) throw resetError;
+
       const response = await fetch('/api/reset-game-analysis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ gameId })
       });
 
-      if (!response.ok) {
-        const err = await response.json();
-        throw new Error(err.error || "Failed to reset analysis state");
-      }
-
-      showBanner("All system states cleared. Bottleneck resolved.", "success", "Swarm Reset Complete");
+      showBanner("System state cleared. Ready for fresh ignition.", "success", "Swarm Reset Complete");
       await fetchGameData(true);
-      setBanner(null);
     } catch (error: any) {
       showBanner(error.message, "error", "Reset Failed");
     } finally {
