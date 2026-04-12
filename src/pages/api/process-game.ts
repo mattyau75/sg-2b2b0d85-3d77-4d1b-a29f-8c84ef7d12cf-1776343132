@@ -126,38 +126,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_roster: awayRoster || []
     };
 
-    // PRE-IGNITION: Force the UI to 15% immediately to prevent 10% stall
-    await supabase.from('games').update({ 
-      status: 'analyzing', 
-      progress_percentage: 15, 
-      ignition_status: 'ignited',
-      processing_metadata: {
-        worker_logs: [{
-          timestamp: new Date().toISOString(),
-          message: "App Server: GPU Handshake Initiated. Spawning background cluster...",
-          severity: "success"
-        }]
-      },
-      updated_at: new Date().toISOString()
-    } as any).eq('id', finalGameId);
-
-    // ASYNC SPAWN: Fire and forget the Modal call
-    modalService.processGame(signedUrl, gpuConfig).then((modalRes) => {
-      console.log(`[ProcessGame] ✅ Background Spawn Confirmed:`, modalRes);
-    }).catch(err => {
-      console.error("[ProcessGame] FATAL SPAWN ERROR:", err.message);
-      // Only update to error if we actually failed to reach Modal
-      supabase.from('games').update({ 
-        status: 'error', 
-        last_error: `GPU Spawn Failed: ${err.message}` 
-      } as any).eq('id', finalGameId);
+    // LAUNCHER MODE: Trigger the GPU and immediately release the request
+    modalService.processGame(signedUrl, gpuConfig).catch(err => {
+      console.error("[ProcessGame] Launch Failure:", err);
     });
 
-    return res.status(202).json({ 
-      success: true, 
-      message: "Background Discovery Spawned", 
-      id: finalGameId
-    });
+    // Return instantly to keep the UI 'alive' and responsive
+    return res.status(202).json({ success: true, message: "GPU Discovery Launched" });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
     return res.status(500).json({ message: error.message });

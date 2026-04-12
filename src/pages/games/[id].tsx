@@ -139,6 +139,27 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
+  // Real-time listener for the "Always-Alive" Progress Bar
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`game_updates_${id}`)
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'games', 
+        filter: `id=eq.${id}` 
+      }, (payload) => {
+        const updatedGame = payload.new as any;
+        console.log("[Realtime] Heartbeat Received:", updatedGame.progress_percentage);
+        setGame(prev => ({ ...prev, ...updatedGame }));
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
+
   // Remove automatic trigger from useEffect
   useEffect(() => {
     if (activeTab === "mapping" && game?.status === "pending") {
