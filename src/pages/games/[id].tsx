@@ -19,7 +19,15 @@ import {
   Database,
   Terminal,
   AlertTriangle,
-  Fingerprint
+  Fingerprint,
+  Lock as LockIcon,
+  Wifi,
+  WifiOff,
+  Calendar,
+  MapPin,
+  Settings2,
+  Trophy,
+  Video
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -132,36 +140,6 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
-  // Real-time listener for the "Always-Alive" Progress Bar
-  useEffect(() => {
-    if (!id) return;
-
-    const channel = supabase
-      .channel(`game_updates_${id}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'games', 
-        filter: `id=eq.${id}` 
-      }, (payload) => {
-        const updatedGame = payload.new as any;
-        console.log("[Realtime] Heartbeat Received:", updatedGame.progress_percentage);
-        setGame(prev => ({ ...prev, ...updatedGame }));
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, [id]);
-
-  // Remove automatic trigger from useEffect
-  useEffect(() => {
-    if (activeTab === "mapping" && game?.status === "pending") {
-      // Logic removed: We no longer auto-trigger handleStartAnalysis() here.
-      // The user must manually click the "Analyze AI Detection" button.
-      console.log("[UI] Mapping tab active. Awaiting manual analysis trigger.");
-    }
-  }, [activeTab, game?.status]);
-
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
@@ -235,56 +213,6 @@ export default function GameDetailPage() {
     } finally {
       setAnalyzing(false);
       setIsWarming(false);
-    }
-  };
-
-  const handleVerifyHandshake = async () => {
-    if (!gameId || !game) return;
-    setIsVerifying(true);
-    setBanner(null);
-
-    try {
-      const response = await fetch('/api/process-game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game_id: gameId, video_path: game.video_path, dry_run: true }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        let errorMessage = errorData.message || "Failed to establish GPU connection.";
-        let severity: BannerSeverity = "error";
-
-        if (errorMessage.includes("SUPABASE_SERVICE_ROLE_KEY")) {
-          errorMessage = "CREDENTIAL BOTTLENECK: The SUPABASE_SERVICE_ROLE_KEY is missing or invalid in your Modal.com Secrets. The GPU cannot report back progress.";
-        } else if (errorMessage.includes("Video file not found")) {
-          errorMessage = "STORAGE BOTTLENECK: The video file is not accessible in R2. Please re-upload or check your R2_ACCESS_KEY_ID permissions.";
-        } else if (response.status === 504) {
-          errorMessage = "NETWORK BOTTLENECK: GPU Swarm timed out during handshake. This typically indicates a cluster cold-start delay. Retrying in 30s is recommended.";
-          severity = "warning";
-        }
-
-        setBanner({
-          title: "Handshake Bottleneck Detected",
-          message: errorMessage,
-          severity: severity
-        });
-      } else {
-        showBanner("GPU cluster successfully verified credentials and storage access.", "success", "Handshake Established");
-        setBanner({
-          title: "Swarm Verified & Active",
-          message: "GPU Swarm Handshake successful. Cluster is provisioned and awaiting ignition pulse.",
-          severity: "success"
-        });
-      }
-    } catch (error: any) {
-      setBanner({
-        title: "Communication Error",
-        message: error.message || "Handshake request failed at the App Server level.",
-        severity: "error"
-      });
-    } finally {
-      setIsVerifying(false);
     }
   };
 
@@ -364,7 +292,7 @@ export default function GameDetailPage() {
   const ModuleLocked = ({ moduleNum, requiredModule }: { moduleNum: number, requiredModule: string }) => (
     <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 border border-dashed border-white/10 rounded-2xl bg-black/20">
       <div className="h-16 w-16 rounded-full bg-muted/20 flex items-center justify-center">
-        <Lock className="h-8 w-8 text-muted-foreground" />
+        <LockIcon className="h-8 w-8 text-muted-foreground" />
       </div>
       <div className="space-y-2">
         <h3 className="text-xl font-bold text-white uppercase tracking-tight">Module {moduleNum} Locked</h3>
@@ -433,7 +361,7 @@ export default function GameDetailPage() {
                       </div>
                       <span className={cn("text-xs font-bold uppercase tracking-widest", mod.complete ? "text-white" : "text-muted-foreground")}>Step {mod.id}: {mod.label}</span>
                     </div>
-                    {mod.complete ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : (mod.id === 1 || (mod.id === 2 && game?.m1_complete) || (mod.id === 3 && game?.m2_complete)) ? <Badge variant="outline" className="text-[8px] text-primary border-primary/20">READY</Badge> : <Lock className="h-3 w-3 text-muted-foreground/30" />}
+                    {mod.complete ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : (mod.id === 1 || (mod.id === 2 && game?.m1_complete) || (mod.id === 3 && game?.m2_complete)) ? <Badge variant="outline" className="text-[8px] text-primary border-primary/20">READY</Badge> : <LockIcon className="h-3 w-3 text-muted-foreground/30" />}
                   </div>
                 ))}
               </CardContent>
