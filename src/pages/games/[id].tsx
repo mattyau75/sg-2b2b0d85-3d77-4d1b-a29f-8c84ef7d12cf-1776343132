@@ -165,6 +165,15 @@ export default function GameDetailPage() {
     };
   }, [gameId, isCurrentlyProcessing]);
 
+  // Remove automatic trigger from useEffect
+  useEffect(() => {
+    if (activeTab === "mapping" && game?.status === "pending") {
+      // We no longer auto-trigger here. 
+      // The user must click the "Analyze AI Detection" button.
+      console.log("Mapping tab active. Waiting for manual analysis trigger.");
+    }
+  }, [activeTab, game?.status]);
+
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
