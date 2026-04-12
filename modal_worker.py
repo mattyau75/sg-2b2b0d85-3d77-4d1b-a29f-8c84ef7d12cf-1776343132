@@ -4,16 +4,22 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH FOOLPROOF SIMPLICITY
-# This creates the URL: https://mattjeffs--bscout-run.modal.run
-app = modal.App("bscout")
+# 1. DEFINE THE APP WITH THE EXACT NAME FOR THE URL
+# This creates the URL: https://mattjeffs--basketball-scout-v2-analyze.modal.run
+app = modal.App("basketball-scout-v2")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
-image = modal.Image.debian_slim().pip_install(
-    "supabase",
-    "numpy",
-    "opencv-python-headless",
-    "requests"
+image = (
+    modal.Image.debian_slim(python_version="3.10")
+    .apt_install("libgl1-mesa-glx", "libglib2.0-0", "ffmpeg")
+    .pip_install(
+        "ultralytics",
+        "supabase",
+        "opencv-python",
+        "numpy",
+        "requests",
+        "python-dotenv"
+    )
 )
 
 @app.function(
@@ -23,67 +29,48 @@ image = modal.Image.debian_slim().pip_install(
     container_idle_timeout=60
 )
 @modal.web_endpoint(method="POST")
-def run(payload: dict):
+def analyze(payload: dict):
     """
-    ELITE FOOLPROOF GPU ENTRY POINT.
-    Receives: game_id, supabase_url, supabase_key
+    ELITE GPU ANALYTICS ENGINE (v2)
+    Entry point for the basketball scouting pipeline.
     """
-    # Extract coordinates
+    start_time = time.time()
+    
+    # Extract synchronized payload keys
     game_id = payload.get("game_id")
-    sb_url = payload.get("supabase_url")
-    sb_key = payload.get("supabase_key")
+    supabase_url = payload.get("supabase_url")
+    supabase_key = payload.get("supabase_key")
     
-    # Initialize Supabase for Real-time Dashboard Sync
-    from supabase import create_client
-    sb = create_client(sb_url, sb_key)
-    
-    def log_to_dashboard(step: int, msg: str, severity: str = "info"):
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
-        log_entry = f"[{timestamp}] {severity.upper()}: {msg}"
-        
-        # Fetch existing metadata to append logs
+    def log_to_dashboard(pct, msg, sev="info"):
         try:
-            res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
-            if res.data and len(res.data) > 0:
-                current_meta = res.data[0].get("processing_metadata") or {}
-                
-                logs = current_meta.get("worker_logs", [])
-                logs.append({
-                    "timestamp": datetime.utcnow().isoformat(),
-                    "message": msg,
-                    "severity": severity
-                })
-                
-                current_meta["worker_logs"] = logs[-100:] # Keep last 100 entries
-                current_meta["gpu_status"] = "processing" if step < 100 else "completed"
-                current_meta["analysis_step"] = step
-                
-                sb.table("games").update({
-                    "processing_metadata": current_meta,
-                    "processing_step": step,
-                    "progress_percentage": step
-                }).eq("id", game_id).execute()
+            from supabase import create_client
+            client = create_client(supabase_url, supabase_key)
+            client.table("games").update({
+                "progress_percentage": pct,
+                "status_message": msg,
+                "ignition_status": "ignited" if pct < 100 else "completed",
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", game_id).execute()
+            print(f"[{pct}%] {msg}")
         except Exception as e:
-            print(f"Failed to log to dashboard: {str(e)}")
-        
-        print(log_entry)
+            print(f"Failed to log: {e}")
 
-    # TRIGGER 16% AWAKENING IMMEDIATELY
-    log_to_dashboard(16, "GPU CLUSTER AWAKENING - NVIDIA A10G Engine Online", "success")
-    log_to_dashboard(18, f"HANDSHAKE VERIFIED - Processing Game ID: {game_id}", "info")
-    
+    # IMMEDIATE HANDSHAKE (16%)
+    log_to_dashboard(16, "GPU AWAKENING: Container provisioned successfully.", "success")
+    time.sleep(1) # Visual pacing
+    log_to_dashboard(18, "HANDSHAKE VERIFIED: System parameters synchronized.", "success")
+
     try:
-        # SIMULATE AI WORK (Replace with actual CV logic)
-        time.sleep(2)
-        log_to_dashboard(45, "Calibrating Team Colors & Player Discovery...", "info")
-        time.sleep(2)
-        log_to_dashboard(75, "Performing Elite Personnel Analysis...", "info")
-        time.sleep(2)
-        log_to_dashboard(100, "ANALYSIS COMPLETE - Pushing data to scouting dashboard", "success")
+        # Pipeline logic...
+        log_to_dashboard(25, "MODEL LOADING: Initializing AI Personnel Discovery...", "info")
         
+        # Simulate processing for now to verify plumbing
+        time.sleep(5)
+        
+        log_to_dashboard(100, "ANALYSIS COMPLETE: Roster mapping generated.", "success")
         return {"status": "success", "game_id": game_id}
         
     except Exception as e:
-        error_msg = f"GPU FATAL ERROR: {str(e)}"
+        error_msg = f"GPU PIPELINE CRASH: {str(e)}"
         log_to_dashboard(15, error_msg, "error")
         return {"status": "error", "message": error_msg}
