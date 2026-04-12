@@ -150,8 +150,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Call Modal function via service
     modalService.processGame(finalGameId, {
-      supabaseUrl,
-      supabaseKey,
+      supabaseUrl: supabaseUrl || "",
+      supabaseKey: supabaseKey || "",
       metadata: gpuConfig
     }).catch(err => {
       console.error("❌ Modal Ignition Failed:", err);
