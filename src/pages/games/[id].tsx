@@ -431,18 +431,17 @@ export default function GameDetailPage() {
               <CardContent className="p-6 flex-1 space-y-6">
                 {[
                   { id: 1, label: "Calibration", complete: game?.m1_complete, icon: Settings2 },
-                  { id: 2, label: "Discovery", complete: game?.m2_complete, icon: Users },
-                  { id: 3, label: "Analysis", complete: game?.m3_complete, icon: Activity },
-                  { id: 4, label: "Insights", complete: false, icon: BarChart3 },
+                  { id: 2, label: "Discovery Swarm", complete: game?.m2_complete, icon: Zap },
+                  { id: 3, label: "Mapping Engine", complete: game?.status === 'completed', icon: Fingerprint },
                 ].map((mod) => (
                   <div key={mod.id} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
                     <div className="flex items-center gap-3">
                       <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center", mod.complete ? "bg-emerald-500/20" : "bg-muted/20")}>
                         <mod.icon className={cn("h-4 w-4", mod.complete ? "text-emerald-500" : "text-muted-foreground")} />
                       </div>
-                      <span className={cn("text-xs font-bold uppercase tracking-widest", mod.complete ? "text-white" : "text-muted-foreground")}>Module {mod.id}: {mod.label}</span>
+                      <span className={cn("text-xs font-bold uppercase tracking-widest", mod.complete ? "text-white" : "text-muted-foreground")}>Step {mod.id}: {mod.label}</span>
                     </div>
-                    {mod.complete ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : mod.id === 1 || (mod.id === 2 && game?.m1_complete) || (mod.id === 3 && game?.m2_complete) ? <Badge variant="outline" className="text-[8px] text-primary border-primary/20">READY</Badge> : <Lock className="h-3 w-3 text-muted-foreground/30" />}
+                    {mod.complete ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : (mod.id === 1 || (mod.id === 2 && game?.m1_complete) || (mod.id === 3 && game?.m2_complete)) ? <Badge variant="outline" className="text-[8px] text-primary border-primary/20">READY</Badge> : <Lock className="h-3 w-3 text-muted-foreground/30" />}
                   </div>
                 ))}
               </CardContent>
@@ -452,14 +451,14 @@ export default function GameDetailPage() {
 
         {/* Modular Workflow Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-2 lg:grid-cols-3 gap-2 mb-8">
+          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-1 md:grid-cols-3 gap-2 mb-8">
             <TabsTrigger value="m1" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
               <Settings2 className="h-4 w-4 mr-2" /> 01: Calibration
             </TabsTrigger>
             <TabsTrigger value="m2" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
               <Zap className="h-4 w-4 mr-2" /> 02: Discovery Swarm
             </TabsTrigger>
-            <TabsTrigger value="m5" className="data-[state=active]:bg-accent text-black h-12 font-bold uppercase tracking-tighter text-xs">
+            <TabsTrigger value="m5" className="data-[state=active]:bg-accent data-[state=active]:text-black h-12 font-bold uppercase tracking-tighter text-xs">
               <Fingerprint className="h-4 w-4 mr-2" /> 03: Mapping Engine
             </TabsTrigger>
           </TabsList>
