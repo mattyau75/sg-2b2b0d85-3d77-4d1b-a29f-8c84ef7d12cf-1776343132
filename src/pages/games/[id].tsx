@@ -26,7 +26,8 @@ import {
   Cpu,
   RotateCcw,
   Zap,
-  X
+  X,
+  Fingerprint
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -451,18 +452,15 @@ export default function GameDetailPage() {
 
         {/* Modular Workflow Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-2 lg:grid-cols-4 gap-2 mb-8">
+          <TabsList className="bg-card/40 border border-white/5 p-1 h-auto grid grid-cols-2 lg:grid-cols-3 gap-2 mb-8">
             <TabsTrigger value="m1" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
               <Settings2 className="h-4 w-4 mr-2" /> 01: Calibration
             </TabsTrigger>
             <TabsTrigger value="m2" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
-              <Users className="h-4 w-4 mr-2" /> 02: Discovery
+              <Zap className="h-4 w-4 mr-2" /> 02: Discovery Swarm
             </TabsTrigger>
-            <TabsTrigger value="m3" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
-              <Activity className="h-4 w-4 mr-2" /> 03: Analysis
-            </TabsTrigger>
-            <TabsTrigger value="m4" className="data-[state=active]:bg-primary h-12 font-bold uppercase tracking-tighter text-xs">
-              <BarChart3 className="h-4 w-4 mr-2" /> 04: Insights
+            <TabsTrigger value="m5" className="data-[state=active]:bg-accent text-black h-12 font-bold uppercase tracking-tighter text-xs">
+              <Fingerprint className="h-4 w-4 mr-2" /> 03: Mapping Engine
             </TabsTrigger>
           </TabsList>
 
@@ -522,7 +520,7 @@ export default function GameDetailPage() {
                 </div>
               </div>
 
-              <div className="p-6 rounded-2xl border border-primary/20 bg-primary/5 flex items-center justify-between">
+              <div className="p-6 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Video className="h-6 w-6 text-primary" />
@@ -546,8 +544,8 @@ export default function GameDetailPage() {
               <Card className="bg-card/40 border-white/5 p-8 space-y-8">
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
-                    <h3 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tighter"><Users className="h-6 w-6 text-primary" /> Module 2: AI Roster Discovery</h3>
-                    <p className="text-sm text-muted-foreground font-mono">GPU-accelerated personnel mapping and identity validation.</p>
+                    <h3 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tighter"><Zap className="h-6 w-6 text-primary" /> Module 2: Unified Discovery Swarm</h3>
+                    <p className="text-sm text-muted-foreground font-mono">GPU-accelerated raw entity detection, event tracking, and tactical analysis.</p>
                   </div>
                   <div className="flex items-center gap-3">
                     {isCurrentlyProcessing && !game.last_error && (
@@ -600,9 +598,9 @@ export default function GameDetailPage() {
                       <div className="grid grid-cols-4 gap-2 pt-2">
                         {[
                           { step: 1, label: "Ignition", threshold: 10 },
-                          { step: 2, label: "Provision", threshold: 30 },
-                          { step: 3, label: "Stream", threshold: 70 },
-                          { step: 4, label: "Finalize", threshold: 95 }
+                          { step: 2, label: "Raw Discovery", threshold: 40 },
+                          { step: 3, label: "Event Tracking", threshold: 75 },
+                          { step: 4, label: "Analysis Pack", threshold: 95 }
                         ].map((s) => (
                           <div key={s.step} className="space-y-1">
                             <div className={cn("h-1 rounded-full", (game?.progress_percentage || 0) >= s.threshold ? "bg-primary" : "bg-white/5")} />
@@ -693,61 +691,37 @@ export default function GameDetailPage() {
                   </div>
                 </div>
 
-                <MappingDashboard 
-                  gameId={game.id} 
-                  aiMappings={aiMappings} 
-                  homeRoster={homeRoster} 
-                  awayRoster={awayRoster} 
-                  homeColor={game.home_team_color}
-                  awayColor={game.away_team_color}
-                  onRefresh={() => fetchGameData(true)} 
-                />
+                <div className="p-6 rounded-2xl border border-accent/20 bg-accent/5 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                      <Fingerprint className="h-6 w-6 text-accent" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-white uppercase tracking-tight">Personnel Readiness Check</div>
+                      <div className="text-xs text-muted-foreground">GPU discovery complete. Review and map entities in the Mapping Engine.</div>
+                    </div>
+                  </div>
+                  <Button onClick={() => setActiveTab("m5")} className="bg-accent hover:bg-accent/90 text-black font-bold uppercase tracking-widest text-[10px]">
+                    OPEN MAPPING ENGINE <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </div>
               </Card>
             )}
           </TabsContent>
 
-          <TabsContent value="m3">
+          <TabsContent value="m5">
             {!game?.m2_complete ? (
-              <ModuleLocked moduleNum={3} requiredModule="Module 2: Discovery" />
+              <ModuleLocked moduleNum={3} requiredModule="Module 2: Discovery Swarm" />
             ) : (
-              <Card className="bg-card/40 border-white/5 p-12 text-center space-y-6">
-                <div className="h-20 w-20 rounded-full bg-accent/10 border border-accent/20 flex items-center justify-center mx-auto">
-                  <Activity className="h-10 w-10 text-accent animate-pulse" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-3xl font-black uppercase tracking-tighter italic">Module 3: Tactical Analysis</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto font-mono text-sm">
-                    Personnel mapped. Transitioning to event tracking, shot detection, and play-by-play generation.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-4">
-                  <Badge className="bg-accent/20 text-accent border-accent/30 py-1 px-4 uppercase font-mono text-xs">READY FOR PROCESSING</Badge>
-                </div>
-                <Button className="bg-accent hover:bg-accent/90 font-black h-12 px-10 uppercase tracking-widest text-xs">
-                  EXECUTE EVENT TRACKING
-                </Button>
-              </Card>
-            )}
-          </TabsContent>
-
-          <TabsContent value="m4">
-            {!game?.m3_complete ? (
-              <ModuleLocked moduleNum={4} requiredModule="Module 3: Analysis" />
-            ) : (
-              <Card className="bg-card/40 border-white/5 p-12 text-center space-y-6">
-                <div className="h-20 w-20 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mx-auto">
-                  <BarChart3 className="h-10 w-10 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h3 className="text-3xl font-black uppercase tracking-tighter">Module 4: Elite Insights</h3>
-                  <p className="text-muted-foreground max-w-md mx-auto font-mono text-sm">
-                    Intelligence synthesis. Generating efficiency reports, personnel trends, and scout-ready highlights.
-                  </p>
-                </div>
-                <div className="flex items-center justify-center gap-4">
-                  <Badge className="bg-primary/20 text-primary border-primary/30 py-1 px-4 uppercase font-mono text-xs">AWAITING ANALYTICS PAYLOAD</Badge>
-                </div>
-              </Card>
+              <MappingDashboard 
+                gameId={game.id} 
+                aiMappings={aiMappings} 
+                homeRoster={homeRoster} 
+                awayRoster={awayRoster} 
+                homeColor={game.home_team_color}
+                awayColor={game.away_team_color}
+                onRefresh={() => fetchGameData(true)} 
+              />
             )}
           </TabsContent>
         </Tabs>
