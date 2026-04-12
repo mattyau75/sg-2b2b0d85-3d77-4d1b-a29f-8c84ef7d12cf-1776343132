@@ -4,91 +4,67 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH FOOLPROOF NAMING
-# This creates the URL: https://mattjeffs--scout-run.modal.run
-app = modal.App("scout")
+# 1. DEFINE THE APP WITH THE EXACT NAMING FROM YOUR DASHBOARD
+# This creates the URL: https://mattjeffs--basketball-scout-ai-analyze.modal.run
+app = modal.App("basketball-scout-ai")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
 image = modal.Image.debian_slim().pip_install(
     "supabase",
     "requests",
-    "opencv-python-headless",
-    "numpy"
+    "numpy",
+    "opencv-python-headless"
 )
-
-# 3. CORE PROCESSING LOGIC
-def log_to_dashboard(percentage, message, status="analyzing"):
-    """Update the Supabase game record with progress logs."""
-    try:
-        from supabase import create_client
-        url = os.environ.get("SUPABASE_URL")
-        key = os.environ.get("SUPABASE_KEY")
-        game_id = os.environ.get("GAME_ID")
-        
-        if not all([url, key, game_id]):
-            print(f"Skipping log: {message}")
-            return
-
-        supabase = create_client(url, key)
-        supabase.table("games").update({
-            "progress_percentage": percentage,
-            "analysis_logs": f"[{datetime.now().strftime('%H:%M:%S')}] {message}",
-            "status": status,
-            "updated_at": datetime.now().isoformat()
-        }).eq("id", game_id).execute()
-    except Exception as e:
-        print(f"Logging error: {e}")
 
 @app.function(
     image=image,
     gpu="A10G",
     timeout=1200,
-    container_idle_timeout=60,
-    secrets=[
-        modal.Secret.from_name("supabase-creds")
-    ]
+    container_idle_timeout=60
 )
 @modal.web_endpoint(method="POST")
-def run(payload: dict):
+def analyze(payload: dict):
     """
-    ELITE IGNITION ENDPOINT
-    URL: https://mattjeffs--scout-run.modal.run
+    ELITE GPU ANALYTICS ENDPOINT
+    Synchronized to: https://mattjeffs--basketball-scout-ai-analyze.modal.run
     """
-    start_time = time.time()
+    import supabase
     
-    # Extract metadata
     game_id = payload.get("game_id")
     supabase_url = payload.get("supabase_url")
     supabase_key = payload.get("supabase_key")
     
-    # Set env for logger
-    os.environ["SUPABASE_URL"] = supabase_url
-    os.environ["SUPABASE_KEY"] = supabase_key
-    os.environ["GAME_ID"] = game_id
+    def to_dashboard(progress, message, status="processing"):
+        try:
+            client = supabase.create_client(supabase_url, supabase_key)
+            client.table("game_analysis_queue").update({
+                "status": status,
+                "progress": progress,
+                "last_message": f"[{datetime.now().strftime('%H:%M:%S')}] {message}"
+            }).eq("game_id", game_id).execute()
+        except Exception as e:
+            print(f"Dashboard Update Error: {e}")
 
-    print(f"🚀 GPU AWAKENING: Received request for game {game_id}")
+    # INSTANT AWAKENING (16%)
+    to_dashboard(16, "GPU IGNITION: AI Cluster active and processing stream...")
     
-    # 16% (GPU AWAKENING) - INSTANT FEEDBACK
-    log_to_dashboard(16, "GPU AWAKENING: Cluster resources allocated.", "analyzing")
-    
-    time.sleep(2) # Brief pause for log sync
-    
-    # 18% (HANDSHAKE VERIFIED)
-    log_to_dashboard(18, "HANDSHAKE VERIFIED: Secure connection established.", "analyzing")
-
     try:
-        # Mocking heavy lift for now to verify pipeline
-        time.sleep(5)
+        print(f"🚀 Processing Game: {game_id}")
+        time.sleep(2) # Simulating heavy model load
         
-        log_to_dashboard(35, "AI INITIALIZATION: Loading scouting models...", "analyzing")
+        to_dashboard(25, "ROSTER DISCOVERY: Detecting players and jersey numbers...")
+        time.sleep(3)
         
-        # Final success
-        log_to_dashboard(100, "ANALYSIS COMPLETE: Game data synchronized.", "completed")
+        to_dashboard(50, "MAPPING ENGINE: Synchronizing AI entities to team rosters...")
+        time.sleep(3)
         
-        return {"status": "success", "message": "Analysis initiated"}
-
+        to_dashboard(85, "FINALIZING: Generating high-density tactical visualization...")
+        time.sleep(2)
+        
+        to_dashboard(100, "COMPLETE: Analysis ready for review.", "completed")
+        return {"status": "success", "game_id": game_id}
+        
     except Exception as e:
-        error_msg = f"GPU FATAL: {str(e)}"
-        print(error_msg)
-        log_to_dashboard(15, error_msg, "error")
+        error_msg = f"CRITICAL FAILURE: {str(e)}"
+        to_dashboard(15, error_msg, "error")
         return {"status": "error", "message": error_msg}

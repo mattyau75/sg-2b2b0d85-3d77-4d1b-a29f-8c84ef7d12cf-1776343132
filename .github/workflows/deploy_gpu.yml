@@ -24,8 +24,7 @@ jobs:
 
       - name: Deploy to Modal
         run: |
-          # FORCED NAMING DEPLOYMENT
-          # This ensures the app is named 'scout' and the 'run' function is exposed
+          # Deploy specifically to match the URL: https://mattjeffs--basketball-scout-ai-analyze.modal.run
           modal deploy modal_worker.py
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
