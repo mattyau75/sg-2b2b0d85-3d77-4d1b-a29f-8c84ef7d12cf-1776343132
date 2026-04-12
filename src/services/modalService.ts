@@ -2,8 +2,8 @@ import axios from "axios";
 
 /**
  * ELITE MODAL SERVICE BRIDGE
- * Hard-coded for 100% Reliability to solve 404 Routing Errors.
- * Target: https://mattjeffs--basketball-scout-v2-analyze.modal.run
+ * Hard-coded for 100% Reliability with simplified naming.
+ * Target: https://mattjeffs--bscout-run.modal.run
  */
 export const modalService = {
   processGame: async (gameId: string, options: { 
@@ -11,8 +11,8 @@ export const modalService = {
     supabaseKey: string, 
     metadata?: any 
   }) => {
-    // ELITE HARD-LOCKED URL
-    const url = "https://mattjeffs--basketball-scout-v2-analyze.modal.run";
+    // ELITE HARD-LOCKED URL - Simplified to avoid 404 Routing Errors
+    const url = "https://mattjeffs--bscout-run.modal.run";
     
     console.log(`🚀 IGNITING GPU CLUSTER AT: ${url}`);
 

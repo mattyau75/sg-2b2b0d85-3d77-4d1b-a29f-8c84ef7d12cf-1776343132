@@ -4,9 +4,9 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH UNIQUE NAMING
-# This creates the URL: https://mattjeffs--basketball-scout-v2-analyze.modal.run
-app = modal.App("basketball-scout-v2")
+# 1. DEFINE THE APP WITH FOOLPROOF SIMPLICITY
+# This creates the URL: https://mattjeffs--bscout-run.modal.run
+app = modal.App("bscout")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
 image = modal.Image.debian_slim().pip_install(
@@ -23,9 +23,9 @@ image = modal.Image.debian_slim().pip_install(
     container_idle_timeout=60
 )
 @modal.web_endpoint(method="POST")
-def analyze(payload: dict):
+def run(payload: dict):
     """
-    Foolproof GPU Entry Point.
+    ELITE FOOLPROOF GPU ENTRY POINT.
     Receives: game_id, supabase_url, supabase_key
     """
     # Extract coordinates
@@ -44,30 +44,31 @@ def analyze(payload: dict):
         # Fetch existing metadata to append logs
         try:
             res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
-            current_meta = res.data[0].get("processing_metadata") or {}
-            
-            logs = current_meta.get("worker_logs", [])
-            logs.append({
-                "timestamp": datetime.utcnow().isoformat(),
-                "message": msg,
-                "severity": severity
-            })
-            
-            current_meta["worker_logs"] = logs[-100:] # Keep last 100 entries
-            current_meta["gpu_status"] = "processing" if step < 100 else "completed"
-            current_meta["analysis_step"] = step
-            
-            sb.table("games").update({
-                "processing_metadata": current_meta,
-                "processing_step": step,
-                "progress_percentage": step
-            }).eq("id", game_id).execute()
+            if res.data and len(res.data) > 0:
+                current_meta = res.data[0].get("processing_metadata") or {}
+                
+                logs = current_meta.get("worker_logs", [])
+                logs.append({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "message": msg,
+                    "severity": severity
+                })
+                
+                current_meta["worker_logs"] = logs[-100:] # Keep last 100 entries
+                current_meta["gpu_status"] = "processing" if step < 100 else "completed"
+                current_meta["analysis_step"] = step
+                
+                sb.table("games").update({
+                    "processing_metadata": current_meta,
+                    "processing_step": step,
+                    "progress_percentage": step
+                }).eq("id", game_id).execute()
         except Exception as e:
             print(f"Failed to log to dashboard: {str(e)}")
         
         print(log_entry)
 
-    # TRIGGER 16% AWAKENING IMMEDIATELY (BREAKER OF THE 15% STALL)
+    # TRIGGER 16% AWAKENING IMMEDIATELY
     log_to_dashboard(16, "GPU CLUSTER AWAKENING - NVIDIA A10G Engine Online", "success")
     log_to_dashboard(18, f"HANDSHAKE VERIFIED - Processing Game ID: {game_id}", "info")
     
