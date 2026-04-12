@@ -41,7 +41,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true, 
       supabase_service_role: serviceRoleValid,
       r2_connected: r2Connected,
-      bucket: bucketName
+      bucket: bucketName,
+      diagnostics: {
+        supabase_prefix: process.env.SUPABASE_SERVICE_ROLE_KEY ? process.env.SUPABASE_SERVICE_ROLE_KEY.substring(0, 10) + "..." : "MISSING",
+        r2_acc_prefix: process.env.R2_ACCOUNT_ID ? process.env.R2_ACCOUNT_ID.substring(0, 5) + "..." : "MISSING",
+        r2_key_prefix: process.env.R2_ACCESS_KEY_ID ? process.env.R2_ACCESS_KEY_ID.substring(0, 5) + "..." : "MISSING"
+      }
     });
 
   } catch (error: any) {
