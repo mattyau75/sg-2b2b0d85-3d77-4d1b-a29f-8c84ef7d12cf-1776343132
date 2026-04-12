@@ -129,17 +129,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: 'analyzing', 
       progress_percentage: 15, 
       ignition_status: 'ignited',
-      processing_metadata: {
-        worker_logs: [{
-          timestamp: new Date().toISOString(),
-          message: "IGNITION COMMAND SENT: GPU Cluster Handshake in progress...",
-          severity: 'info'
-        }]
-      },
       updated_at: new Date().toISOString()
     } as any).eq('id', finalGameId);
 
-    // Ignition Step 2: Fire and Forget
+    // Ignition Step 2: Trigger the Modal Handshake
     try {
       const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
       const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -154,7 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         metadata: gpuConfig
       });
 
-      console.log("✅ Swarm successfully triggered for game:", finalGameId);
+      console.log("✅ GPU Handshake Successful for game:", finalGameId);
     } catch (err: any) {
       console.error("❌ Modal Ignition Failed:", err);
       
