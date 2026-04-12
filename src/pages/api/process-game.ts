@@ -4,7 +4,6 @@ import { r2Client } from "@/lib/r2Client";
 import { modalService } from "@/services/modalService";
 import { HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { generateGpuToken } from "@/services/jwtService";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   console.log(`[API] ${req.method} /api/process-game triggered`);
@@ -105,10 +104,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: confirmedKey });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
-    // Generate Dynamic Scoped JWT for GPU-to-DB Auth
-    const gpuToken = generateGpuToken(finalGameId);
-    console.log(`[ProcessGame] Generated Scoped JWT for Game: ${finalGameId}`);
-
     // Fetch team rosters for mapping
     const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
       supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
@@ -125,7 +120,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_path: confirmedKey,
       video_url: signedUrl,
       video_filename: videoFilename,
-      gpu_token: gpuToken, // Pass the dynamic JWT
       home_team_id: homeTeamId || req.body.home_team_id,
       away_team_id: awayTeamId || req.body.away_team_id,
       homeColor,
@@ -135,8 +129,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_roster: awayRoster || [],
       scouting_mode: "deep_recognition",
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      dry_run: req.body.dry_run || false // Pass dry_run flag to GPU
+      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY, // DIRECT SERVICE ROLE HANDSHAKE
+      dry_run: req.body.dry_run || false
     };
 
     // Update game status to signify ingestion start
@@ -144,7 +138,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: 'analyzing', 
       progress_percentage: 10, 
       ignition_status: 'ignited',
-      last_heartbeat: new Date().toISOString(), // Initial heartbeat
+      last_heartbeat: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       last_error: null,
       video_path: confirmedKey 
@@ -154,7 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     console.log(`[ProcessGame] Initializing GPU Swarm handoff for ${finalGameId}...`);
     modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).then(async () => {
       console.log(`[ProcessGame] ✅ Modal.com Handshake Accepted`);
-      // Force an immediate update to 15% so the UI doesn't stall at 10%
+      // SENIOR FIX: Force an immediate 15% pulse so UI never stalls at 10%
       await supabase.from('games').update({ 
         status: 'analyzing', 
         progress_percentage: 15,
