@@ -18,7 +18,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader("Expires", "0");
 
   try {
-    const { gameId, videoPath, homeTeamId, awayTeamId, homeColor, awayColor } = req.body;
+    const { gameId, videoPath } = req.body;
     
     // Support both camelCase and snake_case
     const finalGameId = gameId || req.body.game_id;
@@ -26,134 +26,69 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (!finalGameId || !finalVideoPath) {
       return res.status(400).json({ 
-        message: "Missing required game metadata (game_id or video_path)",
-        received: { gameId: !!finalGameId, videoPath: !!finalVideoPath }
+        message: "Missing required game metadata (game_id or video_path)"
       });
     }
 
     const bucketName = process.env.R2_BUCKET_NAME;
     if (!bucketName) {
-      return res.status(500).json({ message: "CONFIG ERROR: R2_BUCKET_NAME environment variable is missing from App Server." });
+      return res.status(500).json({ message: "CONFIG ERROR: R2_BUCKET_NAME missing." });
     }
 
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return res.status(500).json({ message: "CREDENTIAL ERROR: SUPABASE_SERVICE_ROLE_KEY is missing from App Server environment." });
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+      return res.status(500).json({ message: "CREDENTIAL ERROR: Missing Supabase keys." });
     }
 
-    // Explicit check for malformed or placeholder keys
-    if (process.env.SUPABASE_SERVICE_ROLE_KEY.includes('-8Z-8Z') || process.env.SUPABASE_SERVICE_ROLE_KEY.length < 50) {
-      return res.status(400).json({ 
-        message: "STALL DETECTED: Your SUPABASE_SERVICE_ROLE_KEY is invalid or a placeholder. Update in Settings -> Environment." 
-      });
-    }
-
-    // Robust path resolution logic
-    // We will try several variations of the key to ensure we find the file
+    // 1. RESOLVE R2 VIDEO KEY
     let primaryKey = finalVideoPath.trim();
-    
-    // 1. Decode URL characters
-    try { primaryKey = decodeURIComponent(primaryKey); } catch (e) {}
-    
-    // 2. Extract key from full URL if passed
-    if (primaryKey.includes('://')) {
-      const url = new URL(primaryKey);
-      primaryKey = url.pathname;
-    }
-
-    // 3. Remove leading slash
     if (primaryKey.startsWith('/')) primaryKey = primaryKey.slice(1);
-
-    const keysToTry = [
-      primaryKey,
-      `videos/${primaryKey.split('/').pop()}`, 
-      `raw-footage/${primaryKey.split('/').pop()}`,
-      primaryKey.replace('raw-footage/', 'videos/')
-    ];
-
-    let confirmedKey = "";
-    console.log(`[ProcessGame] Starting resolution for key variations:`, keysToTry);
-
-    // TRY EVERY POSSIBLE COMBINATION
-    const aggressiveKeys = [
-      ...keysToTry,
-      primaryKey.split('/').pop() || ""
-    ].filter(Boolean);
-
-    for (const key of aggressiveKeys) {
-      try {
-        await r2Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
-        confirmedKey = key;
-        console.log(`[ProcessGame] ✅ Verified R2 Key for GPU: ${key}`);
-        break;
-      } catch (e) {}
-    }
-
-    // FINAL FALLBACK: Scan 'videos/' folder specifically for the filename part
-    if (!confirmedKey) {
-      console.log(`[ProcessGame] 🔍 SCANNING 'videos/' FOLDER for filename match`);
-      const listAll = await r2Client.send(new ListObjectsV2Command({ Bucket: bucketName, Prefix: "videos/" }));
-      const fileNamePart = primaryKey.split('-').pop() || primaryKey;
-      const match = listAll.Contents?.find(obj => obj.Key?.includes(fileNamePart));
-      if (match?.Key) {
-        confirmedKey = match.Key;
-        console.log(`[ProcessGame] 🎯 Found in videos/ via partial match: ${confirmedKey}`);
-      }
-    }
-
-    if (!confirmedKey) {
-      return res.status(404).json({ 
-        message: `Video file not found in storage. Checked keys: ${keysToTry.join(', ')}`,
-        triedKeys: keysToTry
-      });
-    }
-
-    // Generate a temporary signed URL for the GPU worker (valid for 24h)
-    const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: confirmedKey });
+    
+    const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: primaryKey });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
-    // Extract a clean filename for the GPU Volume lookup
-    const rawFilename = confirmedKey.split('/').pop() || "footage.mp4";
-    const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
-
-    // INSTANT-ZERO LOGGING: Initialize the trace before calling the GPU
-    await supabase.from("game_analysis").insert({
+    // 2. INSTANT-ZERO LOGGING (Forensic Sync)
+    // We use the exact column names from the schema: progress_percentage, status_message
+    await supabase.from("game_analysis").upsert({
       game_id: finalGameId,
       status: "initializing",
-      progress: 5,
-      log_level: "info",
-      message: "🚀 ELITE IGNITION SEQUENCE: Authorizing GPU Cluster..."
-    });
+      progress_percentage: 5,
+      status_message: "🚀 ELITE IGNITION: Authorizing GPU Cluster..."
+    }, { onConflict: "game_id" });
 
-    await supabase.from("game_analysis").insert({
+    await supabase.from("game_analysis").upsert({
       game_id: finalGameId,
       status: "authorizing",
-      progress: 10,
-      log_level: "info",
-      message: "🔐 AUTH: Generating secure video payload & fresh Supabase keys..."
-    });
+      progress_percentage: 10,
+      status_message: "🔐 AUTH: Generating secure video payload & fresh Supabase keys..."
+    }, { onConflict: "game_id" });
 
-    // PREPARE GPU PAYLOAD
+    // 3. PREPARE GPU PAYLOAD
     const gpuConfig = {
       game_id: finalGameId, 
       video_url: signedUrl,
-      video_filename: videoFilename,
-      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      supabase_url: supabaseUrl,
+      supabase_key: supabaseKey,
       pipeline_mode: "analyze"
     };
 
-    await supabase.from("game_analysis").insert({
+    await supabase.from("game_analysis").upsert({
       game_id: finalGameId,
       status: "dispatching",
-      progress: 14,
-      log_level: "info",
-      message: "📡 NETWORK: Handshaking with Modal GPU at verified endpoint..."
+      progress_percentage: 14,
+      status_message: "📡 NETWORK: Handshaking with Modal GPU at verified endpoint..."
+    }, { onConflict: "game_id" });
+
+    // 4. TRIGGER GPU
+    await modalService.processGame(finalGameId, {
+      supabaseUrl,
+      supabaseKey,
+      metadata: gpuConfig
     });
 
-    // TRIGGER GPU
-    const modalResponse = await modalService.triggerAnalysis(gpuConfig);
-
-    // Ignition Step 1: Tell the DB we are starting (15%)
+    // 5. UPDATE GAME STATUS
     await supabase.from('games').update({ 
       status: 'analyzing', 
       progress_percentage: 15, 
@@ -161,48 +96,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       updated_at: new Date().toISOString()
     }).eq('id', finalGameId);
 
-    // Initial log in technical trace
-    await supabase.from('game_analysis').upsert({
-      game_id: finalGameId,
-      status: 'ignited',
-      status_message: 'Handoff to GPU Cluster sent...',
-      progress_percentage: 15
-    }, { onConflict: 'game_id' });
-
-    // Ignition Step 2: Trigger the Modal Handshake
-    try {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl || !supabaseKey) {
-        throw new Error("Missing Supabase credentials for GPU handoff.");
-      }
-
-      await modalService.processGame(finalGameId, {
-        supabaseUrl,
-        supabaseKey,
-        metadata: gpuConfig
-      });
-
-      console.log("✅ GPU Handshake Successful for game:", finalGameId);
-    } catch (err: any) {
-      console.error("❌ Modal Ignition Failed:", err);
-      
-      // Update DB with the ignition error so it shows in the trace
-      await supabase.from('games').update({
-        processing_metadata: {
-          worker_logs: [{
-            timestamp: new Date().toISOString(),
-            message: `CRITICAL: Ignition failure - ${err.message}`,
-            severity: 'error'
-          }]
-        }
-      } as any).eq('id', finalGameId);
-    }
-
     return res.status(200).json({ success: true, gameId: finalGameId });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
+    
+    // Log the crash in the trace
+    await supabase.from("game_analysis").upsert({
+      game_id: req.body.gameId || req.body.game_id,
+      status: "failed",
+      status_message: `❌ IGNITION ERROR: ${error.message}`
+    }, { onConflict: "game_id" });
+
     return res.status(500).json({ message: error.message });
   }
 }
