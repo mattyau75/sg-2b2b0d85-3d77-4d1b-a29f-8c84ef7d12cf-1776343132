@@ -403,15 +403,35 @@ export default function GameDetailPage() {
     // 🛡️ DO NOT setCompletedSteps(2) here. We wait for the heartbeat in useEffect.
   };
 
-  // 🛡️ HEARTBEAT MONITOR: Auto-advance Phase 3 when GPU speaks
+  // 🛡️ HEARTBEAT & DATA LOCK MONITOR: Auto-advance Phase 3 only when DATA is generated
   useEffect(() => {
-    if (manualStartRequested && game?.progress_percentage >= 16 && !completedSteps.includes(2)) {
+    // Phase 3 completion now requires 95% (Full Data Generation)
+    if (manualStartRequested && game?.progress_percentage >= 95 && !completedSteps.includes(2)) {
       setCompletedSteps(prev => [...new Set([...prev, 2])]);
       setIsWarming(false);
-      showBanner("✅ PHASE 3 COMPLETE: GPU Heartbeat Received at 16%.", "success", "Swarm Active");
+      showBanner("✅ PHASE 3 COMPLETE: Raw Scouting Data (Box Scores, Shots, Events) Generated.", "success", "Data Locked");
       if (provisioningTimeout) clearTimeout(provisioningTimeout);
     }
   }, [game?.progress_percentage, manualStartRequested, completedSteps]);
+
+  // 🛡️ PERSISTENT TRACE HANDLER: Prevent log clearing between phases
+  const handleTraceLog = (entry: any) => {
+    setGame((prev: any) => ({
+      ...prev,
+      processing_metadata: {
+        ...prev.processing_metadata,
+        worker_logs: [
+          ...(prev.processing_metadata?.worker_logs || []),
+          { 
+            id: entry.id || Date.now(), 
+            timestamp: entry.created_at || new Date().toISOString(), 
+            message: entry.status_message, 
+            severity: entry.status === 'error' ? 'error' : 'info' 
+          }
+        ]
+      }
+    }));
+  };
 
   const handleManualStep4 = async () => {
     if (!gameId || !checkSequence(3)) return;
@@ -612,9 +632,14 @@ export default function GameDetailPage() {
                         variant={completedSteps.includes(2) ? "secondary" : "outline"}
                         className={`text-[10px] h-10 border-dashed ${completedSteps.includes(2) ? "border-green-500/50" : "border-primary/30"}`}
                         onClick={handleManualStep3}
-                        disabled={isWarming}
+                        disabled={isWarming || (manualStartRequested && game?.progress_percentage < 95)}
                       >
-                        {isWarming ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : (completedSteps.includes(2) ? "✅ PHASE 3: IGNITED" : "3. IGNITE GPU")}
+                        {isWarming ? (
+                          <div className="flex items-center gap-2">
+                            <RefreshCw className="h-3 w-3 animate-spin" />
+                            <span>{game?.progress_percentage < 30 ? "WARMING..." : `ANALYZING ${game?.progress_percentage}%`}</span>
+                          </div>
+                        ) : (completedSteps.includes(2) ? "✅ PHASE 3: DATA GENERATED" : "3. IGNITE GPU")}
                       </Button>
 
                       <Button 
