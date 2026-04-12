@@ -40,6 +40,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ message: "CREDENTIAL ERROR: SUPABASE_SERVICE_ROLE_KEY is missing from App Server environment." });
     }
 
+    // NEW: Validation check for placeholder keys
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY.includes('-8Z-8Z')) {
+      return res.status(400).json({ 
+        message: "STALL DETECTED: Your SUPABASE_SERVICE_ROLE_KEY is still a placeholder. Please update it in Settings -> Environment." 
+      });
+    }
+
+    if (process.env.SUPABASE_SERVICE_ROLE_KEY.length < 50) {
+      return res.status(400).json({ 
+        message: "STALL DETECTED: Invalid Key Format. Service role key must be a full JWT string." 
+      });
+    }
+
     // Robust path resolution logic
     // We will try several variations of the key to ensure we find the file
     let primaryKey = finalVideoPath.trim();
