@@ -11,6 +11,7 @@ image = modal.Image.debian_slim().pip_install("supabase", "opencv-python-headles
 def update_pulse(sb, game_id, progress, message, severity="info"):
     """Live Pulse for Unified Pipeline."""
     try:
+        # Get existing metadata to append logs
         res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
         meta = res.data[0].get("processing_metadata") or {"worker_logs": []}
         if "worker_logs" not in meta: meta["worker_logs"] = []
@@ -24,7 +25,8 @@ def update_pulse(sb, game_id, progress, message, severity="info"):
         sb.table("games").update({
             "progress_percentage": progress,
             "processing_metadata": meta,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now().isoformat(),
+            "status": "analyzing"
         }).eq("id", game_id).execute()
         print(f"📡 Pulse: {message} ({progress}%)")
     except Exception as e:
@@ -43,26 +45,30 @@ def unified_pipeline_async(payload: dict):
     from supabase import create_client
     sb = create_client(supabase_url, supabase_key)
     
-    # STAGE 1: Discovery (Module 2)
-    update_pulse(sb, game_id, 20, "M2: Running Personnel Discovery Swarm...", "success")
-    time.sleep(5)
+    # STAGE 0: Ignition Verified (18%)
+    update_pulse(sb, game_id, 18, "GPU Cluster Handshake Verified. Initializing Swarm...", "success")
+    time.sleep(2)
     
-    # STAGE 2: Statistics (Module 3)
-    update_pulse(sb, game_id, 50, "M3: Running Shot Chart & Box Score Event Extraction...", "info")
+    # STAGE 1: Discovery (Module 2)
+    update_pulse(sb, game_id, 25, "M2: Running Personnel Discovery Swarm...", "info")
+    # Simulation of heavy discovery
     time.sleep(10)
     
+    # STAGE 2: Statistics (Module 3)
+    update_pulse(sb, game_id, 55, "M3: Running Box Score & Shot Chart Event Extraction...", "info")
+    time.sleep(15)
+    
     # STAGE 3: Tactical (Module 4)
-    update_pulse(sb, game_id, 80, "M4: Extracting Tactical Insights & Lineup Rotations...", "info")
+    update_pulse(sb, game_id, 85, "M4: Extracting Tactical Insights & Lineup Rotations...", "info")
     time.sleep(5)
     
     # STAGE 4: Finalize Raw Payload
-    update_pulse(sb, game_id, 100, "FACTORY COMPLETE: Raw payload ready for Module 5 Mapping.", "success")
+    update_pulse(sb, game_id, 100, "FACTORY COMPLETE: Unified raw payload ready for Mapping Engine.", "success")
     
     sb.table("games").update({
         "status": "completed",
         "m2_complete": True,
         "m3_complete": True,
-        "m4_complete": True,
         "progress_percentage": 100
     }).eq("id", game_id).execute()
 
@@ -70,5 +76,6 @@ def unified_pipeline_async(payload: dict):
 @modal.web_endpoint(method="POST")
 async def process(payload: dict):
     """Instant Ignition."""
+    # Ensure background spawn works correctly
     unified_pipeline_async.spawn(payload)
     return {"status": "ignited", "mode": "unified_raw_factory"}

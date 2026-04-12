@@ -111,9 +111,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const gpuConfig = {
       game_id: finalGameId, 
       video_url: signedUrl,
+      video_filename: videoFilename,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      // UNIFIED PIPELINE MODE: M2 + M3 + M4 combined into Raw Discovery
       pipeline_mode: "unified_raw_factory"
     };
 
