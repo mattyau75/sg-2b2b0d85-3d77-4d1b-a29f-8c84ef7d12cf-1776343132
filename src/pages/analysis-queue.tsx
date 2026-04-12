@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { useUploads } from "@/contexts/UploadContext";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -41,7 +41,6 @@ export default function AnalysisQueuePage() {
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const { activeUploads, cancelUpload } = useUploads();
-  const { toast } = useToast();
 
   const fetchJobs = async () => {
     try {
@@ -131,14 +130,11 @@ export default function AnalysisQueuePage() {
 
       if (error) throw error;
 
-      toast({ 
-        title: "Analysis Scheduled", 
-        description: "Status reset to scheduled. Please initiate manual discovery from the game dashboard." 
-      });
+      showBanner("Analysis Scheduled", "info");
       fetchJobs();
     } catch (err: any) {
       console.error("[Queue] Retry failed:", err);
-      toast({ title: "Re-trigger Failed", description: err.message, variant: "destructive" });
+      showBanner("Re-trigger Failed", "error");
     } finally {
       setIsRefreshing(false);
     }
@@ -150,10 +146,10 @@ export default function AnalysisQueuePage() {
     try {
       const { error } = await supabase.from('games').delete().eq('id', id);
       if (error) throw error;
-      toast({ title: "Job Deleted", description: "Analysis record has been removed." });
+      showBanner("Job Deleted", "info");
       setJobs((prev) => prev.filter((j) => j.id !== id));
     } catch (err: any) {
-      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
+      showBanner("Delete Failed", "error");
     }
   };
 

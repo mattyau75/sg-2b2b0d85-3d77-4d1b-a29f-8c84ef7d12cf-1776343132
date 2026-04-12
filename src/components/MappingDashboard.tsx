@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { rosterService } from "@/services/rosterService";
 
 interface MappingDashboardProps {
@@ -32,17 +32,16 @@ interface MappingDashboardProps {
 }
 
 export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, homeColor, awayColor, onRefresh }: MappingDashboardProps) {
-  const { toast } = useToast();
   const [saving, setSaving] = useState<string | null>(null);
 
   const handleManualMatch = async (mappingId: string, playerId: string) => {
     setSaving(mappingId);
     try {
       await rosterService.updateMapping(mappingId, playerId);
-      toast({ title: "Identity Linked", description: "Manual mapping saved successfully." });
+      showBanner("Identity Linked", "success");
       onRefresh();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Mapping Failed", description: error.message });
+      showBanner(error.message || "Mapping Failed", "error");
     } finally {
       setSaving(null);
     }

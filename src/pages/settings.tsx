@@ -16,13 +16,12 @@ import {
   HardDrive,
   CheckCircle2
 } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { cn } from "@/lib/utils";
 
 type SettingsSection = "account" | "notifications" | "data" | "security";
 
 export default function SettingsPage() {
-  const { toast } = useToast();
   const [activeSection, setActiveSection] = useState<SettingsSection>("account");
   const [clearing, setClearing] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
@@ -32,10 +31,7 @@ export default function SettingsPage() {
     // Simulate cache clearing and refresh local state
     setTimeout(() => {
       localStorage.clear();
-      toast({
-        title: "System Cache Cleared",
-        description: "Local data store has been refreshed.",
-      });
+      showBanner("System Cache Cleared", "success");
       setClearing(false);
     }, 800);
   };
@@ -53,18 +49,11 @@ export default function SettingsPage() {
       if (!response.ok) throw new Error(data.message || "Reset failed");
 
       localStorage.clear();
-      toast({
-        title: "Platform Factory Reset",
-        description: "All database records have been purged successfully.",
-      });
+      showBanner("Platform Factory Reset", "success");
       
       setTimeout(() => window.location.href = "/", 1000);
     } catch (error: any) {
-      toast({
-        title: "Reset Operation Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      showBanner("Reset Operation Failed", "error");
     } finally {
       setIsResetting(false);
     }

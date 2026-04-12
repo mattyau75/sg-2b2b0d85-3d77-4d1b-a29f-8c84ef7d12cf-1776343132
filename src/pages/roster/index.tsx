@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 
 export default function RosterDirectory() {
   const [teams, setTeams] = useState<any[]>([]);
@@ -33,7 +33,6 @@ export default function RosterDirectory() {
     primary_color: "#FF6B00",
     secondary_color: "#FFFFFF" 
   });
-  const { toast } = useToast();
 
   const loadTeams = async () => {
     try {
@@ -65,12 +64,12 @@ export default function RosterDirectory() {
     if (!newTeam.name) return;
     try {
       await rosterService.createTeam(newTeam);
-      toast({ title: "Team Created", description: `${newTeam.name} has been added to the registry.` });
+      showBanner("Team Created", "success");
       setIsAddTeamOpen(false);
       setNewTeam({ name: "", city: "", primary_color: "#FF6B00", secondary_color: "#FFFFFF" });
       loadTeams();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to create team.", variant: "destructive" });
+      showBanner("Failed to create team", "error");
     }
   };
 
@@ -82,11 +81,11 @@ export default function RosterDirectory() {
         city: selectedTeam.city,
         primary_color: selectedTeam.primary_color,
       });
-      toast({ title: "Team Updated", description: `${selectedTeam.name} details have been saved.` });
+      showBanner("Team Updated", "success");
       setIsEditTeamOpen(false);
       loadTeams();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to update team.", variant: "destructive" });
+      showBanner("Failed to update team", "error");
     }
   };
 

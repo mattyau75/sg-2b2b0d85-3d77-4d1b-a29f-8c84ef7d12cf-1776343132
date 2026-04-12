@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { format } from "date-fns";
 import { 
   CalendarIcon, 
@@ -133,41 +133,28 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   };
 
   const handleSave = async () => {
-    setLoading(true);
+    setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('games')
+      // Update game teams and colors
+      const { error: gameError } = await supabase
+        .from("games")
         .update({
-          home_team_id: homeTeamId || null,
-          away_team_id: awayTeamId || null,
+          home_team_id: homeTeamId,
+          away_team_id: awayTeamId,
           home_team_color: homeColor,
           away_team_color: awayColor,
-          home_score: homeScore,
-          away_score: awayScore,
-          date: gameDate?.toISOString(),
-          venue_id: venueId || null,
-          camera_type: cameraType
         })
-        .eq('id', game.id);
+        .eq("id", gameId);
 
-      if (error) throw error;
+      if (gameError) throw gameError;
 
-      // Prepare for AI Discovery
-      if (homeTeamId && awayTeamId) {
-        await axios.post("/api/prepare-mapping", {
-          gameId: game.id,
-          homeTeamId,
-          awayTeamId
-        });
-      }
-
-      toast({ title: "Game Initialized", description: "Metadata saved. AI Discovery Swarm ignited." });
+      showBanner("Game teams and colors updated", "success");
       onUpdated();
       onClose();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Setup Failed", description: error.message });
+      showBanner(error.message || "Failed to update game", "error");
     } finally {
-      setLoading(false);
+      setIsSaving(false);
     }
   };
 

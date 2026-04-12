@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useRef } from 
 import { storageService } from "@/services/storageService";
 import { modalService } from "@/services/modalService";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
 import { useRouter } from "next/router";
 
@@ -26,7 +26,6 @@ const UploadContext = createContext<UploadContextType | undefined>(undefined);
 export function UploadProvider({ children }: { children: React.ReactNode }) {
   const [activeUploads, setActiveUploads] = useState<UploadTask[]>([]);
   const abortControllers = useRef<Record<string, AbortController>>({});
-  const { toast } = useToast();
   const router = useRouter();
 
   const cancelUpload = useCallback(async (uploadId: string) => {
@@ -46,11 +45,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     // 3. Update UI state
     setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
     
-    toast({ 
-      title: "Upload Cancelled", 
-      description: `Analysis for ${task?.fileName || 'the video'} was terminated.` 
-    });
-  }, [activeUploads, toast]);
+    showBanner("Upload Cancelled", `Analysis for ${task?.fileName || 'the video'} was terminated.`);
+  }, [activeUploads]);
 
   const startUpload = useCallback(async (file: File, formData: any): Promise<string | undefined> => {
     // 1. Create Game record in staging status
@@ -126,13 +122,9 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         u.id === uploadId ? { ...u, status: "failed", error: serverData?.message || error.message } : u
       ));
       
-      toast({
-        title: "Upload Failed",
-        description: error.response?.data?.message || error.message,
-        variant: "destructive"
-      });
+      showBanner("Upload Failed", error.response?.data?.message || error.message, "error");
     }
-  }, [toast]);
+  }, []);
 
   return (
     <UploadContext.Provider value={{ activeUploads, startUpload, cancelUpload }}>

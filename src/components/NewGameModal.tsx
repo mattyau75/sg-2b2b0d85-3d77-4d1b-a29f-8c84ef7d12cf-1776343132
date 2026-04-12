@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Video, FileVideo, Upload, Loader2, X } from "lucide-react";
 import { useUploads } from "@/contexts/UploadContext";
 import { cn } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { Progress } from "@/components/ui/progress";
 
 interface NewGameModalProps {
@@ -21,7 +21,6 @@ interface NewGameModalProps {
 }
 
 export function NewGameModal({ isOpen, onClose, onUploadSuccess }: NewGameModalProps) {
-  const { toast } = useToast();
   const { startUpload, activeUploads, cancelUpload } = useUploads();
   const [isStarting, setIsStarting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -56,15 +55,11 @@ export function NewGameModal({ isOpen, onClose, onUploadSuccess }: NewGameModalP
       const gameId = result as unknown as string;
       
       if (gameId) {
-        toast({ title: "Upload Complete", description: "Footage stored. Proceeding to Calibration." });
+        showBanner("Upload Complete", "success");
         onUploadSuccess(gameId);
       }
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Upload Failed",
-        description: error.message
-      });
+      showBanner(error.message || "Upload Failed", "error");
     } finally {
       setIsStarting(false);
     }
