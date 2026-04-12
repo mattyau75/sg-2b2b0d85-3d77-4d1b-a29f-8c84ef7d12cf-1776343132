@@ -56,11 +56,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [cameraType, setCameraType] = useState<"panning" | "fixed">("panning");
   
   const [loading, setLoading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
   const [detectedColors, setDetectedColors] = useState<string[]>([]);
   
-  const { toast } = useToast();
-
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -126,13 +125,12 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
       setVenueId(venue.id);
       setNewVenueName("");
       setIsAddingVenue(false);
-      toast({ title: "Venue Created", description: `${venue.name} added to memory.` });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Failed", description: error.message });
     }
   };
 
   const handleSave = async () => {
+    if (!game?.id) return;
     setIsSaving(true);
     try {
       // Update game teams and colors
@@ -144,7 +142,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           home_team_color: homeColor,
           away_team_color: awayColor,
         })
-        .eq("id", gameId);
+        .eq("id", game.id);
 
       if (gameError) throw gameError;
 

@@ -45,7 +45,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     // 3. Update UI state
     setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
     
-    showBanner("Upload Cancelled", `Analysis for ${task?.fileName || 'the video'} was terminated.`);
+    showBanner(`Analysis for ${task?.fileName || 'the video'} was terminated.`, "info", "Upload Cancelled");
   }, [activeUploads]);
 
   const startUpload = useCallback(async (file: File, formData: any): Promise<string | undefined> => {
