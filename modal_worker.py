@@ -4,9 +4,9 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH THE EXACT NAME FOR THE URL
-# This creates the URL: https://mattjeffs--basketball-scout-v2-analyze.modal.run
-app = modal.App("basketball-scout-v2")
+# 1. DEFINE THE APP WITH THE SIMPLEST POSSIBLE NAMING
+# This creates the URL: https://mattjeffs--scout-run.modal.run
+app = modal.App("scout")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
 image = (
@@ -28,8 +28,8 @@ image = (
     timeout=1200,
     container_idle_timeout=60
 )
-@modal.web_endpoint(method="POST")
-def analyze(payload: dict):
+@modal.web_endpoint(method="POST", label="run")
+def run(payload: dict):
     """
     ELITE GPU ANALYTICS ENGINE (v2)
     Entry point for the basketball scouting pipeline.

@@ -2,7 +2,7 @@ import axios from "axios";
 
 /**
  * ELITE MODAL SERVICE BRIDGE
- * Hard-coded for 100% Reliability with v2 infrastructure.
+ * Hard-coded for 100% Reliability with simplified naming.
  */
 export const modalService = {
   processGame: async (gameId: string, options: { 
@@ -10,8 +10,9 @@ export const modalService = {
     supabaseKey: string, 
     metadata?: any 
   }) => {
-    // HARD-LOCKED URL - NO DYNAMIC CONSTRUCTION
-    const url = "https://mattjeffs--basketball-scout-v2-analyze.modal.run";
+    // ELITE HARD-LOCKED URL
+    // Format: https://{username}--{app_name}-{function_label}.modal.run
+    const url = "https://mattjeffs--scout-run.modal.run";
     
     console.log(`🚀 IGNITING GPU CLUSTER AT: ${url}`);
 
@@ -32,7 +33,7 @@ export const modalService = {
       console.log("✅ GPU HANDSHAKE SUCCESSFUL:", response.data);
       return response.data;
     } catch (error: any) {
-      let errorMessage = "GPU Routing Error (404): The endpoint at " + url + " does not exist. Please check your Modal Dashboard for the correct URL.";
+      let errorMessage = `GPU Routing Error (404): The endpoint at ${url} does not exist. Please check your Modal Dashboard for the correct URL and ensure the app is deployed.`;
       
       if (error.response) {
         if (error.response.status === 404) {
