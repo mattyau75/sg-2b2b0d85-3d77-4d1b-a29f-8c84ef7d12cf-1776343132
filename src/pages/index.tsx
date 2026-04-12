@@ -199,81 +199,77 @@ export default function Dashboard() {
   };
 
   const handleIgniteAI = async (gameId: string) => {
-    // 🛡️ ATOMIC ID GUARD: Prevent 'null' or 'undefined' ignition
     if (!gameId || gameId === 'undefined') {
-      console.error("❌ CRITICAL: Attempted ignition with invalid Game ID.");
-      toast({
-        title: "Ignition Failed",
-        description: "Missing required Game ID. Please ensure the game is saved and refresh.",
-        variant: "destructive"
-      });
+      toast({ title: "Ignition Failed", description: "Missing Game ID", variant: "destructive" });
       return;
     }
 
     try {
-      // 1. PRIME HANDSHAKE INITIALIZATION (Local Optimistic Log)
+      setIgnitingGameId(gameId);
       setWorkerLogs([{
-        id: `sys-${Date.now()}`,
+        id: `init-${Date.now()}`,
         timestamp: new Date().toISOString(),
         level: 'info',
-        message: `🚀 SYSTEM: Dispatching Prime Ignition Signal for Game [${gameId.slice(0, 8)}...]`,
+        message: '📡 SYSTEM: Synchronizing Eternal Handshake...',
         module: 'DASHBOARD'
       }]);
-      
-      setIgnitingGameId(gameId);
 
-      // 2. ACTIVATE REALTIME ETERNAL LISTENER (INSERT-ONLY)
+      // 1. ESTABLISH LISTENER FIRST
       const channel = supabase
-        .channel(`prime-handshake-${gameId}`)
+        .channel(`prime-sync-${gameId}`)
         .on(
           'postgres_changes',
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'game_analysis',
-            filter: `game_id=eq.${gameId}`
-          },
+          { event: 'INSERT', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId}` },
           (payload) => {
             const entry = payload.new as any;
             setWorkerLogs(prev => {
-              // Accumulative Stack: only add if message is unique
               if (prev.some(l => l.message === entry.status_message)) return prev;
-              
               return [...prev, {
                 id: entry.id,
                 timestamp: entry.created_at || new Date().toISOString(),
-                level: entry.status === 'error' ? 'error' : (entry.status === 'cancelled' ? 'warn' : 'info'),
+                level: entry.status === 'error' ? 'error' : 'info',
                 message: entry.status_message,
                 module: 'GPU'
               }];
             });
-
-            // Update global job state for progress bar
             if (entry.progress_percentage !== undefined) {
-              setActiveJobs(prev => prev.map(j => 
-                j.id === gameId ? { ...j, progress: entry.progress_percentage, status: entry.status } : j
-              ));
+              setActiveJobs(prev => prev.map(j => j.id === gameId ? { ...j, progress: entry.progress_percentage, status: entry.status } : j));
             }
           }
         )
-        .subscribe();
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log("✅ HANDSHAKE: Realtime Channel Active. Igniting API...");
+            
+            // 2. WAIT FOR STABILIZATION (500ms)
+            await new Promise(resolve => setTimeout(resolve, 500));
 
-      // 3. EXECUTE API IGNITION
-      const response = await fetch('/api/process-game', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId })
-      });
-      
-      const result = await response.json();
-      if (result.success) {
-        showBanner(`Analysis for ${selectedGameForEdit?.home_team?.name || 'Game'} initiated.`, "success", "Workflow Started");
-      } else {
-        showBanner(`Failed to initiate analysis for ${selectedGameForEdit?.home_team?.name || 'Game'}.`, "error", "Workflow Failed");
-      }
-    } catch (err) {
-      console.error("Error initiating AI:", err);
-      showBanner(`Error initiating analysis for ${selectedGameForEdit?.home_team?.name || 'Game'}.`, "error", "Workflow Failed");
+            // 3. EXECUTE API IGNITION
+            try {
+              const response = await fetch('/api/process-game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ gameId })
+              });
+
+              if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || "Ignition Failed");
+              }
+            } catch (apiErr: any) {
+              setWorkerLogs(prev => [...prev, {
+                id: `err-${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                level: 'error',
+                message: `🚨 IGNITION FAILURE: ${apiErr.message}`,
+                module: 'SYSTEM'
+              }]);
+            }
+          }
+        });
+
+    } catch (err: any) {
+      console.error("Ignition Error:", err);
     }
   };
 

@@ -31,19 +31,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 🛡️ PRIME DIRECTIVE: ESTABLISH HANDSHAKE FIRST (0s)
-    // This is the absolute first command to run
-    const { error: handshakeError } = await supabase.from("game_analysis").insert({
+    // 🛡️ HANDSHAKE STABILIZER: Give the frontend listener a moment to connect
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    // 1. PRIME HANDSHAKE: First log entry
+    await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
-      progress_percentage: 1,
-      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Started..."
+      progress_percentage: 2,
+      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
     });
-
-    if (handshakeError) {
-      console.error("Prime Handshake Failed:", handshakeError);
-      return res.status(500).json({ message: "Database Handshake Failure: " + handshakeError.message });
-    }
 
     // 2. LOG SYSTEM VALIDATION
     await supabase.from("game_analysis").insert({
