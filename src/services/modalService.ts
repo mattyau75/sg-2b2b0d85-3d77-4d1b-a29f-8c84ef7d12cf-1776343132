@@ -29,11 +29,14 @@ export const modalService = {
     supabaseKey: string, 
     metadata?: any 
   }) => {
-    const userName = (process.env.MODAL_USER_NAME || "dribblestats").replace(/_/g, "-");
+    // MODAL URL RULES:
+    // 1. User name and App name must be separated by DOUBLE DASH (--)
+    // 2. App name and Function name must be separated by SINGLE DASH (-)
+    // 3. Entire string must be lowercase
+    const userName = (process.env.MODAL_USER_NAME || "dribblestats").toLowerCase().replace(/_/g, "-");
     const appName = "basketball-scout-gpu";
     const functionName = "process-game-factory";
     
-    // CRITICAL: Modal Web Endpoints MUST use double-dash (--) between user and app
     const url = `https://${userName}--${appName}-${functionName}.modal.run`;
     
     console.log(`🚀 Attempting GPU Ignition at: ${url}`);

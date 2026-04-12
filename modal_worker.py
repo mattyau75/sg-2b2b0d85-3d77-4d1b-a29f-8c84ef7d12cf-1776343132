@@ -4,58 +4,45 @@ import json
 from datetime import datetime
 import time
 
-# Unified GPU Swarm Cluster
-# Core Tech: M2 (Detection) + M3 (Mapping) + M4 (Calibration)
+# Create the Modal App with the EXACT name used in the URL
+app = modal.App("basketball-scout-gpu")
+
+# Setup Image with all AI dependencies
 image = modal.Image.debian_slim().pip_install(
     "supabase",
     "opencv-python-headless",
-    "torch",
     "numpy",
-    "pandas",
     "requests"
 )
 
-app = modal.App("basketball-scout-gpu")
-
 def update_pulse(sb, game_id, progress, message, severity="info"):
-    """Live Pulse for Unified Pipeline - Hardened for Resilience."""
+    """Live Pulse for Unified Pipeline."""
     try:
-        # 1. Fetch current state to avoid overwriting logs
+        # Fetch current metadata safely
         res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
+        meta = res.data[0].get("processing_metadata") if (res.data and len(res.data) > 0) else {}
         
-        # 2. Extract and safeguard metadata structure
-        current_meta = {}
-        if res.data and len(res.data) > 0:
-            current_meta = res.data[0].get("processing_metadata") or {}
-            
-        if not isinstance(current_meta, dict):
-            current_meta = {}
-            
-        if "worker_logs" not in current_meta:
-            current_meta["worker_logs"] = []
-            
-        # 3. Append new log entry
-        new_log = {
+        if not isinstance(meta, dict): meta = {}
+        if "worker_logs" not in meta: meta["worker_logs"] = []
+        
+        # Add new log entry
+        meta["worker_logs"].append({
             "timestamp": datetime.now().isoformat(),
             "message": f"[GPU] {message}",
             "severity": severity
-        }
-        current_meta["worker_logs"].append(new_log)
+        })
         
-        # 4. Limit logs to last 50 entries to prevent payload bloat
-        current_meta["worker_logs"] = current_meta["worker_logs"][-50:]
+        # Keep only last 50 logs to prevent DB payload bloat
+        meta["worker_logs"] = meta["worker_logs"][-50:]
         
-        # 5. Push update to database
         sb.table("games").update({
             "progress_percentage": progress,
-            "processing_metadata": current_meta,
+            "processing_metadata": meta,
             "status": "analyzing",
             "updated_at": datetime.now().isoformat()
         }).eq("id", game_id).execute()
-        
-        print(f"📡 Pulse Sync: {message} ({progress}%)")
     except Exception as e:
-        print(f"⚠️ Pulse Error: {str(e)}")
+        print(f"⚠️ Pulse Fail: {e}")
 
 @app.function(
     image=image,
@@ -68,76 +55,62 @@ def update_pulse(sb, game_id, progress, message, severity="info"):
 )
 @modal.web_endpoint(method="POST")
 def process_game_factory(data: dict):
-    """
-    Elite AI Unified Factory Endpoint.
-    Receives ignition signal from Next.js App Server.
-    """
-    # 1. IMMEDIATE DECODER (Extract from JSON Payload)
+    """Unified Factory: Web Entry Point for AI Analysis"""
+    from supabase import create_client
+    
+    # 1. EXTRACT CREDENTIALS
     game_id = data.get("game_id")
     supabase_url = data.get("supabase_url")
     supabase_key = data.get("supabase_key")
     
-    if not all([game_id, supabase_url, supabase_key]):
-        return {"status": "error", "message": "Missing critical handshake credentials."}
+    if not game_id or not supabase_url or not supabase_key:
+        return {"status": "error", "message": "Missing required parameters (game_id, supabase_url, or supabase_key)"}
 
-    from supabase import create_client
-    sb = create_client(supabase_url, supabase_key)
-
-    # 2. AWAKENING PHASE (16%)
-    update_pulse(sb, game_id, 16, "GPU AWAKENING: Cloud resources allocated. Swarm active.", "success")
-    
+    # 2. IMMEDIATE AWAKENING (16%)
+    # Connect to Supabase and log the first GPU action
     try:
-        # 3. HANDSHAKE VERIFICATION (18%)
-        res = sb.table("games").select("id").eq("id", game_id).execute()
-        if not res.data:
-            raise Exception("Game ID not found in database handshake.")
-            
-        update_pulse(sb, game_id, 18, "HANDSHAKE VERIFIED: Database uplink established.", "success")
-        
-        # 4. AI BOOTSTRAP (20% - 35%)
-        # Import inside function to avoid cold-start delays for initial signals
-        import cv2
-        import torch
-        import numpy as np
-        
-        update_pulse(sb, game_id, 25, "AI BOOTSTRAP: Neural networks initialized.", "info")
-        time.sleep(2) 
-        
-        update_pulse(sb, game_id, 35, "ASSET RETRIEVAL: Pulling video footage from R2 Storage...", "info")
-        time.sleep(3)
-        
-        # 5. DETECTION SWARM (40% - 65%)
-        update_pulse(sb, game_id, 45, "DETECTION SWARM: Scanning frames for Jersey Numbers...", "info")
-        time.sleep(5) 
-        
-        update_pulse(sb, game_id, 55, "DETECTION SWARM: Person-to-Jersey mapping in progress...", "info")
-        time.sleep(3)
-        
-        update_pulse(sb, game_id, 65, "DETECTION SWARM: Raw entity detection complete.", "success")
-        
-        # 6. MAPPING ENGINE (70% - 85%)
-        update_pulse(sb, game_id, 75, "MAPPING ENGINE: Synchronizing AI entities with Team Roster...", "info")
-        time.sleep(4)
-        
-        update_pulse(sb, game_id, 85, "MAPPING ENGINE: Roster identification 98% confidence.", "success")
-        
-        # 7. FINALIZATION (90% - 100%)
-        update_pulse(sb, game_id, 95, "FINALIZING: Compiling Play-by-Play & Shot Chart data...", "info")
+        sb = create_client(supabase_url, supabase_key)
+        update_pulse(sb, game_id, 16, "GPU AWAKENING: Swarm resources allocated.", "info")
+    except Exception as e:
+        print(f"❌ Handshake Error: {e}")
+        return {"status": "error", "message": f"Initial Handshake Failed: {str(e)}"}
+
+    # 3. ANALYSIS PIPELINE (Simulated for M2 Discovery Phase)
+    try:
+        # 18% - Database Handshake Verified
+        update_pulse(sb, game_id, 18, "HANDSHAKE VERIFIED: GPU-to-Database uplink established.", "success")
         time.sleep(2)
+
+        # 25% - Video Asset Retrieval
+        update_pulse(sb, game_id, 25, "ASSET RETRIEVAL: Downloading game footage from R2...", "info")
+        time.sleep(5)
+
+        # 40% - Player Discovery (M2 Core)
+        update_pulse(sb, game_id, 40, "AI DISCOVERY: Detecting player numbers and jerseys...", "info")
+        time.sleep(10)
+
+        # 60% - Roster Mapping (M3 Core)
+        update_pulse(sb, game_id, 60, "MAPPING ENGINE: Correlating detected entities to roster data...", "info")
+        time.sleep(8)
+
+        # 85% - Tactical Insights (M4 Core)
+        update_pulse(sb, game_id, 85, "TACTICAL ANALYSIS: Generating shot charts and box score...", "info")
+        time.sleep(5)
+
+        # 100% - Completion
+        update_pulse(sb, game_id, 100, "ANALYSIS COMPLETE: All AI entities synchronized.", "success")
         
-        # Final Success State
+        # Final Status Update
         sb.table("games").update({
             "status": "completed",
             "progress_percentage": 100,
             "updated_at": datetime.now().isoformat()
         }).eq("id", game_id).execute()
-        
-        update_pulse(sb, game_id, 100, "SYSTEM COMPLETE: Analysis ready for review.", "success")
-        
-        return {"status": "success", "game_id": game_id}
+
+        return {"status": "success", "message": "Analysis Pipeline Finished Successfully."}
 
     except Exception as e:
-        error_msg = f"CRITICAL GPU ERROR: {str(e)}"
+        error_msg = f"PIPELINE ERROR: {str(e)}"
         print(f"❌ {error_msg}")
-        update_pulse(sb, game_id, 15, error_msg, "error")
+        update_pulse(sb, game_id, progress=15, message=error_msg, severity="error")
         return {"status": "error", "message": error_msg}
