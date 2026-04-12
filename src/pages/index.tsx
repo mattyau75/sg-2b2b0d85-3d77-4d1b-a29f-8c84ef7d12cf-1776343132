@@ -194,6 +194,37 @@ export default function Dashboard() {
     }
   };
 
+  const handleIgniteAI = async (gameId: string) => {
+    try {
+      // INSTANT-ZERO CUMULATIVE INITIALIZATION
+      setWorkerLogs([{
+        id: 'init-0',
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        message: '🚀 ELITE IGNITION: Initiating System Handshake...',
+        module: 'SYSTEM'
+      }]);
+      
+      setIgnitingGameId(gameId);
+      
+      const response = await fetch('/api/process-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId })
+      });
+      
+      const result = await response.json();
+      if (result.success) {
+        showBanner(`Analysis for ${selectedGameForEdit?.home_team?.name || 'Game'} initiated.`, "success", "Workflow Started");
+      } else {
+        showBanner(`Failed to initiate analysis for ${selectedGameForEdit?.home_team?.name || 'Game'}.`, "error", "Workflow Failed");
+      }
+    } catch (err) {
+      console.error("Error initiating AI:", err);
+      showBanner(`Error initiating analysis for ${selectedGameForEdit?.home_team?.name || 'Game'}.`, "error", "Workflow Failed");
+    }
+  };
+
   return (
     <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8">
