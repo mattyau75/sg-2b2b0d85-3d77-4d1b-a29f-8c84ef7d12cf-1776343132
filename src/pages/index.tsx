@@ -640,7 +640,7 @@ export default function Dashboard() {
                         </Button>
                       )}
                       {currentManualStep === 2 && (
-                        <Button size="sm" variant="accent" className="w-full text-[10px] h-8 bg-accent text-black hover:bg-accent/90" onClick={handleManualStep3}>
+                        <Button size="sm" className="w-full text-[10px] h-8 bg-accent text-black hover:bg-accent/90" onClick={handleManualStep3}>
                           STAGE 3: IGNITE GPU SWARM
                         </Button>
                       )}
