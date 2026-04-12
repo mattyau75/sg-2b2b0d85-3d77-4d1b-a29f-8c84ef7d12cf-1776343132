@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { r2Client } from "@/lib/r2Client";
+import { supabase } from "@/integrations/supabase/client";
 
 /**
  * Advanced diagnostic endpoint to audit R2 storage contents.
@@ -21,26 +22,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ success: false, message: "Missing R2 Environment Variables", missing });
     }
 
-    // 2. Audit the bucket contents (First 50 objects)
-    const command = new ListObjectsV2Command({
-      Bucket: bucketName,
-      MaxKeys: 50
-    });
-
-    const response = await r2Client.send(command);
-    const files = response.Contents?.map(obj => ({
-      key: obj.Key,
-      size: obj.Size,
-      lastModified: obj.LastModified
-    })) || [];
+    // 2. Check for Placeholder Service Role Key
+    const serviceRoleValid = process.env.SUPABASE_SERVICE_ROLE_KEY && 
+                            !process.env.SUPABASE_SERVICE_ROLE_KEY.includes('-8Z-8Z') &&
+                            process.env.SUPABASE_SERVICE_ROLE_KEY.length > 50;
+    
+    // 3. Test R2 Connection
+    let r2Connected = false;
+    try {
+      const command = new ListObjectsV2Command({ Bucket: bucketName, MaxKeys: 1 });
+      await r2Client.send(command);
+      r2Connected = true;
+    } catch (e) {
+      console.error("R2 Connection Test Failed:", e);
+    }
 
     return res.status(200).json({ 
       success: true, 
-      message: `R2 Audit Complete for Bucket: ${bucketName}`,
-      bucket: bucketName,
-      fileCount: files.length,
-      keys: files.map(f => f.key),
-      detailedFiles: files
+      supabase_service_role: serviceRoleValid,
+      r2_connected: r2Connected,
+      bucket: bucketName
     });
 
   } catch (error: any) {
