@@ -84,6 +84,47 @@ export type Database = {
           },
         ]
       }
+      game_analysis: {
+        Row: {
+          game_id: string | null
+          id: string
+          last_heartbeat: string | null
+          progress_percentage: number | null
+          status: string | null
+          status_message: string | null
+          updated_at: string | null
+          worker_logs: Json | null
+        }
+        Insert: {
+          game_id?: string | null
+          id?: string
+          last_heartbeat?: string | null
+          progress_percentage?: number | null
+          status?: string | null
+          status_message?: string | null
+          updated_at?: string | null
+          worker_logs?: Json | null
+        }
+        Update: {
+          game_id?: string | null
+          id?: string
+          last_heartbeat?: string | null
+          progress_percentage?: number | null
+          status?: string | null
+          status_message?: string | null
+          updated_at?: string | null
+          worker_logs?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_analysis_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           away_score: number | null

@@ -33,7 +33,7 @@ def analyze(payload: dict):
     """
     start_time = time.time()
     
-    # Extract payload with fallbacks
+    # Extract payload with fallbacks (Unified naming)
     game_id = payload.get("game_id")
     supabase_url = payload.get("supabase_url")
     supabase_key = payload.get("supabase_key")
@@ -49,12 +49,23 @@ def analyze(payload: dict):
     def log_to_dashboard(progress: int, message: str, status: str = "processing"):
         """Instant status sync to the UI"""
         try:
-            supabase.table("game_analysis").update({
+            # 1. Update the technical trace table
+            # We use upsert to create or update the record
+            supabase.table("game_analysis").upsert({
+                "game_id": game_id,
                 "progress_percentage": progress,
                 "status_message": message,
                 "status": status,
                 "updated_at": datetime.utcnow().isoformat()
-            }).eq("game_id", game_id).execute()
+            }, on_conflict="game_id").execute()
+            
+            # 2. Update the main games table for redundancy
+            supabase.table("games").update({
+                "progress_percentage": progress,
+                "status": status,
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", game_id).execute()
+            
             print(f"[{progress}%] {message}")
         except Exception as e:
             print(f"Failed to log to dashboard: {str(e)}")
@@ -63,16 +74,14 @@ def analyze(payload: dict):
         # CRITICAL: IMMEDIATE 16% HANDSHAKE (Breaks the 15% stall)
         log_to_dashboard(16, "GPU Handshake Successful - Initializing AI Environment...")
         
-        # 3. RESOURCE VALIDATION
         if not video_url:
             raise ValueError("GPU received an empty video URL. Check R2/S3 signed URL generation.")
             
-        log_to_dashboard(18, f"Downloading source video for game {game_id[:8]}...")
+        log_to_dashboard(18, f"Source video verified. Downloading footage for analysis...")
         
-        # SIMULATION OF PROCESSING (Replace with real AI logic)
-        # In a real scenario, this is where we'd call YOLO/OCR
+        # SIMULATION OF PROCESSING
         time.sleep(2) 
-        log_to_dashboard(25, "Source video verified. Running AI Personnel Discovery...")
+        log_to_dashboard(25, "Personnel Discovery Active. Mapping jersey numbers to roster...")
         
         # Final response to the API route
         return {

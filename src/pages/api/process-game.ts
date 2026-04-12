@@ -116,7 +116,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
     // PREPARE GPU PAYLOAD
-    // We use the service role key so the GPU can bypass RLS to write logs
     const gpuConfig = {
       game_id: finalGameId, 
       video_url: signedUrl,
@@ -132,7 +131,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       progress_percentage: 15, 
       ignition_status: 'ignited',
       updated_at: new Date().toISOString()
-    } as any).eq('id', finalGameId);
+    }).eq('id', finalGameId);
+
+    // Initial log in technical trace
+    await supabase.from('game_analysis').upsert({
+      game_id: finalGameId,
+      status: 'ignited',
+      status_message: 'Handoff to GPU Cluster sent...',
+      progress_percentage: 15
+    }, { onConflict: 'game_id' });
 
     // Ignition Step 2: Trigger the Modal Handshake
     try {
