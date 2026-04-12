@@ -126,30 +126,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       away_roster: awayRoster || []
     };
 
-    // Ignition Step 1: Tell the DB we are starting (10%)
+    // PRE-IGNITION: Force the UI to 15% immediately to prevent 10% stall
     await supabase.from('games').update({ 
       status: 'analyzing', 
-      progress_percentage: 10, 
+      progress_percentage: 15, 
       ignition_status: 'ignited',
+      processing_metadata: {
+        worker_logs: [{
+          timestamp: new Date().toISOString(),
+          message: "App Server: GPU Handshake Initiated. Spawning background cluster...",
+          severity: "success"
+        }]
+      },
       updated_at: new Date().toISOString()
     } as any).eq('id', finalGameId);
 
-    // Ignition Step 2: Handoff to Modal
-    modalService.processGame(signedUrl, gpuConfig).then(async () => {
-      // Ignition Step 3: IMMEDIATE Pulse to 15% to break the stall
-      await supabase.from('games').update({ 
-        progress_percentage: 15,
-        processing_metadata: { 
-          worker_logs: [{ timestamp: new Date().toISOString(), message: "Swarm Ignited: Initializing GPU cluster...", severity: "info" }] 
-        }
+    // ASYNC SPAWN: Fire and forget the Modal call
+    modalService.processGame(signedUrl, gpuConfig).then((modalRes) => {
+      console.log(`[ProcessGame] ✅ Background Spawn Confirmed:`, modalRes);
+    }).catch(err => {
+      console.error("[ProcessGame] FATAL SPAWN ERROR:", err.message);
+      // Only update to error if we actually failed to reach Modal
+      supabase.from('games').update({ 
+        status: 'error', 
+        last_error: `GPU Spawn Failed: ${err.message}` 
       } as any).eq('id', finalGameId);
     });
 
     return res.status(202).json({ 
       success: true, 
-      message: "Ignition Sequence Started", 
-      id: finalGameId,
-      confirmedKey
+      message: "Background Discovery Spawned", 
+      id: finalGameId
     });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
