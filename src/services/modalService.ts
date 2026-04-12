@@ -5,7 +5,7 @@ import axios from "axios";
  */
 export const modalService = {
   /**
-   * Client-side: Triggers the internal Next.js API route which handles security/validation
+   * Client-side: Triggers the internal Next.js API route
    */
   triggerAnalysis: async (gameId: string, videoPath: string, config: any) => {
     try {
@@ -33,7 +33,7 @@ export const modalService = {
     // 1. User name and App name must be separated by DOUBLE DASH (--)
     // 2. App name and Function name must be separated by SINGLE DASH (-)
     // 3. Entire string must be lowercase
-    const userName = (process.env.MODAL_USER_NAME || "dribblestats").toLowerCase().replace(/_/g, "-");
+    const userName = (process.env.MODAL_USER_NAME || "mattjeffs").toLowerCase().replace(/_/g, "-");
     const appName = "basketball-scout-gpu";
     const functionName = "process-game-factory";
     
@@ -53,7 +53,16 @@ export const modalService = {
         })
       });
 
-      const result = await response.json();
+      const responseText = await response.text();
+      let result;
+      
+      try {
+        result = JSON.parse(responseText);
+      } catch (e) {
+        console.error("❌ Modal response was not JSON:", responseText.slice(0, 100));
+        throw new Error(`GPU Routing Error: Received non-JSON response from Modal. URL might be invalid or function not deployed. (Status: ${response.status})`);
+      }
+
       console.log("✅ GPU Ignition Response:", { status: response.status, result });
       
       if (!response.ok) {
@@ -62,7 +71,7 @@ export const modalService = {
       
       return result;
     } catch (error: any) {
-      console.error("❌ GPU Ignition Error:", error);
+      console.error("❌ GPU Ignition Error:", error.message);
       throw error;
     }
   }
