@@ -13,12 +13,13 @@ def update_pulse(sb, game_id, progress, message, severity="info"):
     try:
         # Get existing metadata to append logs
         res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
-        meta = res.data[0].get("processing_metadata") or {"worker_logs": []}
+        meta = res.data[0].get("processing_metadata") if res.data else {}
+        if not meta or not isinstance(meta, dict): meta = {"worker_logs": []}
         if "worker_logs" not in meta: meta["worker_logs"] = []
         
         meta["worker_logs"].append({
             "timestamp": datetime.now().isoformat(), 
-            "message": f"[UNIFIED] {message}", 
+            "message": f"[GPU] {message}", 
             "severity": severity
         })
         

@@ -129,6 +129,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: 'analyzing', 
       progress_percentage: 15, 
       ignition_status: 'ignited',
+      processing_metadata: {
+        worker_logs: [{
+          timestamp: new Date().toISOString(),
+          message: "IGNITION COMMAND SENT: GPU Cluster Handshake in progress...",
+          severity: 'info'
+        }]
+      },
       updated_at: new Date().toISOString()
     } as any).eq('id', finalGameId);
 
