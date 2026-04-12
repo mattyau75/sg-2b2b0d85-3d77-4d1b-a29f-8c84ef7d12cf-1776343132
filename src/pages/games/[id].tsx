@@ -63,7 +63,6 @@ export default function GameDetailPage() {
   const [resetting, setResetting] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [isWarming, setIsWarming] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
   const [manualStartRequested, setManualStartRequested] = useState(false);
   const [provisioningTimeout, setProvisioningTimeout] = useState<NodeJS.Timeout | null>(null);
   const [workerLogs, setWorkerLogs] = useState<LogEntry[]>([]);
@@ -140,6 +139,7 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
+  // Handle GPU Start with Cold-Start Protection
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
@@ -148,68 +148,32 @@ export default function GameDetailPage() {
     setIsWarming(true);
     setBanner(null);
 
+    // If it stays at 15% for too long, warn the user about provisioning
     if (provisioningTimeout) clearTimeout(provisioningTimeout);
-
     const timeout = setTimeout(() => {
-      if (game?.progress_percentage === 10) {
+      if (game?.progress_percentage === 15) {
         setBanner({
-          title: "Provisioning Bottleneck Detected",
-          message: "The GPU Swarm is active but the App has not received a heartbeat. Please verify that SUPABASE_SERVICE_ROLE_KEY is correctly added to your Modal.com Secrets.",
-          severity: "warning"
+          title: "GPU Cluster Warming Up",
+          message: "The cluster is provisioning resources. This usually takes 45-90 seconds on first ignition. Please wait for the 18% handshake.",
+          severity: "info"
         });
       }
     }, 45000);
     setProvisioningTimeout(timeout);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => {
-      setBanner({
-        title: "Cluster Cold-Start Detected",
-        message: "GPU resources are still warming up. Connection is established, awaiting telemetry. This typically takes 30-60s on first ignition.",
-        severity: "info"
-      });
-    }, 5000);
-
     try {
       const response = await fetch('/api/process-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          game_id: gameId, 
-          video_path: game.video_path, 
-          dry_run: isDryRun
-        }),
-        signal: controller.signal
+        body: JSON.stringify({ game_id: gameId, video_path: game.video_path, dry_run: isDryRun })
       });
 
-      clearTimeout(timeoutId);
-
       if (response.ok) {
-        showBanner("GPU cluster is now processing your footage.", "success", "AI Swarm Ignited");
+        showBanner("GPU Swarm Ignition Successful", "success", "Swarm Launched");
         await fetchGameData(true);
-      } else {
-        const errorData = await response.json();
-        setBanner({
-          title: "Handshake Failed",
-          message: errorData.message || "Failed to establish GPU connection. Please verify your SUPABASE_SERVICE_ROLE_KEY in Modal Secrets.",
-          severity: "error"
-        });
       }
     } catch (error: any) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        setBanner({
-          title: "Connection Timeout",
-          message: "The GPU swarm took too long to respond. The cluster may be experiencing high load or a cold-start delay. Please try again in 30 seconds.",
-          severity: "warning"
-        });
-      } else {
-        setBanner({
-          title: "System Error",
-          message: error.message || "An unexpected error occurred during ignition. Check the Technical Trace below for details.",
-          severity: "error"
-        });
-      }
+      showBanner(error.message, "error", "Ignition Failed");
     } finally {
       setAnalyzing(false);
       setIsWarming(false);
