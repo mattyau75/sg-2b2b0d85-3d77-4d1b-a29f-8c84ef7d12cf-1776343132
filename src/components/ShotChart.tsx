@@ -2,7 +2,7 @@ import React from "react";
 import { Court } from "./Court";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
-interface Shot {
+export interface Shot {
   id: string;
   x: number;
   y: number;
