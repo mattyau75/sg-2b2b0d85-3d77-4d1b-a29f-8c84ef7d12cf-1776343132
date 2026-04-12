@@ -18,6 +18,18 @@ image = (
     )
 )
 
+def log_progress(supabase, game_id, progress, status, message):
+    """PERSISTENT STATE-SYNC ENGINE: Cumulative INSERT Pattern"""
+    try:
+        supabase.table("game_analysis").insert({
+            "game_id": game_id,
+            "progress_percentage": progress,
+            "status": status,
+            "status_message": message
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Trace Sync Error: {e}")
+
 @app.function(
     image=image,
     gpu="A10G",
@@ -71,7 +83,7 @@ def analyze(payload: dict):
 
     try:
         # CRITICAL: IMMEDIATE 16% HANDSHAKE (Breaks the 15% stall)
-        log_to_trace(16, "GPU Handshake Successful - Environment Initialized")
+        log_progress(supabase, game_id, 16, "processing", "✅ GPU HANDSHAKE: Elite Cluster Awakened & Authenticated.")
         
         if not video_url:
             raise ValueError("GPU received an empty video URL.")
