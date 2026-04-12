@@ -4,7 +4,8 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH VERIFIED NAMING (Pulse Update: 2026-04-12)
+# 🛠️ HARD SYSTEM HEARTBEAT: 2026-04-12T21:30:01Z (FORCED RE-TRIGGER)
+# 🛡️ This unique ID forces GitHub to start a FRESH WORKFLOW RUN.
 app = modal.App("basketball-scout-ai")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT

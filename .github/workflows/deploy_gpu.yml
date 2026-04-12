@@ -1,9 +1,12 @@
-name: Deploy to Modal.com
+name: Deploy GPU to Modal.com
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
+    paths:
+      - 'modal_worker.py'
+      - '.github/workflows/deploy_gpu.yml'
+  workflow_dispatch: # 🛠️ ADDED: Allows manual 'Run workflow' button in GitHub UI
 
 jobs:
   deploy:
