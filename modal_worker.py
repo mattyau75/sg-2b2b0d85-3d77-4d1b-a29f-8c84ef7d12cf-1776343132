@@ -62,27 +62,16 @@ def process_game_factory(data: dict):
         print(f"❌ Initial Handshake Error: {e}")
         return {"status": "error", "message": str(e)}
 
-    # Now load heavy dependencies
-    # import cv2
-    # import torch
-    # etc...
-    
     # 1. INITIALIZE & HANDSHAKE
     print(f"🚀 GPU AWAKENING: Game ID {game_id}")
-    sb = create_client(supabase_url, supabase_key)
     
-    # 16% - Handshake Attempt
-    update_pulse(sb, game_id, 16, "GPU AWAKENING: Cluster resources allocated.", "info")
-    time.sleep(1) # Small buffer for DB propagation
-    
+    # 17% - Database Verification
     try:
-        # 17% - Database Verification
         res = sb.table("profiles").select("id").limit(1).execute()
         update_pulse(sb, game_id, 18, "HANDSHAKE VERIFIED: GPU-to-Database uplink established.", "success")
     except Exception as e:
         print(f"❌ HANDSHAKE FAILED: {e}")
         # Fallback to update via another method or retry if needed
-        # We try one more time with a basic table
         try:
             sb.table("games").select("id").eq("id", game_id).execute()
             update_pulse(sb, game_id, 18, "HANDSHAKE VERIFIED (RETRY): Uplink established.", "success")
@@ -114,11 +103,3 @@ def process_game_factory(data: dict):
         "updated_at": datetime.now().isoformat()
     }).eq("id", game_id).execute()
     return {"status": "success", "message": "Unified raw payload ready for Mapping Engine."}
-
-@app.function(image=image)
-@modal.web_endpoint(method="POST")
-async def process(payload: dict):
-    """Instant Ignition."""
-    # Ensure background spawn works correctly
-    unified_pipeline_async.spawn(payload)
-    return {"status": "ignited", "mode": "unified_raw_factory"}
