@@ -6,18 +6,42 @@ import { HeadObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  console.log(`[API] ${req.method} /api/process-game triggered`);
-  
-  if (req.method !== "POST") {
-    return res.status(405).json({ message: "Method not allowed" });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // Force no-cache to prevent stale 404s
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
+  const { gameId, videoUrl, metadata } = req.body;
+  const finalGameId = gameId || metadata?.gameId;
 
   try {
+    // 🛡️ PRIME DIRECTIVE: ESTABLISH HANDSHAKE FIRST
+    // This is the absolute first command to run
+    const { error: handshakeError } = await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "initializing",
+      progress_percentage: 1,
+      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Started..."
+    });
+
+    if (handshakeError) {
+      console.error("Prime Handshake Failed:", handshakeError);
+      // Fallback: we still try to return a 500, but the trace might be blind if DB is down
+      return res.status(500).json({ message: "Database Handshake Failure: " + handshakeError.message });
+    }
+
+    // 2. LOG SYSTEM VALIDATION
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "authorizing",
+      progress_percentage: 5,
+      status_message: "🔐 AUTH: Verifying video payload & system integrity..."
+    });
+
+    if (!videoUrl) throw new Error("Missing required video URL for AI processing.");
+
+    // Force no-cache to prevent stale 404s
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.setHeader("Pragma", "no-cache");
+    res.setHeader("Expires", "0");
+
     const { gameId, videoPath } = req.body;
     
     // Support both camelCase and snake_case
@@ -100,14 +124,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ success: true, gameId: finalGameId });
   } catch (error: any) {
-    console.error("[ProcessGame] Crash:", error.message);
+    console.error("❌ IGNITION FAILURE:", error);
     
-    // Log the crash in the trace
-    await supabase.from("game_analysis").upsert({
-      game_id: req.body.gameId || req.body.game_id,
-      status: "failed",
-      status_message: `❌ IGNITION ERROR: ${error.message}`
-    }, { onConflict: "game_id" });
+    // FORENSIC ERROR LOGGING: Push the error directly to the trace
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "error",
+      progress_percentage: 0,
+      status_message: `🚨 HANDSHAKE ERROR: ${error.message || "Unknown ignition failure"}`
+    });
 
     return res.status(500).json({ message: error.message });
   }

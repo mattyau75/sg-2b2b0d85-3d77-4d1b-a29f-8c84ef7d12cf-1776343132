@@ -198,20 +198,20 @@ export default function Dashboard() {
 
   const handleIgniteAI = async (gameId: string) => {
     try {
-      // 1. INITIALIZE CUMULATIVE LOGS IMMEDIATELY
-      const initialLog = {
-        id: `init-${Date.now()}`,
+      // 1. OPTIMISTIC TRACE INITIALIZATION
+      setWorkerLogs([{
+        id: `local-init-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        level: 'info' as const,
-        message: '🚀 ELITE IGNITION: Initiating System Handshake...',
-        module: 'SYSTEM'
-      };
-      setWorkerLogs([initialLog]);
+        level: 'info',
+        message: '🚀 SYSTEM: Dispatched Prime Ignition Signal...',
+        module: 'DASHBOARD'
+      }]);
+      
       setIgnitingGameId(gameId);
 
-      // 2. START CUMULATIVE ACCUMULATOR (INSERT-ONLY)
+      // 2. ACTIVATE ETERNAL HANDSHAKE LISTENER (INSERT-ONLY)
       const channel = supabase
-        .channel(`eternal-handshake-${gameId}`)
+        .channel(`prime-handshake-${gameId}`)
         .on(
           'postgres_changes',
           { 
