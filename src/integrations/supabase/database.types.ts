@@ -551,6 +551,7 @@ export type Database = {
         Args: { game_id: string; log_entry: Json }
         Returns: undefined
       }
+      commit_game_stats: { Args: { target_game_id: string }; Returns: Json }
       worker_heartbeat: {
         Args: {
           game_id: string

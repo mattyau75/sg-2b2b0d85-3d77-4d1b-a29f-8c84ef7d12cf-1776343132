@@ -14,6 +14,6 @@ Create the user-facing interface for matching AI-detected "Raw Entities" to real
 
 ## Checklist:
 - [x] Update Mapping Dashboard to display raw AI Entities (Ghosts)
-- [ ] Implement manual 'Link to Player' selection logic
+- [x] Implement manual 'Link to Player' selection logic
 - [ ] Add 'Commit to Official Record' batch update functionality
 - [ ] Create UI for resolving duplicate detections
