@@ -83,31 +83,33 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
 
       if (error) throw error;
 
-      showBanner("Official Records Finalized", "success");
+      showBanner("Official Records Finalized", "success", "Mapping Engine Locked");
       onRefresh();
     } catch (error: any) {
-      showBanner(error.message || "Commit Failed", "error");
+      showBanner(error.message || "Commit Failed", "error", "Transaction Error");
     } finally {
       setCommitting(false);
     }
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between bg-accent/10 p-4 rounded-lg border border-accent/20">
-        <div className="flex items-center gap-3">
-          <Zap className="h-5 w-5 text-accent animate-pulse" />
+    <div className="space-y-6 mt-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-accent/5 p-6 rounded-2xl border border-accent/20 shadow-inner">
+        <div className="flex items-center gap-4">
+          <div className="h-12 w-12 rounded-full bg-accent/10 flex items-center justify-center border border-accent/20">
+            <Zap className="h-6 w-6 text-accent animate-pulse" />
+          </div>
           <div>
-            <h3 className="text-sm font-black uppercase tracking-tight text-white">Module 5: Mapping Engine</h3>
-            <p className="text-[10px] text-muted-foreground font-mono">Convert Raw AI Discovery into Official Personnel Records</p>
+            <h3 className="text-xl font-black uppercase tracking-tighter text-white italic">Module 5: Roster Mapping Engine</h3>
+            <p className="text-xs text-muted-foreground font-mono">Synchronize AI Discovery Payload with Official Roster Records</p>
           </div>
         </div>
         <Button 
           onClick={handleCommitStats} 
           disabled={committing || aiMappings.length === 0}
-          className="bg-accent hover:bg-accent/80 text-black font-black uppercase italic tracking-tighter"
+          className="bg-accent hover:bg-accent/80 text-black font-black uppercase italic tracking-tighter h-12 px-8 text-sm shadow-lg shadow-accent/20 border border-accent/30"
         >
-          {committing ? <RefreshCw className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+          {committing ? <RefreshCw className="h-5 w-5 animate-spin mr-3" /> : <CheckCircle className="h-5 w-5 mr-3" />}
           Commit Official Stats
         </Button>
       </div>

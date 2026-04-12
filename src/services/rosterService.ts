@@ -75,19 +75,7 @@ export const rosterService = {
     return data;
   },
 
-  async updateMapping(mappingId: string, playerId: string | null) {
-    const { error } = await supabase
-      .from('ai_player_mappings')
-      .update({ 
-        real_player_id: playerId, 
-        is_manual_override: !!playerId,
-        updated_at: new Date().toISOString()
-      } as any)
-      .eq('id', mappingId);
-    if (error) throw error;
-  },
-
-  async bulkCommit(gameId: string) {
+  bulkCommit: async (gameId: string) => {
     const { data, error } = await supabase.rpc('commit_game_stats', { target_game_id: gameId });
     if (error) throw error;
     return data;
