@@ -117,68 +117,31 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const gpuConfig = {
       game_id: finalGameId, 
-      video_path: confirmedKey,
       video_url: signedUrl,
-      video_filename: videoFilename,
-      home_team_id: homeTeamId || req.body.home_team_id,
-      away_team_id: awayTeamId || req.body.away_team_id,
-      homeColor,
-      awayColor,
-      camera_type: gameData?.camera_type || "panning",
-      home_roster: homeRoster || [],
-      away_roster: awayRoster || [],
-      scouting_mode: "deep_recognition",
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY, // DIRECT SERVICE ROLE HANDSHAKE
-      dry_run: req.body.dry_run || false
+      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY, // DIRECT MASTER HANDSHAKE
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId,
+      home_roster: homeRoster || [],
+      away_roster: awayRoster || []
     };
 
-    // Update game status to signify ingestion start
+    // Ignition Step 1: Tell the DB we are starting (10%)
     await supabase.from('games').update({ 
       status: 'analyzing', 
       progress_percentage: 10, 
       ignition_status: 'ignited',
-      last_heartbeat: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      last_error: null,
-      video_path: confirmedKey 
+      updated_at: new Date().toISOString()
     } as any).eq('id', finalGameId);
 
-    // Fire and forget GPU handoff
-    console.log(`[ProcessGame] Igniting GPU Swarm for ${finalGameId}. Payload:`, { 
-      game_id: finalGameId, 
-      video: confirmedKey,
-      modal_url: process.env.MODAL_URL || process.env.MODAL_WEBHOOK_URL
-    });
-
-    modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).then(async (modalRes) => {
-      console.log(`[ProcessGame] ✅ Modal.com Response:`, modalRes);
-      
-      // SENIOR FIX: Perform the 15% pulse with explicit metadata initialization
-      const { error: pulseError } = await supabase.from('games').update({ 
-        status: 'analyzing', 
+    // Ignition Step 2: Handoff to Modal
+    modalService.processGame(signedUrl, gpuConfig).then(async () => {
+      // Ignition Step 3: IMMEDIATE Pulse to 15% to break the stall
+      await supabase.from('games').update({ 
         progress_percentage: 15,
-        ignition_status: 'ignited',
-        processing_metadata: {
-          worker_logs: [{
-            timestamp: new Date().toISOString(),
-            message: "App Server: GPU Handshake Verified. Swarm Ignited.",
-            severity: "success"
-          }],
-          last_heartbeat: new Date().toISOString()
-        },
-        updated_at: new Date().toISOString()
-      } as any).eq('id', finalGameId);
-
-      if (pulseError) {
-        console.error("[ProcessGame] Pulse Update Failed:", pulseError);
-      }
-    }).catch(err => {
-      console.error("[ProcessGame] GPU Handoff Failed:", err.message);
-      supabase.from('games').update({ 
-        status: 'error', 
-        last_error: `GPU Connection Failed: ${err.message}`,
-        ignition_status: 'failed'
+        processing_metadata: { 
+          worker_logs: [{ timestamp: new Date().toISOString(), message: "Swarm Ignited: Initializing GPU cluster...", severity: "info" }] 
+        }
       } as any).eq('id', finalGameId);
     });
 
