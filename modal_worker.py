@@ -56,9 +56,9 @@ def add_worker_log(sb, game_id, message, severity="info"):
             "last_heartbeat": datetime.now().isoformat()
         }).eq("id", game_id).execute()
         
-        print(f"[DB UPDATE] Status: Success")
+        print(f"[DB UPDATE] Heartbeat Success")
     except Exception as e:
-        print(f"❌ Log Error: {str(e)}")
+        print(f"❌ DB Sync Error: {str(e)}")
 
 @app.function(image=image, gpu="A10G", timeout=3600)
 @modal.fastapi_endpoint(method="POST")
@@ -78,7 +78,7 @@ async def analyze(payload: dict):
 
         sb = get_supabase_client(supabase_url, gpu_token)
         
-        # STAGE 1: IGNITION HANDSHAKE
+        # STAGE 1: IMMEDIATE IGNITION PULSE (Fires immediately to move UI to 15%)
         add_worker_log(sb, game_id, "GPU Cluster Handshake Verified. Initializing Neural Engine...", "success")
         
         sb.table("games").update({

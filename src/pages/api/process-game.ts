@@ -77,7 +77,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       try {
         await r2Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
         confirmedKey = key;
-        console.log(`[ProcessGame] ✅ Verified R2 Key: ${key}`);
+        console.log(`[ProcessGame] ✅ Verified R2 Key for GPU: ${key}`);
         break;
       } catch (e) {}
     }
