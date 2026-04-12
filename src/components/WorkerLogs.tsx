@@ -1,11 +1,14 @@
-import React, { useEffect, useRef } from "react";
+import * as React from "react";
+import { Terminal } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Terminal, Activity, Zap, ShieldCheck, AlertCircle } from "lucide-react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 
 export interface LogEntry {
+  id?: string;
   timestamp: string;
-  message: string;
   level: "info" | "warning" | "error" | "heartbeat";
+  message: string;
+  module?: string;
 }
 
 interface WorkerLogsProps {
@@ -50,7 +53,7 @@ export function WorkerLogs({ logs, className }: WorkerLogsProps) {
                 <span className={cn(
                   "shrink-0 font-bold uppercase w-12",
                   log.level === 'error' ? "text-red-500" : 
-                  log.level === 'warn' ? "text-yellow-500" : "text-accent"
+                  (log.level === 'warning' || (log.level as string) === 'warn') ? "text-yellow-500" : "text-accent"
                 )}>
                   {log.level}
                 </span>

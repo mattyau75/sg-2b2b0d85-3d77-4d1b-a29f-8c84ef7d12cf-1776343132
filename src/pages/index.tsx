@@ -58,6 +58,8 @@ export default function Dashboard() {
     speed: "0.4s/f"
   });
   const [loading, setLoading] = useState(true);
+  const [workerLogs, setWorkerLogs] = useState<any[]>([]);
+  const [ignitingGameId, setIgnitingGameId] = useState<string | null>(null);
   const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
