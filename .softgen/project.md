@@ -23,4 +23,5 @@
 - **Roster Mapping Engine**: Dynamic database matching of AI entities to team rosters.
 - **Color Calibration**: Team-specific color recognition for high-accuracy tracking.
 - **Manual Override Dashboard**: Interface for manual player-to-AI mapping.
+- **Elite Scout Analytics Dashboard**: High-density tactical visualization of AI-processed game data.
 - **Zero-Stat Mode**: Pure personnel analysis without event overhead.
