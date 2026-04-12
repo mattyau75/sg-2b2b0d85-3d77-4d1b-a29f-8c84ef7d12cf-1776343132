@@ -119,12 +119,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       game_id: finalGameId, 
       video_url: signedUrl,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY, // DIRECT MASTER HANDSHAKE
-      // Rosters are no longer required for Module 2 - Switching to Raw Discovery Mode
-      discovery_mode: "raw_personnel"
+      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
+      discovery_mode: "raw_personnel",
+      // Include basic metadata for calibration but exclude heavy roster objects
+      home_team_id: homeTeamId,
+      away_team_id: awayTeamId
     };
 
-    // LAUNCHER MODE: Trigger the GPU and immediately release the request
+    // Ignition: Fire and forget background spawn
     modalService.processGame(signedUrl, gpuConfig).catch(err => {
       console.error("[ProcessGame] Launch Failure:", err);
     });
