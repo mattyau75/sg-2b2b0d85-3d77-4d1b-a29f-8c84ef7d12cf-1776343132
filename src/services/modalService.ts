@@ -13,9 +13,9 @@ export const modalService = {
     supabaseKey: string;
   }) => {
     // 🛡️ DYNAMIC URL RESOLUTION
-    // Pattern: https://<username>--basketball-scout-ai-analyze.modal.run
+    // Using your verified Modal username: mattjeffs
     const MODAL_ENDPOINT = process.env.MODAL_ENDPOINT_URL || 
-                          "https://your-modal-user--basketball-scout-ai-analyze.modal.run";
+                          "https://mattjeffs--basketball-scout-ai-analyze.modal.run";
 
     try {
       console.log("🚀 IGNITION ATTEMPT: Calling GPU at", MODAL_ENDPOINT);
