@@ -23,6 +23,7 @@ def get_supabase_client(supabase_url: str, gpu_token: str):
     Initializes a Supabase client using the Dynamic JWT passed from the App Server.
     """
     from supabase import create_client, Client
+    # Use the token as the key - standard for Supabase SDKs
     return create_client(supabase_url, gpu_token)
 
 def add_worker_log(sb, game_id, message, severity="info"):
@@ -56,9 +57,13 @@ def add_worker_log(sb, game_id, message, severity="info"):
             "last_heartbeat": datetime.now().isoformat()
         }).eq("id", game_id).execute()
         
-        print(f"[DB UPDATE] Heartbeat Success")
+        # Verbose check for error in response
+        if hasattr(update_res, 'error') and update_res.error:
+            print(f"❌ DB Update Error: {update_res.error}")
+        else:
+            print(f"[DB UPDATE] Heartbeat Success")
     except Exception as e:
-        print(f"❌ DB Sync Error: {str(e)}")
+        print(f"❌ DB Sync Exception: {str(e)}")
 
 @app.function(image=image, gpu="A10G", timeout=3600)
 @modal.fastapi_endpoint(method="POST")

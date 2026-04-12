@@ -152,8 +152,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Fire and forget GPU handoff
     console.log(`[ProcessGame] Initializing GPU Swarm handoff for ${finalGameId}...`);
-    modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).then(() => {
+    modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).then(async () => {
       console.log(`[ProcessGame] ✅ Modal.com Handshake Accepted`);
+      // Force an immediate update to 15% so the UI doesn't stall at 10%
+      await supabase.from('games').update({ 
+        status: 'analyzing', 
+        progress_percentage: 15,
+        ignition_status: 'ignited',
+        updated_at: new Date().toISOString()
+      } as any).eq('id', finalGameId);
     }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
       supabase.from('games').update({ 
