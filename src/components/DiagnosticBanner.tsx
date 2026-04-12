@@ -1,60 +1,70 @@
-import React from "react";
-import { X, AlertTriangle, Cpu, Sparkles, Terminal } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from "react";
+import { X, Info, AlertCircle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type BannerSeverity = "info" | "warning" | "error" | "success";
+export type BannerType = "info" | "error" | "success" | "warning";
 
-interface DiagnosticBannerProps {
-  title: string;
+interface Banner {
+  id: string;
   message: string;
-  severity: BannerSeverity;
-  onClose: () => void;
-  className?: string;
+  type: BannerType;
 }
 
-export function DiagnosticBanner({ title, message, severity, onClose, className }: DiagnosticBannerProps) {
-  const variants = {
-    info: "bg-blue-500/10 border-blue-500/20 text-blue-400",
-    warning: "bg-amber-500/10 border-amber-500/20 text-amber-500",
-    error: "bg-red-500/10 border-red-500/20 text-red-500",
-    success: "bg-emerald-500/10 border-emerald-500/20 text-emerald-500",
+export function DiagnosticBanner() {
+  const [banners, setBanners] = useState<Banner[]>([]);
+
+  // Listen for custom events to show banners
+  useEffect(() => {
+    const handleAddBanner = (event: CustomEvent<Banner>) => {
+      setBanners((prev) => [...prev, event.detail]);
+    };
+
+    window.addEventListener("add-banner" as any, handleAddBanner);
+    return () => window.removeEventListener("add-banner" as any, handleAddBanner);
+  }, []);
+
+  const removeBanner = (id: string) => {
+    setBanners((prev) => prev.filter((b) => b.id !== id));
   };
 
-  const icons = {
-    info: Cpu,
-    warning: AlertTriangle,
-    error: Terminal,
-    success: Sparkles,
-  };
-
-  const Icon = icons[severity];
+  if (banners.length === 0) return null;
 
   return (
-    <div className={cn("relative overflow-hidden rounded-xl border animate-in fade-in slide-in-from-top-2 duration-300", variants[severity], className)}>
-      <div className="flex items-start gap-4 p-4">
-        <div className="mt-1">
-          <Icon className="h-5 w-5" />
-        </div>
-        <div className="flex-1 space-y-1">
-          <h5 className="font-bold uppercase tracking-widest text-[10px]">{title}</h5>
-          <p className="text-xs font-mono leading-relaxed opacity-90">{message}</p>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onClose}
-          className="h-6 w-6 rounded-full hover:bg-white/10 -mt-1 -mr-1"
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl flex flex-col gap-2 px-4">
+      {banners.map((banner) => (
+        <div
+          key={banner.id}
+          className={cn(
+            "flex items-center justify-between p-4 rounded-lg border shadow-lg animate-in fade-in slide-in-from-top-4 duration-300",
+            banner.type === "info" && "bg-secondary border-muted text-foreground",
+            banner.type === "error" && "bg-destructive/10 border-destructive/20 text-destructive",
+            banner.type === "success" && "bg-accent/10 border-accent/20 text-accent",
+            banner.type === "warning" && "bg-primary/10 border-primary/20 text-primary"
+          )}
         >
-          <X className="h-3 w-3" />
-        </Button>
-      </div>
-      {/* Decorative pulse line for active diagnostic states */}
-      {(severity === "warning" || severity === "info") && (
-        <div className="absolute bottom-0 left-0 h-[2px] w-full bg-current opacity-20 overflow-hidden">
-          <div className="h-full w-1/3 bg-current animate-shimmer" />
+          <div className="flex items-center gap-3">
+            {banner.type === "info" && <Info className="w-5 h-5" />}
+            {banner.type === "error" && <AlertCircle className="w-5 h-5" />}
+            {banner.type === "success" && <CheckCircle className="w-5 h-5" />}
+            {banner.type === "warning" && <AlertCircle className="w-5 h-5" />}
+            <p className="text-sm font-medium">{banner.message}</p>
+          </div>
+          <button
+            onClick={() => removeBanner(banner.id)}
+            className="p-1 hover:bg-foreground/10 rounded-full transition-colors"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
-      )}
+      ))}
     </div>
   );
 }
+
+// Helper to trigger banners from anywhere
+export const showBanner = (message: string, type: BannerType = "info") => {
+  const event = new CustomEvent("add-banner", {
+    detail: { id: Math.random().toString(36).substr(2, 9), message, type },
+  });
+  window.dispatchEvent(event);
+};
