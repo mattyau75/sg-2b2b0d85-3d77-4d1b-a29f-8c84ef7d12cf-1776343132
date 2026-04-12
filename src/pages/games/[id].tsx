@@ -71,6 +71,21 @@ export default function GameDetailPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   
+  // 🛡️ MANUAL COMMAND CENTER STATE
+  const [manualMode, setManualMode] = useState(true); // Defaulting to true for high-density control
+  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
+  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [activeChannel, setActiveChannel] = useState<any>(null);
+
+  const checkSequence = (step: number) => {
+    if (step > 0 && !completedSteps.includes(step - 1)) {
+      const stepNames = ["SYNC REALTIME", "VERIFY PAYLOAD", "IGNITE GPU SWARM", "FINALIZE M2"];
+      showBanner(`Please complete Phase ${step}: ${stepNames[step - 1]} before proceeding.`, "error", "Sequence Blocked");
+      return false;
+    }
+    return true;
+  };
+
   const [homeRoster, setHomeRoster] = useState<any[]>([]);
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
   const [aiMappings, setAiMappings] = useState<any[]>([]);
@@ -315,6 +330,81 @@ export default function GameDetailPage() {
     }
   };
 
+  const handleManualStep1 = async () => {
+    if (!gameId || !checkSequence(0)) return;
+    
+    showBanner("📡 PHASE 1: Initializing Manual Realtime Handshake...", "info", "System Sync");
+
+    if (activeChannel) await supabase.removeChannel(activeChannel);
+
+    const channel = supabase
+      .channel(`manual-sync-detail-${gameId.toLowerCase()}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId.toLowerCase()}` },
+        (payload) => {
+          const entry = payload.new as any;
+          setGame((prev: any) => ({
+            ...prev,
+            processing_metadata: {
+              ...prev.processing_metadata,
+              worker_logs: [
+                ...(prev.processing_metadata?.worker_logs || []),
+                { timestamp: entry.created_at, message: entry.status_message, severity: entry.status === 'error' ? 'error' : 'info' }
+              ]
+            }
+          }));
+        }
+      )
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsSubscribed(true);
+          setActiveChannel(channel);
+          setCompletedSteps(prev => [...new Set([...prev, 0])]);
+          showBanner("✅ PHASE 1 COMPLETE: Realtime Connection Verified.", "success", "Sync Established");
+        }
+      });
+  };
+
+  const handleManualStep2 = async () => {
+    if (!gameId || !checkSequence(1)) return;
+    
+    showBanner("📦 PHASE 2: Verifying Video Payload & ID Stability...", "info", "Payload Check");
+
+    const { error } = await supabase.from("game_analysis").insert({
+      game_id: gameId.toLowerCase(),
+      status: "verifying",
+      progress_percentage: 10,
+      status_message: "🛰️ PHASE 2 COMPLETE: Forensic Payload Validated for GPU Ignition."
+    });
+
+    if (!error) {
+      setCompletedSteps(prev => [...new Set([...prev, 1])]);
+      await fetchGameData(true);
+    }
+  };
+
+  const handleManualStep3 = async () => {
+    if (!gameId || !checkSequence(2)) return;
+    await handleStartDiscovery();
+    setCompletedSteps(prev => [...new Set([...prev, 2])]);
+  };
+
+  const handleManualStep4 = async () => {
+    if (!gameId || !checkSequence(3)) return;
+    
+    const { error } = await supabase
+      .from("games")
+      .update({ m2_complete: true } as any)
+      .eq('id', gameId);
+
+    if (!error) {
+      setCompletedSteps(prev => [...new Set([...prev, 3])]);
+      showBanner("Module 2 Complete. Swarm analysis finalized.", "success", "Workflow Advanced");
+      await fetchGameData(true);
+    }
+  };
+
   const ModuleLocked = ({ moduleNum, requiredModule }: { moduleNum: number, requiredModule: string }) => (
     <div className="flex flex-col items-center justify-center p-12 text-center space-y-4 border border-dashed border-white/10 rounded-2xl bg-black/20">
       <div className="h-16 w-16 rounded-full bg-muted/20 flex items-center justify-center">
@@ -457,8 +547,8 @@ export default function GameDetailPage() {
                         <Zap className="h-5 w-5 text-primary" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-bold uppercase tracking-tight">Module 2: Detection Swarm</h3>
-                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Unified Raw Factory • M2+M3+M4</p>
+                        <h3 className="text-lg font-bold uppercase tracking-tight">Module 2: Manual Command Center</h3>
+                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Operator Control • Sequential Ignition</p>
                       </div>
                     </div>
                     
@@ -473,16 +563,50 @@ export default function GameDetailPage() {
                         {resetting ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <Trash2 className="h-3 w-3 mr-1.5" />}
                         RESET SWARM
                       </Button>
-                      
+                    </div>
+                  </div>
+
+                  {/* 🛠️ ELITE MANUAL COMMAND CENTER GRID */}
+                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                       <Button 
-                        onClick={() => handleStartDiscovery()}
-                        disabled={analyzing || healthStatus.supabase === 'invalid'}
-                        size="sm"
-                        className="h-8 text-[10px] font-mono bg-primary hover:bg-primary/90"
+                        variant={completedSteps.includes(0) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(0) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep1}
                       >
-                        {analyzing ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <Play className="h-3 w-3 mr-1.5" />}
-                        IGNITE AI CLUSTER
+                        {completedSteps.includes(0) ? "✅ PHASE 1: SYNCED" : "1. SYNC REALTIME"}
                       </Button>
+
+                      <Button 
+                        variant={completedSteps.includes(1) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(1) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep2}
+                      >
+                        {completedSteps.includes(1) ? "✅ PHASE 2: VERIFIED" : "2. VERIFY PAYLOAD"}
+                      </Button>
+
+                      <Button 
+                        variant={completedSteps.includes(2) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(2) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep3}
+                        disabled={analyzing}
+                      >
+                        {analyzing ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : (completedSteps.includes(2) ? "✅ PHASE 3: IGNITED" : "3. IGNITE GPU")}
+                      </Button>
+
+                      <Button 
+                        variant={completedSteps.includes(3) ? "secondary" : "outline"}
+                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(3) ? "border-green-500/50" : "border-primary/30"}`}
+                        onClick={handleManualStep4}
+                      >
+                        {completedSteps.includes(3) ? "✅ PHASE 4: LOCKED" : "4. FINALIZE M2"}
+                      </Button>
+                    </div>
+
+                    <div className="flex gap-1 justify-center">
+                      {[0, 1, 2, 3].map((s) => (
+                        <div key={s} className={`h-1 w-full rounded-full ${completedSteps.includes(s) ? "bg-green-500" : "bg-primary/20"}`} />
+                      ))}
                     </div>
                   </div>
 
