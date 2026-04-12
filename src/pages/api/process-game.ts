@@ -7,52 +7,36 @@ import { triggerAnalysis } from "@/services/modalService";
  * This handler manages the prime handshake and GPU ignition.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
+  if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 1. ATOMIC PAYLOAD EXTRACTION (The "ID Bridge")
-  const { 
-    gameId, 
-    game_id, 
-    videoUrl, 
-    video_path,
-    metadata,
-    dry_run 
-  } = req.body;
+  // 1. EXTRACT & VALIDATE IMMEDIATELY
+  const { gameId, video_path, videoUrl: bodyVideoUrl } = req.body;
+  const finalGameId = (gameId || req.body.game_id || req.body.metadata?.gameId)?.toLowerCase();
+  const finalVideoUrl = bodyVideoUrl || video_path;
 
-  // Supporting both camelCase and snake_case for the Game ID
-  const finalGameId = gameId || game_id || metadata?.gameId || metadata?.game_id || metadata?.id;
-  const finalVideoUrl = videoUrl || video_path || metadata?.videoUrl || metadata?.video_path;
-
-  // 🛡️ FATAL ERROR GUARD: Ensure Game ID is valid
-  if (!finalGameId) {
-    return res.status(400).json({ 
-      message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." 
-    });
-  }
+  if (!finalGameId) return res.status(400).json({ message: "Missing Game ID" });
 
   try {
-    // 🛡️ HANDSHAKE STABILIZER: Give the frontend listener a moment to connect
-    await new Promise(resolve => setTimeout(resolve, 800));
+    // 🛡️ CRITICAL VALIDATION: Fail fast before handshake
+    if (!finalVideoUrl) throw new Error("Missing video source for AI analysis.");
 
-    // 1. PRIME HANDSHAKE: First log entry
+    // 2. PRIME HANDSHAKE: Establish link
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
-      progress_percentage: 2,
+      progress_percentage: 5,
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
     });
 
-    // 2. LOG SYSTEM VALIDATION
+    // 3. LOG SYSTEM VALIDATION
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "authorizing",
-      progress_percentage: 5,
+      progress_percentage: 10,
       status_message: "🔐 AUTH: Verifying video payload & system integrity..."
     });
 
-    if (!finalVideoUrl) throw new Error("Missing required video URL for AI processing.");
-
-    // 3. TRIGGER GPU IGNITION (HANDOFF)
+    // 4. TRIGGER GPU IGNITION (HANDOFF)
     const modalUrl = process.env.MODAL_ENDPOINT_URL || "NOT_CONFIGURED";
     
     await supabase.from("game_analysis").insert({
@@ -65,12 +49,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await triggerAnalysis({
       gameId: finalGameId,
       videoUrl: finalVideoUrl,
-      metadata: { ...metadata, dryRun: dry_run || false },
+      metadata: { ...req.body.metadata, dryRun: req.body.dry_run || false },
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
       supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
     });
 
-    // 4. CONFIRM HANDOFF SUCCESS
+    // 5. CONFIRM HANDOFF SUCCESS
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "dispatched",
