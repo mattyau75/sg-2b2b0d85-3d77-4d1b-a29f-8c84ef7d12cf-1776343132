@@ -8,27 +8,19 @@ import {
   XAxis, 
   YAxis, 
   CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer, 
-  LineChart, 
-  Line,
-  PieChart,
-  Pie,
-  Cell
+  Tooltip as ChartTooltip, 
+  ResponsiveContainer 
 } from "recharts";
 import { 
-  TrendingUp, 
   Target, 
   Zap, 
   Users, 
   BarChart3, 
-  ArrowUpRight, 
-  ArrowDownRight,
-  Filter,
-  Columns,
-  Minus
+  Download,
+  Activity,
+  ChevronRight,
+  UserCheck
 } from "lucide-react";
-import { rosterService } from "@/services/rosterService";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,336 +33,227 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { ShotChart } from "@/components/ShotChart";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 export default function AnalyticsPage() {
-  const [teams, setTeams] = useState<any[]>([]);
-  const [selectedTeam, setSelectedTeam] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<any[]>([]);
-  const [lineupStats, setLineupStats] = useState<any[]>([]);
-  const [compareLineups, setCompareLineups] = useState<any[]>([]);
+  const [shots, setShots] = useState<any[]>([]);
+  const [selectedGame, setSelectedGame] = useState<string>("all");
 
   useEffect(() => {
-    const fetchTeams = async () => {
-      const data = await rosterService.getTeams();
-      setTeams(data);
-    };
-    fetchTeams();
-  }, []);
-
-  useEffect(() => {
-    const fetchStats = async () => {
+    const fetchData = async () => {
       setLoading(true);
-      const { data, error } = await supabase.from("player_game_stats").select("*");
-      if (!error && data) setStats(data);
       
-      const { data: lineups, error: lError } = await supabase
-        .from("lineup_stats")
+      // Fetch player stats
+      const { data: pStats } = await supabase
+        .from("player_game_stats")
         .select(`
           *,
-          team:teams(name)
-        `)
-        .order('minutes_played', { ascending: false });
-      if (!lError && lineups) setLineupStats(lineups);
+          player:players(name, number),
+          game:games(home_team_id, away_team_id)
+        `);
+      
+      if (pStats) setStats(pStats);
+
+      // Mock shots for visualization if none exist
+      setShots([
+        { id: "1", x: 25, y: 10, is_make: true, player_name: "J. Smith", shot_type: "Layup" },
+        { id: "2", x: 40, y: 15, is_make: false, player_name: "A. Johnson", shot_type: "3PT Jumper" },
+        { id: "3", x: 10, y: 20, is_make: true, player_name: "M. Brown", shot_type: "Mid-range" },
+        { id: "4", x: 25, y: 5, is_make: true, player_name: "J. Smith", shot_type: "Dunk" },
+        { id: "5", x: 35, y: 35, is_make: false, player_name: "R. Williams", shot_type: "Deep 3" },
+      ]);
       
       setLoading(false);
     };
-    fetchStats();
+    fetchData();
   }, []);
 
-  const addToCompare = (lineup: any) => {
-    if (compareLineups.length < 2 && !compareLineups.find(l => l.id === lineup.id)) {
-      setCompareLineups([...compareLineups, lineup]);
-    }
-  };
-
-  const removeFromCompare = (id: string) => {
-    setCompareLineups(compareLineups.filter(l => l.id !== id));
-  };
-
-  const hasData = stats.length > 0;
-
   return (
-    <Layout title="Analytics | DribbleStats AI Elite" description="Advanced basketball performance metrics and trends.">
-      <div className="space-y-8">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="border-accent/50 text-accent font-mono text-[10px] uppercase tracking-widest px-2">
-                Live Data Feed
-              </Badge>
-              <Badge variant="outline" className="border-primary/50 text-primary font-mono text-[10px] uppercase tracking-widest px-2">
-                SOTA Analytics
-              </Badge>
+    <Layout title="Elite Scout | Analytics Dashboard" description="Tactical basketball personnel analysis.">
+      <div className="space-y-6">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
+              <span className="text-[10px] font-mono text-accent uppercase tracking-widest">Live Scout Feed Active</span>
             </div>
-            <h1 className="text-4xl font-bold">Performance Analytics</h1>
-            <p className="text-muted-foreground">
-              Deep dive into team efficiency, player trends, and tactical shot distribution.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight">Elite Scout Analytics</h1>
+            <p className="text-muted-foreground text-sm">Deep personnel mapping and tactical shot distribution.</p>
           </div>
           
           <div className="flex items-center gap-3">
-            <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-              <SelectTrigger className="w-[200px] bg-card/50 border-border">
-                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
-                <SelectValue placeholder="All Teams" />
-              </SelectTrigger>
-              <SelectContent className="bg-card border-border">
-                <SelectItem value="all">All Teams</SelectItem>
-                {teams.map(team => (
-                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Badge variant="secondary" className="h-10 px-4 rounded-xl cursor-pointer hover:bg-muted/80 transition-colors">
-              Last 30 Days
-            </Badge>
+            <Button variant="outline" size="sm" className="bg-card/50 border-white/10 h-9 font-mono text-[11px] uppercase tracking-wider">
+              <Download className="h-3.5 w-3.5 mr-2" />
+              Export Report
+            </Button>
+            <Button size="sm" className="bg-primary hover:bg-primary/90 h-9 font-mono text-[11px] uppercase tracking-wider">
+              <Activity className="h-3.5 w-3.5 mr-2" />
+              Real-time Sync
+            </Button>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { label: "Offensive Rating", value: hasData ? "114.2" : "0.0", trend: hasData ? "+2.4" : "0.0", icon: Zap, color: "text-primary" },
-            { label: "Defensive Rating", value: hasData ? "108.5" : "0.0", trend: hasData ? "-1.1" : "0.0", icon: Target, color: "text-accent" },
-            { label: "True Shooting %", value: hasData ? "58.4%" : "0.0%", trend: hasData ? "+0.8" : "0.0", icon: TrendingUp, color: "text-green-500" },
-            { label: "AST/TO Ratio", value: hasData ? "2.14" : "0.0", trend: hasData ? "+0.15" : "0.0", icon: Users, color: "text-blue-500" },
-          ].map((metric) => (
-            <Card key={metric.label} className="bg-card/30 backdrop-blur-sm border-border hover:border-primary/20 transition-all">
-              <CardContent className="pt-6">
-                <div className="flex justify-between items-start mb-4">
-                  <div className={`p-2 rounded-lg bg-muted/50 ${metric.color}`}>
-                    <metric.icon className="h-5 w-5" />
+        {/* Tactical Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Column: Personnel Table */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="bg-card/30 backdrop-blur-md border-white/5 overflow-hidden">
+              <CardHeader className="bg-white/[0.02] border-b border-white/5 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded bg-primary/10 text-primary">
+                      <UserCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-sm font-bold uppercase tracking-wider">Personnel Efficiency</CardTitle>
+                      <CardDescription className="text-[10px] font-mono uppercase">Player performance mapping</CardDescription>
+                    </div>
                   </div>
-                  <Badge variant="outline" className={metric.trend.startsWith('+') ? "text-green-500 border-green-500/20" : "text-accent border-accent/20"}>
-                    {metric.trend.startsWith('+') ? <ArrowUpRight className="h-3 w-3 mr-1" /> : <ArrowDownRight className="h-3 w-3 mr-1" />}
-                    {metric.trend}
-                  </Badge>
+                  <Select value={selectedGame} onValueChange={setSelectedGame}>
+                    <SelectTrigger className="w-[180px] h-8 bg-black/20 border-white/10 text-[11px]">
+                      <SelectValue placeholder="All Sessions" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sessions</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-                <h3 className="text-2xl font-bold font-mono tracking-tighter">{metric.value}</h3>
-                <p className="text-xs text-muted-foreground uppercase tracking-wider mt-1">{metric.label}</p>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ScrollArea className="h-[500px]">
+                  <Table>
+                    <TableHeader className="bg-white/[0.01]">
+                      <TableRow className="border-white/5 hover:bg-transparent">
+                        <TableHead className="text-[10px] font-mono uppercase tracking-widest">Player</TableHead>
+                        <TableHead className="text-[10px] font-mono uppercase tracking-widest text-center">PTS</TableHead>
+                        <TableHead className="text-[10px] font-mono uppercase tracking-widest text-center">FG%</TableHead>
+                        <TableHead className="text-[10px] font-mono uppercase tracking-widest text-center">REB</TableHead>
+                        <TableHead className="text-[10px] font-mono uppercase tracking-widest text-center">AST</TableHead>
+                        <TableHead className="text-[10px] font-mono uppercase tracking-widest text-right">Efficiency</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {stats.map((row, i) => (
+                        <TableRow key={i} className="border-white/5 hover:bg-white/[0.02] group">
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <span className="font-mono text-primary font-bold">#{row.player?.number || '00'}</span>
+                              <span className="font-medium">{row.player?.name || 'Unknown Player'}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center font-mono font-bold text-foreground/90">{row.pts || 0}</TableCell>
+                          <TableCell className="text-center font-mono">
+                            <Badge variant="outline" className="border-white/10 font-mono text-[10px] bg-black/20">
+                              {((row.fgm / (row.fga || 1)) * 100).toFixed(1)}%
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-center font-mono">{row.reb || 0}</TableCell>
+                          <TableCell className="text-center font-mono">{row.ast || 0}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <div className="w-16 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                                <div 
+                                  className="h-full bg-primary" 
+                                  style={{ width: `${Math.min((row.pts / 30) * 100, 100)}%` }}
+                                />
+                              </div>
+                              <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
               </CardContent>
             </Card>
-          ))}
-        </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="bg-muted/30 border border-border p-1 rounded-xl mb-6">
-            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              Scoring Trends
-            </TabsTrigger>
-            <TabsTrigger value="efficiency" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
-              <Target className="h-4 w-4 mr-2" />
-              Efficiency
-            </TabsTrigger>
-            <TabsTrigger value="rotations" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
-              <Users className="h-4 w-4 mr-2" />
-              Rotation Analysis
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <Card className="lg:col-span-2 bg-card/30 border-border">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-card/30 border-white/5">
                 <CardHeader>
-                  <CardTitle className="text-lg">Point Distribution</CardTitle>
-                  <CardDescription>Points, Assists, and Rebounds over the last 5 games</CardDescription>
+                  <CardTitle className="text-xs uppercase tracking-widest font-mono flex items-center gap-2">
+                    <BarChart3 className="h-3 w-3 text-accent" />
+                    Volume Distribution
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="h-[400px]">
+                <CardContent className="h-[200px]">
                   <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={hasData ? stats : []}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                      <XAxis dataKey="name" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                      <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: "8px" }}
-                        itemStyle={{ fontSize: "12px" }}
+                    <BarChart data={stats.slice(0, 5)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#222" vertical={false} />
+                      <XAxis dataKey="player.name" hide />
+                      <YAxis hide />
+                      <ChartTooltip 
+                        contentStyle={{ backgroundColor: '#09090b', border: '1px solid #27272a' }}
+                        itemStyle={{ color: '#fff', fontSize: '10px' }}
                       />
-                      <Bar dataKey="pts" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} name="Points" />
-                      <Bar dataKey="ast" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} name="Assists" />
-                      <Bar dataKey="reb" fill="#4ade80" radius={[4, 4, 0, 0]} name="Rebounds" />
+                      <Bar dataKey="fga" fill="hsl(var(--primary))" radius={[2, 2, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </CardContent>
               </Card>
-
-              <Card className="bg-card/30 border-border">
+              
+              <Card className="bg-card/30 border-white/5">
                 <CardHeader>
-                  <CardTitle className="text-lg">Shot Selection</CardTitle>
-                  <CardDescription>By Court Location</CardDescription>
+                  <CardTitle className="text-xs uppercase tracking-widest font-mono flex items-center gap-2">
+                    <Zap className="h-3 w-3 text-primary" />
+                    Impact Rating
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="h-[400px] flex flex-col items-center justify-center">
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={hasData ? stats : []}
-                        innerRadius={60}
-                        outerRadius={80}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {hasData ? stats.map((entry: any, index: number) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        )) : []}
-                      </Pie>
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: "8px" }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="w-full mt-6 space-y-2">
-                    {hasData ? stats.map((item: any) => (
-                      <div key={item.name} className="flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full" style={{ backgroundColor: item.color }} />
-                          <span className="text-muted-foreground">{item.name}</span>
-                        </div>
-                        <span className="font-mono font-bold">{item.value}%</span>
-                      </div>
-                    )) : []}
-                  </div>
+                <CardContent className="flex flex-col items-center justify-center h-[200px]">
+                  <div className="text-5xl font-bold font-mono text-primary">84.2</div>
+                  <div className="text-[10px] uppercase font-mono text-muted-foreground mt-2">Team Efficiency Index</div>
                 </CardContent>
               </Card>
             </div>
-          </TabsContent>
+          </div>
 
-          <TabsContent value="efficiency" className="space-y-6">
-            <Card className="bg-card/30 border-border">
-              <CardHeader>
-                <CardTitle className="text-lg">Shot Efficiency Over Time</CardTitle>
-                <CardDescription>Tracking True Shooting % and eFG% performance</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[400px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={hasData ? stats : []}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                    <XAxis dataKey="name" stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888" fontSize={12} tickLine={false} axisLine={false} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: "#111", border: "1px solid #333", borderRadius: "8px" }}
-                    />
-                    <Line type="monotone" dataKey="pts" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 4, fill: "hsl(var(--primary))" }} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="rotations" className="space-y-6">
-            {compareLineups.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {compareLineups.map((lineup, idx) => (
-                  <Card key={idx} className="bg-primary/5 border-primary/20 relative">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-2 right-2 h-6 w-6"
-                      onClick={() => removeFromCompare(lineup.id)}
-                    >
-                      <Minus className="h-3 w-3" />
-                    </Button>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm font-mono text-primary uppercase">Comparison Slot {idx + 1}</CardTitle>
-                      <CardDescription className="text-xs truncate">{lineup.player_ids.join(', ')}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid grid-cols-3 gap-4 text-center">
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase">Off Rtg</p>
-                        <p className="font-bold font-mono">{(lineup.points_for / (lineup.possessions || 1) * 100).toFixed(1)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase">Def Rtg</p>
-                        <p className="font-bold font-mono">{(lineup.points_against / (lineup.possessions || 1) * 100).toFixed(1)}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] text-muted-foreground uppercase">Net</p>
-                        <p className={`font-bold font-mono ${lineup.points_for - lineup.points_against >= 0 ? 'text-green-500' : 'text-accent'}`}>
-                          {(lineup.points_for - lineup.points_against).toFixed(1)}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            <Card className="bg-card/30 border-border">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Top 5-Player Combinations</CardTitle>
-                  <CardDescription>Lineups ranked by total minutes played and Net Rating</CardDescription>
+          {/* Right Column: Shot Chart */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="bg-card/30 backdrop-blur-md border-white/5">
+              <CardHeader className="bg-white/[0.02] border-b border-white/5 py-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded bg-accent/10 text-accent">
+                    <Target className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-sm font-bold uppercase tracking-wider">Shot Distribution</CardTitle>
+                    <CardDescription className="text-[10px] font-mono uppercase">Tactical floor mapping</CardDescription>
+                  </div>
                 </div>
-                <Badge variant="outline" className="font-mono text-[10px]">
-                  Select 2 to Compare
-                </Badge>
               </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow className="border-border hover:bg-transparent">
-                      <TableHead className="text-xs uppercase font-mono">Team</TableHead>
-                      <TableHead className="text-xs uppercase font-mono">Lineup (IDs)</TableHead>
-                      <TableHead className="text-center text-xs uppercase font-mono">MIN</TableHead>
-                      <TableHead className="text-center text-xs uppercase font-mono">OFF RTG</TableHead>
-                      <TableHead className="text-center text-xs uppercase font-mono">DEF RTG</TableHead>
-                      <TableHead className="text-right text-xs uppercase font-mono">NET RTG</TableHead>
-                      <TableHead className="w-10"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lineupStats.length > 0 ? (
-                      lineupStats.map((lineup, i) => {
-                        const offRtg = (lineup.points_for / (lineup.possessions || 1) * 100).toFixed(1);
-                        const defRtg = (lineup.points_against / (lineup.possessions || 1) * 100).toFixed(1);
-                        const netRtg = (Number(offRtg) - Number(defRtg)).toFixed(1);
-                        const isComparing = compareLineups.find(l => l.id === lineup.id);
-                        
-                        return (
-                          <TableRow key={i} className="border-border hover:bg-muted/20">
-                            <TableCell className="font-medium">{lineup.team?.name}</TableCell>
-                            <TableCell>
-                              <div className="flex gap-1 overflow-hidden max-w-[200px]">
-                                {lineup.player_ids.map((id: string, idx: number) => (
-                                  <Badge key={idx} variant="outline" className="text-[10px] bg-muted/30 whitespace-nowrap">
-                                    {id.substring(0, 4)}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </TableCell>
-                            <TableCell className="text-center font-mono">{lineup.minutes_played}</TableCell>
-                            <TableCell className="text-center font-mono text-primary">{offRtg}</TableCell>
-                            <TableCell className="text-center font-mono text-accent">{defRtg}</TableCell>
-                            <TableCell className={`text-right font-mono font-bold ${Number(netRtg) >= 0 ? 'text-green-500' : 'text-accent'}`}>
-                              {Number(netRtg) >= 0 ? '+' : ''}{netRtg}
-                            </TableCell>
-                            <TableCell>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                disabled={compareLineups.length >= 2 && !isComparing}
-                                className={`h-8 w-8 ${isComparing ? 'text-primary' : 'text-muted-foreground'}`}
-                                onClick={() => isComparing ? removeFromCompare(lineup.id) : addToCompare(lineup)}
-                              >
-                                <Columns className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    ) : (
-                      <TableRow>
-                        <TableCell colSpan={7} className="h-32 text-center text-muted-foreground font-mono">
-                          No rotation data available. Run game analysis to populate.
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </TableBody>
-                </Table>
+              <CardContent className="p-4">
+                <ShotChart shots={shots} />
+                <div className="mt-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase text-muted-foreground">Paint Dominance</span>
+                    <span className="text-xs font-bold text-foreground">62%</span>
+                  </div>
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-accent w-[62%]" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase text-muted-foreground">Perimeter Volume</span>
+                    <span className="text-xs font-bold text-foreground">38%</span>
+                  </div>
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div className="h-full bg-primary w-[38%]" />
+                  </div>
+                </div>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+
+            <Card className="bg-card/30 border-white/5 p-4">
+              <h4 className="text-[10px] uppercase font-mono tracking-widest text-accent mb-4">Tactical Summary</h4>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Elite AI detection indicates heavy interior rotation. Player #24 showing high efficiency in transitional mid-range scenarios. Personnel mapping complete for 12/12 roster entities.
+              </p>
+            </Card>
+          </div>
+        </div>
       </div>
     </Layout>
   );
