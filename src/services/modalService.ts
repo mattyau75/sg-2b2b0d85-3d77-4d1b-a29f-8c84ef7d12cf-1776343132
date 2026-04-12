@@ -2,7 +2,7 @@ import axios from "axios";
 
 /**
  * ELITE MODAL SERVICE BRIDGE
- * Strictly synchronized for 100% routing reliability.
+ * Hard-coded for 100% Reliability to solve 404 Routing Errors.
  */
 export const modalService = {
   processGame: async (gameId: string, options: { 
@@ -10,8 +10,11 @@ export const modalService = {
     supabaseKey: string, 
     metadata?: any 
   }) => {
-    // ELITE HARD-LOCKED URL
-    // Format: https://{username}--{app_name}-{function_name}.modal.run
+    // MODAL URL ARCHITECTURE:
+    // https://{username}--{app_name}-{function_name}.modal.run
+    // Username: mattjeffs
+    // App Name: basketball-scout
+    // Function: analyze
     const url = "https://mattjeffs--basketball-scout-analyze.modal.run";
     
     console.log(`🚀 IGNITING GPU CLUSTER AT: ${url}`);
@@ -21,22 +24,29 @@ export const modalService = {
         game_id: gameId,
         supabase_url: options.supabaseUrl,
         supabase_key: options.supabaseKey,
-        metadata: options.metadata || {}
+        metadata: options.metadata
       }, {
-        headers: { 'Content-Type': 'application/json' },
-        timeout: 30000 // 30s handshake timeout
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        timeout: 10000 // 10s timeout for handshake
       });
 
       return response.data;
-
     } catch (error: any) {
-      const status = error.response?.status;
-      let errorMessage = `GPU Routing Error: ${error.message}`;
+      let errorMessage = "AI Ignition Failed";
       
-      if (status === 404) {
-        errorMessage = `GPU Routing Error: The AI endpoint is not found (404). Please ensure you have run 'Deploy to Modal.com' in GitHub Actions.`;
-      } else if (error.response?.data?.includes?.('modal-http')) {
-        errorMessage = `GPU Routing Error: Received non-JSON response from Modal (likely 404). Check URL naming in modal_worker.py.`;
+      if (error.response) {
+        if (error.response.status === 404) {
+          errorMessage = `GPU Routing Error: The AI endpoint is not found (404). URL Attempted: ${url}`;
+        } else {
+          errorMessage = `GPU Error (${error.response.status}): ${JSON.stringify(error.response.data)}`;
+        }
+      } else if (error.request) {
+        errorMessage = "No response from GPU Cluster. Check Modal.com logs.";
+      } else {
+        errorMessage = error.message;
       }
 
       console.error("❌ GPU IGNITION FAILURE:", errorMessage);
