@@ -36,6 +36,7 @@ import { NewGameModal } from "@/components/NewGameModal";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
+import { showBanner } from "@/components/DiagnosticBanner";
 
 const STATUS_PROGRESS: Record<string, number> = {
   'queued': 15,
@@ -52,7 +53,7 @@ export default function Dashboard() {
   const [recentGames, setRecentGames] = useState<any[]>([]);
   const [statsSummary, setStatsSummary] = useState({
     totalClips: 0,
-    activeModels: 3, // YOLOv11m, Jersey Number, Rim Detection
+    activeModels: 3, 
     accuracy: "98.4%",
     speed: "0.4s/f"
   });
@@ -65,7 +66,6 @@ export default function Dashboard() {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        // Fetch recent games
         const { data: games, error: gamesError } = await supabase
           .from("games")
           .select(`
@@ -78,7 +78,6 @@ export default function Dashboard() {
         if (!gamesError && games) {
           setRecentGames(games.filter(g => g.status === 'completed').slice(0, 3));
           
-          // Identify active processing jobs from the database
           const active = games
             .filter(g => g.status !== 'completed' && g.status !== 'scheduled')
             .map(g => ({
@@ -90,7 +89,6 @@ export default function Dashboard() {
           setActiveJobs(active);
         }
 
-        // Fetch total video clips (Play-by-Play events with video URLs)
         const { count, error: countError } = await supabase
           .from("play_by_play")
           .select('id', { count: 'exact', head: true })
@@ -111,7 +109,6 @@ export default function Dashboard() {
 
     fetchDashboardData();
 
-    // Subscribe to Realtime Game Status Updates
     const channel = supabase
       .channel('schema-db-changes')
       .on(
@@ -122,7 +119,8 @@ export default function Dashboard() {
           
           if (updatedGame.status === 'completed') {
             setActiveJobs(prev => prev.filter(j => j.id !== updatedGame.id));
-            fetchDashboardData(); // Refresh recent games list
+            showBanner(`Analysis for ${updatedGame.home_team?.name || 'Game'} complete.`, "success", "Workflow Finished");
+            fetchDashboardData();
           } else if (updatedGame.status !== 'scheduled') {
             setActiveJobs(prev => {
               const existing = prev.find(j => j.id === updatedGame.id);
@@ -153,8 +151,8 @@ export default function Dashboard() {
 
   const handleUploadSuccess = async (gameId: string) => {
     setIsNewGameModalOpen(false);
+    showBanner("Game metadata initialized and video upload verified.", "success", "Ingestion Successful");
     
-    // Fetch the newly created game to pass to the Edit modal
     const { data, error } = await supabase
       .from('games')
       .select('*')
@@ -170,7 +168,6 @@ export default function Dashboard() {
   return (
     <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8">
-        {/* Welcome Section */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
@@ -185,8 +182,6 @@ export default function Dashboard() {
               className="bg-muted/10 border-white/5 hover:bg-muted/20"
               onClick={() => {
                 setLoading(true);
-                // The useEffect will naturally trigger fetchDashboardData if we had a key, 
-                // but let's just reload the page for a 'clean' 100% foolproof refresh
                 window.location.reload();
               }}
             >
@@ -208,7 +203,6 @@ export default function Dashboard() {
           onUploadSuccess={handleUploadSuccess}
         />
 
-        {/* Quick Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
             { label: "Active Models", value: statsSummary.activeModels.toString(), icon: Cpu, color: "text-accent" },
@@ -232,7 +226,6 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Main Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <Card className="bg-card/50 border-border">

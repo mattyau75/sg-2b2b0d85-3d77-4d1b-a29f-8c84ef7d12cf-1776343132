@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useToast } from "@/hooks/use-toast";
 import { 
   Settings2, 
   RefreshCw, 
@@ -36,7 +35,7 @@ import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
 import { WorkerLogs, type LogEntry } from "@/components/WorkerLogs";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
-import { DiagnosticBanner, type BannerSeverity } from "@/components/DiagnosticBanner";
+import { DiagnosticBanner, type BannerSeverity, showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
 import { MappingDashboard } from "@/components/MappingDashboard";
 
@@ -49,7 +48,6 @@ export default function GameDetailPage() {
   const router = useRouter();
   const { id } = router.query;
   const gameId = typeof id === "string" ? id : undefined;
-  const { toast } = useToast();
   
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -71,7 +69,7 @@ export default function GameDetailPage() {
   const isCurrentlyProcessing = game?.status === 'processing' || game?.status === 'analyzing';
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   
-  // Diagnostic Banner State
+  // Diagnostic Banner State (Local override for specific GPU errors)
   const [banner, setBanner] = useState<{ title: string; message: string; severity: BannerSeverity } | null>(null);
 
   const fetchGameData = useCallback(async (isUpdate = false) => {
@@ -141,39 +139,6 @@ export default function GameDetailPage() {
     return () => { supabase.removeChannel(channel); };
   }, [gameId, fetchGameData]);
 
-  // Real-time heartbeat listener
-  useEffect(() => {
-    if (!gameId || !isCurrentlyProcessing) return;
-
-    const channel = supabase
-      .channel(`game_logs_${gameId}`)
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'games', 
-        filter: `id=eq.${gameId}` 
-      }, (payload: any) => {
-        const metadata = payload.new.processing_metadata;
-        if (metadata && metadata.worker_logs) {
-          setWorkerLogs(metadata.worker_logs);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [gameId, isCurrentlyProcessing]);
-
-  // Remove automatic trigger from useEffect
-  useEffect(() => {
-    if (activeTab === "mapping" && game?.status === "pending") {
-      // We no longer auto-trigger here. 
-      // The user must click the "Analyze AI Detection" button.
-      console.log("Mapping tab active. Waiting for manual analysis trigger.");
-    }
-  }, [activeTab, game?.status]);
-
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     if (!gameId || !game) return;
     
@@ -182,10 +147,8 @@ export default function GameDetailPage() {
     setIsWarming(true);
     setBanner(null);
 
-    // Clear any existing timeout
     if (provisioningTimeout) clearTimeout(provisioningTimeout);
 
-    // Set a 45s safety alert for progress hangs
     const timeout = setTimeout(() => {
       if (game?.progress_percentage === 10) {
         setBanner({
@@ -221,7 +184,7 @@ export default function GameDetailPage() {
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        toast({ title: "AI Swarm Ignited", description: "GPU cluster is now processing your footage." });
+        showBanner("GPU cluster is now processing your footage.", "success", "AI Swarm Ignited");
         await fetchGameData(true);
       } else {
         const errorData = await response.json();
@@ -284,7 +247,7 @@ export default function GameDetailPage() {
           severity: severity
         });
       } else {
-        toast({ title: "Handshake Established", description: "GPU cluster successfully verified credentials and storage access." });
+        showBanner("GPU cluster successfully verified credentials and storage access.", "success", "Handshake Established");
         setBanner({
           title: "Swarm Verified & Active",
           message: "GPU Swarm Handshake successful. Cluster is provisioned and awaiting ignition pulse.",
@@ -321,10 +284,10 @@ export default function GameDetailPage() {
         .eq('id', gameId);
 
       if (error) throw error;
-      toast({ title: "Swarm Cluster Reset", description: "All status flags cleared. Ready for re-ignition." });
+      showBanner("All status flags cleared. Ready for re-ignition.", "info", "Swarm Cluster Reset");
       await fetchGameData(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Reset Failed", description: error.message });
+      showBanner(error.message, "error", "Reset Failed");
     } finally {
       setResetting(false);
     }
@@ -352,10 +315,10 @@ export default function GameDetailPage() {
       if (error) throw error;
       setAnalyzing(false);
       setIsWarming(false);
-      toast({ title: "Swarm Decommissioned", description: "GPU analysis cancelled and state reset." });
+      showBanner("GPU analysis cancelled and state reset.", "warning", "Swarm Decommissioned");
       await fetchGameData(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Cancellation Failed", description: error.message });
+      showBanner(error.message, "error", "Cancellation Failed");
     } finally {
       setIsCancelling(false);
     }
@@ -365,19 +328,13 @@ export default function GameDetailPage() {
     if (!gameId) return;
     const updateKey = `m${moduleId}_complete`;
     try {
-      // Use an explicit cast to bypass the strict index signature error on the update object
       const updateData = { [updateKey]: true } as any;
-      
-      const { error } = await supabase
-        .from('games')
-        .update(updateData)
-        .eq('id', gameId);
-      
+      const { error } = await supabase.from('games').update(updateData).eq('id', gameId);
       if (error) throw error;
-      toast({ title: `Module ${moduleId} Complete`, description: "Elite workflow advanced." });
+      showBanner("Elite workflow advanced.", "success", `Module ${moduleId} Complete`);
       await fetchGameData(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Update Failed", description: error.message });
+      showBanner(error.message, "error", "Update Failed");
     }
   };
 
@@ -479,7 +436,6 @@ export default function GameDetailPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* MODULE 1: CALIBRATION */}
           <TabsContent value="m1">
             <Card className="bg-card/40 border-white/5 p-8 space-y-8">
               <div className="flex items-center justify-between">
@@ -553,7 +509,6 @@ export default function GameDetailPage() {
             </Card>
           </TabsContent>
 
-          {/* MODULE 2: DISCOVERY */}
           <TabsContent value="m2">
             {!game?.m1_complete ? (
               <ModuleLocked moduleNum={2} requiredModule="Module 1: Calibration" />
@@ -588,7 +543,6 @@ export default function GameDetailPage() {
                   </div>
                 </div>
 
-                {/* Diagnostic Banner System */}
                 {banner && (
                   <DiagnosticBanner 
                     title={banner.title}
@@ -599,7 +553,6 @@ export default function GameDetailPage() {
                   />
                 )}
 
-                {/* AI Stage Stepper & Diagnostic Engine */}
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 rounded-2xl bg-white/5 border border-white/10 shadow-inner">
                   <div className="lg:col-span-8 space-y-6">
                     <div className="space-y-2">
@@ -723,7 +676,6 @@ export default function GameDetailPage() {
             )}
           </TabsContent>
 
-          {/* MODULE 3: ANALYSIS */}
           <TabsContent value="m3">
             {!game?.m2_complete ? (
               <ModuleLocked moduleNum={3} requiredModule="Module 2: Discovery" />
@@ -748,7 +700,6 @@ export default function GameDetailPage() {
             )}
           </TabsContent>
 
-          {/* MODULE 4: INSIGHTS */}
           <TabsContent value="m4">
             {!game?.m3_complete ? (
               <ModuleLocked moduleNum={4} requiredModule="Module 3: Analysis" />

@@ -43,7 +43,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
+import { showBanner } from "@/components/DiagnosticBanner";
 
 export default function TeamRoster() {
   const router = useRouter();
@@ -55,7 +55,6 @@ export default function TeamRoster() {
   const [isEditPlayerOpen, setIsEditPlayerOpen] = useState(false);
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [newPlayer, setNewPlayer] = useState({ name: "", number: "", position: "" });
-  const { toast } = useToast();
 
   const loadTeam = async () => {
     if (!id) return;
@@ -96,12 +95,12 @@ export default function TeamRoster() {
         position: newPlayer.position,
         team_id: id as string,
       });
-      toast({ title: "Player Added", description: `${newPlayer.name} is now on the roster.` });
+      showBanner(`${newPlayer.name} is now on the roster.`, "success", "Player Added");
       setIsAddPlayerOpen(false);
       setNewPlayer({ name: "", number: "", position: "" });
       loadTeam();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to add player.", variant: "destructive" });
+      showBanner("Failed to add player.", "error", "Error");
     }
   };
 
@@ -113,11 +112,11 @@ export default function TeamRoster() {
         number: parseInt(selectedPlayer.number) || 0,
         position: selectedPlayer.position,
       });
-      toast({ title: "Player Updated", description: `${selectedPlayer.name} details saved.` });
+      showBanner(`${selectedPlayer.name} details saved.`, "success", "Player Updated");
       setIsEditPlayerOpen(false);
       loadTeam();
     } catch (error) {
-      toast({ title: "Error", description: "Failed to update player.", variant: "destructive" });
+      showBanner("Failed to update player.", "error", "Error");
     }
   };
 
@@ -151,7 +150,6 @@ export default function TeamRoster() {
   return (
     <Layout title={`${team.name} Roster | DribbleStats AI Elite`}>
       <div className="space-y-8">
-        {/* Header */}
         <div className="flex flex-col gap-6">
           <Link href="/roster" className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors w-fit">
             <ArrowLeft className="h-4 w-4" />
@@ -241,7 +239,6 @@ export default function TeamRoster() {
           </div>
         </div>
 
-        {/* Players Table */}
         <Card className="glass-card border-none overflow-hidden">
           <CardHeader className="border-b border-white/5 bg-white/5 py-4">
             <CardTitle className="text-sm font-mono uppercase tracking-widest flex items-center gap-2">
@@ -323,7 +320,6 @@ export default function TeamRoster() {
           </Table>
         </Card>
 
-        {/* Edit Player Dialog */}
         <Dialog open={isEditPlayerOpen} onOpenChange={setIsEditPlayerOpen}>
           <DialogContent className="bg-card border-border">
             <DialogHeader>
