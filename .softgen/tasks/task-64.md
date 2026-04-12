@@ -1,6 +1,6 @@
 ---
 title: "Build Elite Scout Analytics Dashboard"
-status: "todo"
+status: "done"
 priority: "high"
 type: "feature"
 tags: ["analytics", "ui", "stats"]
@@ -15,6 +15,6 @@ Build a high-density, tactical analytics dashboard for coaches and scouts to ana
 ## Checklist:
 - [x] Create `AnalyticsDashboard.tsx`: High-density layout with tactical dark mode styling.
 - [x] Implement `ShotMap.tsx`: Interactive court visualization for field goal attempts.
-- [ ] Build `PersonnelTable.tsx`: Detailed player-by-player scouting data with Geist Mono font for stats.
-- [ ] Integrate real-time data fetching from Supabase `game_stats` table.
-- [ ] Add "Export Scout Report" functionality for PDF/Print output.
+- [x] Build `PersonnelTable.tsx`: Detailed player-by-player scouting data with Geist Mono font for stats.
+- [x] Integrate real-time data fetching from Supabase `game_stats` table.
+- [x] Add "Export Scout Report" functionality for PDF/Print output.
