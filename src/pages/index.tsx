@@ -198,39 +198,40 @@ export default function Dashboard() {
 
   const handleIgniteAI = async (gameId: string) => {
     try {
-      // 1. CLEAR PREVIOUS TRACE & START OPTIMISTIC LOGGING
-      setWorkerLogs([{
-        id: 'init-0',
+      // 1. INITIALIZE CUMULATIVE LOGS IMMEDIATELY
+      const initialLog = {
+        id: `init-${Date.now()}`,
         timestamp: new Date().toISOString(),
-        level: 'info',
+        level: 'info' as const,
         message: '🚀 ELITE IGNITION: Initiating System Handshake...',
         module: 'SYSTEM'
-      }]);
-      
-      // 2. LAUNCH IMMEDIATE REALTIME TRACE LISTENER
-      const traceChannel = supabase
-        .channel(`trace-${gameId}-${Date.now()}`)
+      };
+      setWorkerLogs([initialLog]);
+      setIgnitingGameId(gameId);
+
+      // 2. LAUNCH PERSISTENT REALTIME LISTENER
+      const channel = supabase
+        .channel(`game-trace-${gameId}`)
         .on(
           'postgres_changes',
           { 
-            event: '*', 
+            event: 'INSERT', 
             schema: 'public', 
             table: 'game_analysis',
             filter: `game_id=eq.${gameId}`
           },
           (payload) => {
-            const update = payload.new as any;
-            if (update.status_message) {
+            const newEntry = payload.new as any;
+            if (newEntry.status_message) {
               setWorkerLogs(prev => {
-                // Prevent duplicate messages
-                const exists = prev.some(l => l.message === update.status_message);
-                if (exists) return prev;
+                // Check for duplicate messages to keep trace clean
+                if (prev.some(log => log.message === newEntry.status_message)) return prev;
                 
                 return [...prev, {
-                  id: update.id,
-                  timestamp: update.updated_at || new Date().toISOString(),
-                  level: update.status === 'error' ? 'error' : 'info',
-                  message: update.status_message,
+                  id: newEntry.id || `log-${Date.now()}`,
+                  timestamp: newEntry.updated_at || new Date().toISOString(),
+                  level: newEntry.status === 'error' ? 'error' : 'info',
+                  message: newEntry.status_message,
                   module: 'GPU'
                 }];
               });
@@ -239,8 +240,7 @@ export default function Dashboard() {
         )
         .subscribe();
 
-      setIgnitingGameId(gameId);
-      
+      // 3. TRIGGER GPU IGNITION
       const response = await fetch('/api/process-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
