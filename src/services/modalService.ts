@@ -24,38 +24,40 @@ export const modalService = {
   /**
    * Server-side: Directly triggers the Modal.com GPU cluster
    */
-  processGame: async (signedUrl: string, config: any) => {
-    try {
-      const modalEndpoint = process.env.MODAL_WEBHOOK_URL || process.env.MODAL_URL;
-      if (!modalEndpoint) throw new Error("MODAL_URL is not configured in .env.local");
-      
-      console.log(`[ModalService] Igniting GPU Swarm for Game ${config.game_id}`);
+  processGame: async (gameId: string, options: { 
+    supabaseUrl: string, 
+    supabaseKey: string, 
+    metadata?: any 
+  }) => {
+    const userName = process.env.MODAL_USER_NAME || "dribblestats";
+    const appName = process.env.MODAL_APP_NAME || "dribble-swarm";
+    const url = `https://${userName}-${appName}-process-game-factory.modal.run`;
+    
+    console.log(`🚀 Attempting GPU Ignition at: ${url}`);
 
-      const response = await axios.post(modalEndpoint, {
-        video_url: signedUrl,
-        video_filename: config.video_filename,
-        game_id: config.game_id,
-        supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-        supabase_key: config.supabase_key, // Passed from process-game.ts (Service Role Key)
-        home_team_id: config.home_team_id,
-        away_team_id: config.away_team_id,
-        home_color: config.homeColor || "#FFFFFF",
-        away_color: config.awayColor || "#0B0F19",
-        home_roster: config.home_roster || [],
-        away_roster: config.away_roster || [],
-        config: {
-          ...config,
-          temporal_tracking: true,
-          shot_detection: true,
-          handshake_version: "Senior-Direct-2.0"
-        }
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          game_id: gameId,
+          supabase_url: options.supabaseUrl,
+          supabase_key: options.supabaseKey,
+          metadata: options.metadata || {}
+        })
       });
-      console.log(`[ModalService] Swarm Handshake Success:`, response.status);
-      return response.data;
+
+      const result = await response.json();
+      console.log("✅ GPU Ignition Response:", { status: response.status, result });
+      
+      if (!response.ok) {
+        throw new Error(result.error || `GPU Ignition failed with status ${response.status}`);
+      }
+      
+      return result;
     } catch (error: any) {
-      const errorDetail = error.response?.data || error.message;
-      console.error("[ModalService] FATAL GPU HANDOFF ERROR:", errorDetail);
-      throw new Error(`GPU Handoff Failed: ${JSON.stringify(errorDetail)}`);
+      console.error("❌ GPU Ignition Error:", error);
+      throw error;
     }
   }
 };

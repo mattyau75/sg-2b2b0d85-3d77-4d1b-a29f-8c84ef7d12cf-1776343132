@@ -46,11 +46,26 @@ def update_pulse(sb, game_id, progress, message, severity="info"):
 def process_game_factory(data: dict):
     """Unified Factory: M2 (Detection) + M3 (Mapping) + M4 (Calibration)"""
     from supabase import create_client
+    import time
+    from datetime import datetime
     
     game_id = data.get("game_id")
     supabase_url = data.get("supabase_url")
     supabase_key = data.get("supabase_key")
-    metadata = data.get("metadata", {})
+    
+    # 1. IMMEDIATE AWAKENING (16%)
+    # This must happen BEFORE any heavy imports or processing
+    try:
+        sb = create_client(supabase_url, supabase_key)
+        update_pulse(sb, game_id, 16, "GPU AWAKENING: Swarm resources allocated.", "info")
+    except Exception as e:
+        print(f"❌ Initial Handshake Error: {e}")
+        return {"status": "error", "message": str(e)}
+
+    # Now load heavy dependencies
+    # import cv2
+    # import torch
+    # etc...
     
     # 1. INITIALIZE & HANDSHAKE
     print(f"🚀 GPU AWAKENING: Game ID {game_id}")

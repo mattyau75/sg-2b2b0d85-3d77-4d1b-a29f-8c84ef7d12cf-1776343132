@@ -140,24 +140,37 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } as any).eq('id', finalGameId);
 
     // Ignition Step 2: Fire and Forget
-    // Ensure we pass the LIVE environment keys to the Modal function
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    try {
+      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
-    if (!supabaseUrl || !supabaseKey) {
-       console.error("❌ CRITICAL: Missing credentials for Modal handoff");
+      if (!supabaseUrl || !supabaseKey) {
+        throw new Error("Missing Supabase credentials for GPU handoff.");
+      }
+
+      await modalService.processGame(finalGameId, {
+        supabaseUrl,
+        supabaseKey,
+        metadata: gpuConfig
+      });
+
+      console.log("✅ Swarm successfully triggered for game:", finalGameId);
+    } catch (err: any) {
+      console.error("❌ Modal Ignition Failed:", err);
+      
+      // Update DB with the ignition error so it shows in the trace
+      await supabase.from('games').update({
+        processing_metadata: {
+          worker_logs: [{
+            timestamp: new Date().toISOString(),
+            message: `CRITICAL: Ignition failure - ${err.message}`,
+            severity: 'error'
+          }]
+        }
+      } as any).eq('id', finalGameId);
     }
 
-    // Call Modal function via service
-    modalService.processGame(finalGameId, {
-      supabaseUrl: supabaseUrl || "",
-      supabaseKey: supabaseKey || "",
-      metadata: gpuConfig
-    }).catch(err => {
-      console.error("❌ Modal Ignition Failed:", err);
-    });
-
-    return res.status(202).json({ success: true, message: "Unified GPU Factory Ignited" });
+    return res.status(200).json({ success: true, gameId: finalGameId });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
     return res.status(500).json({ message: error.message });
