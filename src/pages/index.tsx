@@ -198,18 +198,19 @@ export default function Dashboard() {
 
   const handleIgniteAI = async (gameId: string) => {
     try {
-      // 1. OPTIMISTIC TRACE INITIALIZATION
+      // 1. PRIME HANDSHAKE INITIALIZATION
+      // Clear logs and show the initial system dispatch message
       setWorkerLogs([{
-        id: `local-init-${Date.now()}`,
+        id: `sys-${Date.now()}`,
         timestamp: new Date().toISOString(),
         level: 'info',
-        message: '🚀 SYSTEM: Dispatched Prime Ignition Signal...',
+        message: '🚀 SYSTEM: Dispatching Prime Ignition Signal...',
         module: 'DASHBOARD'
       }]);
       
       setIgnitingGameId(gameId);
 
-      // 2. ACTIVATE ETERNAL HANDSHAKE LISTENER (INSERT-ONLY)
+      // 2. ACTIVATE REALTIME ETERNAL LISTENER (INSERT-ONLY)
       const channel = supabase
         .channel(`prime-handshake-${gameId}`)
         .on(
@@ -222,31 +223,30 @@ export default function Dashboard() {
           },
           (payload) => {
             const entry = payload.new as any;
-            
-            // Handle Progress Bar updates separately from logs
+            setWorkerLogs(prev => {
+              // Accumulative Stack: only add if message is unique
+              if (prev.some(l => l.message === entry.status_message)) return prev;
+              
+              return [...prev, {
+                id: entry.id,
+                timestamp: entry.created_at || new Date().toISOString(),
+                level: entry.status === 'error' ? 'error' : (entry.status === 'cancelled' ? 'warn' : 'info'),
+                message: entry.status_message,
+                module: 'GPU'
+              }];
+            });
+
+            // Update global job state for progress bar
             if (entry.progress_percentage !== undefined) {
               setActiveJobs(prev => prev.map(j => 
                 j.id === gameId ? { ...j, progress: entry.progress_percentage, status: entry.status } : j
               ));
             }
-
-            if (entry.status_message) {
-              setWorkerLogs(prev => {
-                if (prev.some(log => log.message === entry.status_message)) return prev;
-                return [...prev, {
-                  id: entry.id,
-                  timestamp: entry.created_at || new Date().toISOString(),
-                  level: entry.status === 'error' ? 'error' : (entry.status === 'cancelled' ? 'warn' : 'info'),
-                  message: entry.status_message,
-                  module: 'GPU'
-                }];
-              });
-            }
           }
         )
         .subscribe();
 
-      // 3. TRIGGER GPU IGNITION
+      // 3. EXECUTE API IGNITION
       const response = await fetch('/api/process-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
