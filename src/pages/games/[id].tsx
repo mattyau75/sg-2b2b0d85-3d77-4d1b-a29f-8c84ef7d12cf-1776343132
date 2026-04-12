@@ -634,7 +634,7 @@ export default function GameDetailPage() {
                         {[
                           { label: "App Server", status: "Online", icon: CheckCircle2, color: "text-emerald-500" },
                           { label: "Database (Supabase)", status: isRealtimeActive ? "Connected" : "Syncing", icon: Activity, color: isRealtimeActive ? "text-emerald-500" : "text-amber-500" },
-                          { label: "GPU Swarm (Modal)", status: isCurrentlyProcessing ? "Active" : "Idle", icon: Sparkles, color: isCurrentlyProcessing ? "text-primary" : "text-muted-foreground" }
+                          { label: "GPU Swarm (Modal)", status: isCurrentlyProcessing ? "Active" : game?.video_path ? "Ready" : "Idle", icon: Sparkles, color: isCurrentlyProcessing ? "text-primary" : game?.video_path ? "text-accent" : "text-muted-foreground" }
                         ].map((d, i) => (
                           <div key={i} className="flex items-center justify-between p-2.5 rounded-lg bg-white/5 border border-white/5">
                             <div className="flex flex-col">
@@ -646,7 +646,7 @@ export default function GameDetailPage() {
                         ))}
                       </div>
                       
-                      {game?.last_error && (
+                      {game?.status === 'error' && game?.last_error && (
                         <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 space-y-2">
                           <div className="flex items-center gap-2 text-[9px] font-bold text-red-500 uppercase tracking-widest">
                             <AlertTriangle className="h-3 w-3" /> Fatal Bottleneck
