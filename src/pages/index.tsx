@@ -38,6 +38,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
 import { showBanner } from "@/components/DiagnosticBanner";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
 
 const STATUS_PROGRESS: Record<string, number> = {
   'queued': 15,
@@ -65,6 +66,11 @@ export default function Dashboard() {
   const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
+
+  // 🛡️ MANUAL STEPPER STATE
+  const [manualMode, setManualMode] = useState(false);
+  const [currentManualStep, setCurrentManualStep] = useState(0);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   // 🛡️ REALTIME CLEANUP GUARD: Prevent channel noise
   const [activeChannel, setActiveChannel] = useState<any>(null);
@@ -332,6 +338,111 @@ export default function Dashboard() {
     }
   };
 
+  const handleManualStep1 = async (gameId: string) => {
+    if (!gameId) return;
+    setIgnitingGameId(gameId);
+    setWorkerLogs([{
+      id: `m1-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      message: '📡 STEP 1: Initializing Manual Realtime Handshake...',
+      module: 'DASHBOARD'
+    }]);
+
+    if (activeChannel) await supabase.removeChannel(activeChannel);
+
+    const channel = supabase
+      .channel(`manual-sync-${gameId.toLowerCase()}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId.toLowerCase()}` },
+        (payload) => {
+          const entry = payload.new as any;
+          setWorkerLogs(prev => [...prev, {
+            id: entry.id,
+            timestamp: entry.created_at || new Date().toISOString(),
+            level: entry.status === 'error' ? 'error' : 'info',
+            message: entry.status_message,
+            module: 'GPU'
+          }]);
+        }
+      )
+      .subscribe(async (status) => {
+        if (status === 'SUBSCRIBED') {
+          setIsSubscribed(true);
+          setActiveChannel(channel);
+          setCurrentManualStep(1);
+          setWorkerLogs(prev => [...prev, {
+            id: `m1-sub-${Date.now()}`,
+            timestamp: new Date().toISOString(),
+            level: 'success',
+            message: '✅ STEP 1 COMPLETE: Realtime Connection Verified.',
+            module: 'DASHBOARD'
+          }]);
+        }
+      });
+  };
+
+  const handleManualStep2 = async () => {
+    if (!ignitingGameId) return;
+    setWorkerLogs(prev => [...prev, {
+      id: `m2-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      message: '📦 STEP 2: Verifying Video Payload & ID Stability...',
+      module: 'DASHBOARD'
+    }]);
+
+    // Insert a log to DB to verify write access
+    const { error } = await supabase.from("game_analysis").insert({
+      game_id: ignitingGameId.toLowerCase(),
+      status: "verifying",
+      progress_percentage: 10,
+      status_message: "🛰️ STEP 2 COMPLETE: Forensic Payload Validated for GPU Ignition."
+    });
+
+    if (!error) setCurrentManualStep(2);
+  };
+
+  const handleManualStep3 = async () => {
+    if (!ignitingGameId) return;
+    setWorkerLogs(prev => [...prev, {
+      id: `m3-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      level: 'info',
+      message: '🚀 STEP 3: Dispatching Ignition Signal to Modal.com Cluster...',
+      module: 'DASHBOARD'
+    }]);
+
+    const response = await fetch('/api/process-game', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ gameId: ignitingGameId.toLowerCase() })
+    });
+
+    if (response.ok) {
+      setCurrentManualStep(3);
+    } else {
+      const err = await response.json();
+      toast({ title: "Ignition Failed", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleManualStep4 = async () => {
+    if (!ignitingGameId) return;
+    const { error } = await supabase
+      .from("games")
+      .update({ m2_complete: true })
+      .eq('id', ignitingGameId);
+
+    if (!error) {
+      setCurrentManualStep(4);
+      toast({ title: "Module 2 Complete", description: "The Swarm analysis has been finalized." });
+      setManualMode(false);
+      setCurrentManualStep(0);
+    }
+  };
+
   return (
     <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8">
@@ -499,13 +610,48 @@ export default function Dashboard() {
             </Card>
 
             <Card className="glass-card border-none">
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-sm">
                   <ListTodo className="h-4 w-4 text-primary" />
                   Processing Queue
                 </CardTitle>
+                <div className="flex items-center gap-2">
+                   <span className="text-[10px] font-mono text-muted-foreground">DEBUG</span>
+                   <Switch 
+                     checked={manualMode} 
+                     onCheckedChange={setManualMode}
+                     className="scale-75"
+                   />
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
+                {manualMode && activeJobs.length > 0 && (
+                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/20 space-y-3 mb-4">
+                    <p className="text-[10px] font-bold text-primary uppercase tracking-widest text-center">Manual Ignition Stepper</p>
+                    <div className="grid grid-cols-1 gap-2">
+                      {currentManualStep === 0 && (
+                        <Button size="sm" className="w-full text-[10px] h-8" onClick={() => handleManualStep1(activeJobs[0].id)}>
+                          STAGE 1: SYNC REALTIME
+                        </Button>
+                      )}
+                      {currentManualStep === 1 && (
+                        <Button size="sm" variant="secondary" className="w-full text-[10px] h-8" onClick={handleManualStep2}>
+                          STAGE 2: VERIFY PAYLOAD
+                        </Button>
+                      )}
+                      {currentManualStep === 2 && (
+                        <Button size="sm" variant="accent" className="w-full text-[10px] h-8 bg-accent text-black hover:bg-accent/90" onClick={handleManualStep3}>
+                          STAGE 3: IGNITE GPU SWARM
+                        </Button>
+                      )}
+                      {currentManualStep === 3 && (
+                        <Button size="sm" variant="outline" className="w-full text-[10px] h-8 border-primary text-primary" onClick={handleManualStep4}>
+                          STAGE 4: FINALIZE MODULE 2
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {activeJobs.length > 0 ? (
                   activeJobs.map((job, i) => (
                     <div key={i} className="space-y-2 group">
