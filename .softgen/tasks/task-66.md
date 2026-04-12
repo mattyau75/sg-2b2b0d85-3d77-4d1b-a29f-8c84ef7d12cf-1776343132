@@ -1,6 +1,6 @@
 ---
 title: "Fix Module 2 Fatal Bottleneck & Cancellation Sync"
-status: "in_progress"
+status: "done"
 priority: "urgent"
 type: "bug"
 tags: ["gpu", "analysis", "sync"]
@@ -13,7 +13,7 @@ position: 66
 Resolve the fatal bottleneck where analysis remains "cancelled" or stuck after a user stop. Ensure all previous instances are cleared from the DB and GPU.
 
 ## Checklist:
-- [ ] Create `api/reset-game-analysis.ts`: Endpoint to force-clear game metadata and logs.
-- [ ] Update `games/[id].tsx`: UI button to trigger the full reset.
-- [ ] Update `process-game.ts`: Prevent starting new analysis if state is not clean.
-- [ ] Update `modal_worker.py`: Ensure it exits gracefully on status change.
+- [x] Create `api/reset-game-analysis.ts`: Endpoint to force-clear game metadata and logs.
+- [x] Update `games/[id].tsx`: UI button to trigger the full reset.
+- [x] Update `process-game.ts`: Prevent starting new analysis if state is not clean.
+- [x] Update `modal_worker.py`: Ensure it exits gracefully on status change.
