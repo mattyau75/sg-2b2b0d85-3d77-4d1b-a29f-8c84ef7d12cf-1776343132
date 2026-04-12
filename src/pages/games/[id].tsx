@@ -292,6 +292,18 @@ export default function GameDetailPage() {
   return (
     <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'}`}>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
+        {/* Diagnostic Banner Rendering */}
+        {banner && (
+          <div className="mb-6">
+            <DiagnosticBanner 
+              title={banner.title} 
+              message={banner.message} 
+              severity={banner.severity} 
+              onClose={() => setBanner(null)} 
+            />
+          </div>
+        )}
+
         {/* Elite Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-2">
@@ -519,6 +531,21 @@ export default function GameDetailPage() {
                           <span className="text-[9px] font-mono text-emerald-500 uppercase tracking-tighter">Live Pulse Active</span>
                         </div>
                       </div>
+                      
+                      {/* NEW: Pre-Ignition Health Check */}
+                      {!isCurrentlyProcessing && (
+                        <div className={cn(
+                          "p-3 mb-2 rounded border text-[10px] font-mono flex items-center justify-between",
+                          game?.progress_percentage === 0 ? "bg-blue-500/10 border-blue-500/20 text-blue-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                        )}>
+                          <div className="flex items-center gap-2">
+                            <Activity className="h-3 w-3" />
+                            <span>SYSTEM HEALTH: {game?.progress_percentage === 0 ? "READY FOR IGNITION" : "CALIBRATED"}</span>
+                          </div>
+                          <span className="opacity-50">v2.1.0-ELITE</span>
+                        </div>
+                      )}
+
                       <div className="h-48 overflow-y-auto font-mono text-[11px] space-y-2 pr-4 custom-scrollbar">
                         {game?.processing_metadata?.worker_logs?.map((log: any, i: number) => (
                           <div key={i} className="flex gap-3 text-muted-foreground/80 hover:text-white transition-colors">
