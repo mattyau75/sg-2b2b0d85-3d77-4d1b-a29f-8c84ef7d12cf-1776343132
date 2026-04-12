@@ -30,6 +30,7 @@ def add_worker_log(sb, game_id, message, severity="info"):
     Helper to push logs to the game's processing_metadata for real-time UI display.
     """
     try:
+        print(f"[WORKER LOG] {severity.upper()}: {message}")
         # Get existing logs
         res = sb.table("games").select("processing_metadata").eq("id", game_id).single().execute()
         meta = res.data.get("processing_metadata") or {}
@@ -49,12 +50,15 @@ def add_worker_log(sb, game_id, message, severity="info"):
         meta["worker_logs"] = logs
         meta["last_heartbeat"] = datetime.now().isoformat()
         
-        sb.table("games").update({
+        update_res = sb.table("games").update({
             "processing_metadata": meta,
-            "updated_at": datetime.now().isoformat()
+            "updated_at": datetime.now().isoformat(),
+            "last_heartbeat": datetime.now().isoformat()
         }).eq("id", game_id).execute()
+        
+        print(f"[DB UPDATE] Status: Success")
     except Exception as e:
-        print(f"Log Error: {str(e)}")
+        print(f"❌ Log Error: {str(e)}")
 
 @app.function(image=image, gpu="A10G", timeout=3600)
 @modal.fastapi_endpoint(method="POST")
@@ -76,6 +80,7 @@ async def analyze(payload: dict):
         
         # STAGE 1: IGNITION HANDSHAKE
         add_worker_log(sb, game_id, "GPU Cluster Handshake Verified. Initializing Neural Engine...", "success")
+        
         sb.table("games").update({
             "status": "processing",
             "progress_percentage": 15,
@@ -83,8 +88,8 @@ async def analyze(payload: dict):
             "updated_at": datetime.now().isoformat()
         }).eq("id", game_id).execute()
 
-        # Simulate Stage 2: Provisioning (3s delay)
-        time.sleep(3)
+        # Simulate Stage 2: Provisioning
+        time.sleep(2)
         add_worker_log(sb, game_id, "GPU Volume Mounted. Loading YOLOBall Weights...", "info")
         sb.table("games").update({"progress_percentage": 30}).eq("id", game_id).execute()
 
@@ -94,8 +99,8 @@ async def analyze(payload: dict):
         sb.table("games").update({"progress_percentage": 50}).eq("id", game_id).execute()
 
         # Simulate Stage 4: Person Re-ID and Number OCR
-        time.sleep(4)
-        add_worker_log(sb, game_id, "Discovery Engine: 10 Unique Players Identified. Resolving Roster Mappings...", "info")
+        time.sleep(3)
+        add_worker_log(sb, game_id, "Discovery Engine: Identifying Players and Mapping Rosters...", "info")
         sb.table("games").update({"progress_percentage": 85}).eq("id", game_id).execute()
 
         # FINAL: COMPLETE
@@ -112,16 +117,14 @@ async def analyze(payload: dict):
         error_msg = f"CRITICAL FAILURE: {str(e)}"
         print(f"❌ {error_msg}")
         if 'sb' in locals():
-            add_worker_log(sb, game_id, error_msg, "error")
-            sb.table("games").update({
-                "status": "error",
-                "last_error": error_msg,
-                "updated_at": datetime.now().isoformat()
-            }).eq("id", game_id).execute()
+            try:
+                add_worker_log(sb, game_id, error_msg, "error")
+                sb.table("games").update({
+                    "status": "error",
+                    "last_error": error_msg,
+                    "updated_at": datetime.now().isoformat()
+                }).eq("id", game_id).execute()
+            except: pass
         return {"status": "error", "message": str(e)}
 
     return {"status": "completed", "game_id": game_id}
-
-@app.local_entrypoint()
-def main(game_id: str = "test-game"):
-    print(f"Local test trigger for {game_id}")

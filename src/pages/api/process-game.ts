@@ -107,6 +107,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // Generate Dynamic Scoped JWT for GPU-to-DB Auth
     const gpuToken = generateGpuToken(finalGameId);
+    console.log(`[ProcessGame] Generated Scoped JWT for Game: ${finalGameId}`);
 
     // Fetch team rosters for mapping
     const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
@@ -150,7 +151,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } as any).eq('id', finalGameId);
 
     // Fire and forget GPU handoff
-    modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).catch(err => {
+    console.log(`[ProcessGame] Initializing GPU Swarm handoff for ${finalGameId}...`);
+    modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).then(() => {
+      console.log(`[ProcessGame] ✅ Modal.com Handshake Accepted`);
+    }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
       supabase.from('games').update({ 
         status: 'error', 
