@@ -115,6 +115,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rawFilename = confirmedKey.split('/').pop() || "footage.mp4";
     const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
 
+    // PREPARE GPU PAYLOAD
+    // We use the service role key so the GPU can bypass RLS to write logs
     const gpuConfig = {
       game_id: finalGameId, 
       video_url: signedUrl,
