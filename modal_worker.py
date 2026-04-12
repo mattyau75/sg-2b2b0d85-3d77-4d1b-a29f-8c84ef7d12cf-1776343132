@@ -33,10 +33,10 @@ def analyze(payload: dict):
     """
     start_time = time.time()
     
-    # Extract payload with fallbacks
+    # Extract payload with fallbacks - matches process-game.ts names exactly
     game_id = payload.get("game_id")
     supabase_url = payload.get("supabase_url")
-    supabase_key = payload.get("supabase_key")
+    supabase_key = payload.get("supabase_key") # Uses Service Role Key
     video_url = payload.get("video_url")
 
     if not all([game_id, supabase_url, supabase_key]):

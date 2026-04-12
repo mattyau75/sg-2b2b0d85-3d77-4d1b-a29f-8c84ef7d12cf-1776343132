@@ -19,7 +19,7 @@ export const modalService = {
       const response = await axios.post(url, {
         game_id: gameId,
         supabase_url: options.supabaseUrl,
-        supabase_key: options.supabaseKey,
+        supabase_key: options.supabaseKey, // This is the Service Role Key
         ...options.metadata
       }, {
         headers: {
