@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH VERIFIED NAMING
+# 1. DEFINE THE APP WITH VERIFIED NAMING (Pulse Update: 2026-04-12)
 app = modal.App("basketball-scout-ai")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
