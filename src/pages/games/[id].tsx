@@ -459,17 +459,15 @@ export default function GameDetailPage() {
                         RESET SWARM
                       </Button>
                       
-                      {!isCurrentlyProcessing && (
-                        <Button 
-                          onClick={() => handleStartDiscovery()}
-                          disabled={analyzing || healthStatus.supabase === 'invalid'}
-                          size="sm"
-                          className="h-8 text-[10px] font-mono bg-primary hover:bg-primary/90"
-                        >
-                          {analyzing ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <Play className="h-3 w-3 mr-1.5" />}
-                          IGNITE AI CLUSTER
-                        </Button>
-                      )}
+                      <Button 
+                        onClick={() => handleStartDiscovery()}
+                        disabled={analyzing || healthStatus.supabase === 'invalid'}
+                        size="sm"
+                        className="h-8 text-[10px] font-mono bg-primary hover:bg-primary/90"
+                      >
+                        {analyzing ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <Play className="h-3 w-3 mr-1.5" />}
+                        IGNITE AI CLUSTER
+                      </Button>
                     </div>
                   </div>
 
