@@ -88,7 +88,7 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
               {aiMappings.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={4} className="h-32 text-center text-muted-foreground text-xs font-mono">
-                    NO AI ENTITIES DETECTED YET. RUN MODULE 2 ANALYSIS.
+                    NO AI ENTITIES DETECTED YET. RUN UNIFIED FACTORY.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -135,36 +135,29 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="h-3 w-3 text-emerald-500" />
                           <span className="text-sm font-bold truncate max-w-[100px]">{track.players?.name || 'Unknown'}</span>
-                          {track.is_manual_override && <Badge className="text-[8px] bg-primary/20 text-primary border-primary/20">MANUAL</Badge>}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-amber-500">
                           <AlertCircle className="h-3 w-3" />
-                          <span className="text-[10px] font-bold uppercase italic">Unmatched</span>
+                          <span className="text-[10px] font-bold uppercase italic">Unmatched Ghost</span>
                         </div>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {track.real_player_id ? (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleReset(track.id)}>
-                          <RotateCcw className="h-3 w-3" />
-                        </Button>
-                      ) : (
-                        <select 
-                          className="bg-background border border-white/10 rounded px-2 py-1 text-[10px] font-mono outline-none focus:ring-1 focus:ring-primary w-24 disabled:opacity-50"
-                          onChange={(e) => handleManualMatch(track.id, e.target.value)}
-                          defaultValue=""
-                          disabled={saving === track.id}
-                        >
-                          <option value="" disabled>Link Roster...</option>
-                          <optgroup label="Home Roster">
-                            {homeRoster.map(p => <option key={p.id} value={p.id}>#{p.number} {p.name}</option>)}
-                          </optgroup>
-                          <optgroup label="Away Roster">
-                            {awayRoster.map(p => <option key={p.id} value={p.id}>#{p.number} {p.name}</option>)}
-                          </optgroup>
-                        </select>
-                      )}
+                      <select 
+                        className="bg-background border border-white/10 rounded px-2 py-1 text-[10px] font-mono outline-none focus:ring-1 focus:ring-primary w-24 disabled:opacity-50"
+                        onChange={(e) => handleManualMatch(track.id, e.target.value)}
+                        value={track.real_player_id || ""}
+                        disabled={saving === track.id}
+                      >
+                        <option value="">Link...</option>
+                        <optgroup label="Home Roster">
+                          {homeRoster.map(p => <option key={p.id} value={p.id}>#{p.number} {p.name}</option>)}
+                        </optgroup>
+                        <optgroup label="Away Roster">
+                          {awayRoster.map(p => <option key={p.id} value={p.id}>#{p.number} {p.name}</option>)}
+                        </optgroup>
+                      </select>
                     </TableCell>
                   </TableRow>
                 ))
