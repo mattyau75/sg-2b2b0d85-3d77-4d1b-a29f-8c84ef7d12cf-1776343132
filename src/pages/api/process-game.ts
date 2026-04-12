@@ -104,13 +104,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: confirmedKey });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
 
-    // Fetch team rosters for mapping
-    const [{ data: homeRoster }, { data: awayRoster }, { data: gameData }] = await Promise.all([
-      supabase.from('players').select('id, name, number').eq('team_id', homeTeamId),
-      supabase.from('players').select('id, name, number').eq('team_id', awayTeamId),
-      supabase.from('games').select('camera_type').eq('id', finalGameId).single()
-    ]);
-
     // Extract a clean filename for the GPU Volume lookup
     const rawFilename = confirmedKey.split('/').pop() || "footage.mp4";
     const videoFilename = rawFilename.replace(/[^a-zA-Z0-9._-]/g, '_');
@@ -120,19 +113,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_url: signedUrl,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      discovery_mode: "raw_personnel",
-      // Include basic metadata for calibration but exclude heavy roster objects
-      home_team_id: homeTeamId,
-      away_team_id: awayTeamId
+      // UNIFIED PIPELINE MODE: M2 + M3 + M4 combined into Raw Discovery
+      pipeline_mode: "unified_raw_factory"
     };
 
-    // Ignition: Fire and forget background spawn
+    // Ignition Step 1: Tell the DB we are starting (15%)
+    await supabase.from('games').update({ 
+      status: 'analyzing', 
+      progress_percentage: 15, 
+      ignition_status: 'ignited',
+      updated_at: new Date().toISOString()
+    } as any).eq('id', finalGameId);
+
+    // Ignition Step 2: Fire and Forget
     modalService.processGame(signedUrl, gpuConfig).catch(err => {
-      console.error("[ProcessGame] Launch Failure:", err);
+      console.error("[UnifiedFactory] Ignition Failure:", err);
     });
 
-    // Return instantly to keep the UI 'alive' and responsive
-    return res.status(202).json({ success: true, message: "GPU Discovery Launched" });
+    return res.status(202).json({ success: true, message: "Unified GPU Factory Ignited" });
   } catch (error: any) {
     console.error("[ProcessGame] Crash:", error.message);
     return res.status(500).json({ message: error.message });
