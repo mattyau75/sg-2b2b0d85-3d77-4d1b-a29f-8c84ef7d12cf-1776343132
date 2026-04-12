@@ -209,9 +209,9 @@ export default function Dashboard() {
       setWorkerLogs([initialLog]);
       setIgnitingGameId(gameId);
 
-      // 2. LAUNCH PERSISTENT REALTIME LISTENER
+      // 2. START CUMULATIVE ACCUMULATOR
       const channel = supabase
-        .channel(`game-trace-${gameId}`)
+        .channel(`eternal-handshake-${gameId}`)
         .on(
           'postgres_changes',
           { 
@@ -221,21 +221,17 @@ export default function Dashboard() {
             filter: `game_id=eq.${gameId}`
           },
           (payload) => {
-            const newEntry = payload.new as any;
-            if (newEntry.status_message) {
-              setWorkerLogs(prev => {
-                // Check for duplicate messages to keep trace clean
-                if (prev.some(log => log.message === newEntry.status_message)) return prev;
-                
-                return [...prev, {
-                  id: newEntry.id || `log-${Date.now()}`,
-                  timestamp: newEntry.updated_at || new Date().toISOString(),
-                  level: newEntry.status === 'error' ? 'error' : 'info',
-                  message: newEntry.status_message,
-                  module: 'GPU'
-                }];
-              });
-            }
+            const entry = payload.new as any;
+            setWorkerLogs(prev => {
+              // Cumulative stack: never overwrite, only append
+              return [...prev, {
+                id: entry.id,
+                timestamp: entry.created_at || new Date().toISOString(),
+                level: entry.status === 'error' ? 'error' : 'info',
+                message: entry.status_message,
+                module: 'GPU'
+              }];
+            });
           }
         )
         .subscribe();

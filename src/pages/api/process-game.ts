@@ -42,28 +42,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(500).json({ message: "CREDENTIAL ERROR: Missing Supabase keys." });
     }
 
+    // 1. CLEAR OLD TRACE DATA (Fresh Start)
+    await supabase.from("game_analysis").delete().eq("game_id", finalGameId);
+
+    // 2. INITIAL INSERT (0s - HEARTBEAT)
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "initializing",
+      progress_percentage: 5,
+      status_message: "🚀 ELITE IGNITION: Establishing Eternal Handshake..."
+    });
+
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "authorizing",
+      progress_percentage: 10,
+      status_message: "🔐 AUTH: Authorizing GPU cluster with Service Role credentials..."
+    });
+
     // 1. RESOLVE R2 VIDEO KEY
     let primaryKey = finalVideoPath.trim();
     if (primaryKey.startsWith('/')) primaryKey = primaryKey.slice(1);
     
     const getCommand = new GetObjectCommand({ Bucket: bucketName, Key: primaryKey });
     const signedUrl = await getSignedUrl(r2Client, getCommand, { expiresIn: 86400 });
-
-    // 2. INSTANT-ZERO LOGGING (Forensic Sync)
-    // We use the exact column names from the schema: progress_percentage, status_message
-    await supabase.from("game_analysis").upsert({
-      game_id: finalGameId,
-      status: "initializing",
-      progress_percentage: 5,
-      status_message: "🚀 ELITE IGNITION: Authorizing GPU Cluster..."
-    }, { onConflict: "game_id" });
-
-    await supabase.from("game_analysis").upsert({
-      game_id: finalGameId,
-      status: "authorizing",
-      progress_percentage: 10,
-      status_message: "🔐 AUTH: Generating secure video payload & fresh Supabase keys..."
-    }, { onConflict: "game_id" });
 
     // 3. PREPARE GPU PAYLOAD
     const gpuConfig = {
