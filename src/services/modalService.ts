@@ -29,9 +29,12 @@ export const modalService = {
     supabaseKey: string, 
     metadata?: any 
   }) => {
-    const userName = process.env.MODAL_USER_NAME || "dribblestats";
-    const appName = "basketball-scout-gpu"; // Matches modal_worker.py exactly
-    const url = `https://${userName}-${appName}-process-game-factory.modal.run`;
+    const userName = (process.env.MODAL_USER_NAME || "dribblestats").replace(/_/g, "-");
+    const appName = "basketball-scout-gpu";
+    const functionName = "process-game-factory";
+    
+    // CRITICAL: Modal Web Endpoints MUST use double-dash (--) between user and app
+    const url = `https://${userName}--${appName}-${functionName}.modal.run`;
     
     console.log(`🚀 Attempting GPU Ignition at: ${url}`);
 

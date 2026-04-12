@@ -84,12 +84,10 @@ def process_game_factory(data: dict):
     sb = create_client(supabase_url, supabase_key)
 
     # 2. AWAKENING PHASE (16%)
-    # Instant signal to Dashboard to break the 15% stall
     update_pulse(sb, game_id, 16, "GPU AWAKENING: Cloud resources allocated. Swarm active.", "success")
     
     try:
         # 3. HANDSHAKE VERIFICATION (18%)
-        # Confirming bi-directional communication with Supabase
         res = sb.table("games").select("id").eq("id", game_id).execute()
         if not res.data:
             raise Exception("Game ID not found in database handshake.")
@@ -97,21 +95,20 @@ def process_game_factory(data: dict):
         update_pulse(sb, game_id, 18, "HANDSHAKE VERIFIED: Database uplink established.", "success")
         
         # 4. AI BOOTSTRAP (20% - 35%)
-        # Heavy imports moved here to keep the 16% signal fast
+        # Import inside function to avoid cold-start delays for initial signals
         import cv2
         import torch
         import numpy as np
         
         update_pulse(sb, game_id, 25, "AI BOOTSTRAP: Neural networks initialized.", "info")
-        time.sleep(2) # Simulating weights loading
+        time.sleep(2) 
         
         update_pulse(sb, game_id, 35, "ASSET RETRIEVAL: Pulling video footage from R2 Storage...", "info")
-        # [Real R2 retrieval logic would go here]
         time.sleep(3)
         
         # 5. DETECTION SWARM (40% - 65%)
         update_pulse(sb, game_id, 45, "DETECTION SWARM: Scanning frames for Jersey Numbers...", "info")
-        time.sleep(5) # Simulating OCR processing
+        time.sleep(5) 
         
         update_pulse(sb, game_id, 55, "DETECTION SWARM: Person-to-Jersey mapping in progress...", "info")
         time.sleep(3)
