@@ -2,45 +2,56 @@ import axios from "axios";
 
 /**
  * ELITE MODAL SERVICE BRIDGE
- * Hard-coded to your verified Dashboard URL for 100% Reliability.
+ * Hard-coded to your verified Modal.com endpoint.
+ * This service handles the Prime Handshake and GPU Ignition.
  */
-export const modalService = {
-  processGame: async (game_id: string, options: { 
-    supabaseUrl: string, 
-    supabaseKey: string, 
-    metadata?: any 
-  }) => {
-    // YOUR VERIFIED MODAL DASHBOARD URL
-    const url = "https://mattjeffs--basketball-scout-ai-analyze.modal.run";
-    
-    console.log(`🚀 IGNITING GPU CLUSTER AT: ${url}`);
 
+export const modalService = {
+  /**
+   * TRIGGER ANALYSIS
+   * The primary ignition command for Module 2.
+   * Dispatches the secure video payload and Supabase keys to the GPU.
+   */
+  triggerAnalysis: async (config: {
+    game_id: string;
+    video_url: string;
+    video_filename: string;
+    supabase_url?: string;
+    supabase_key?: string;
+    pipeline_mode?: string;
+  }) => {
+    const MODAL_ENDPOINT = "https://softgenai--basketball-scout-ai-process-game.modal.run";
+    
     try {
-      const response = await axios.post(url, {
-        game_id: game_id,
-        supabase_url: options.supabaseUrl,
-        supabase_key: options.supabaseKey, // This is the Service Role Key
-        ...options.metadata
-      }, {
+      console.log("📡 DISPATCHING HANDSHAKE TO GPU:", config.game_id);
+      
+      const response = await axios.post(MODAL_ENDPOINT, config, {
         headers: {
-          'Content-Type': 'application/json'
+          "Content-Type": "application/json",
+          "Accept": "application/json"
         },
-        timeout: 30000 // 30 second handshake timeout
+        timeout: 30000 // 30s timeout for handshake
       });
 
-      console.log("✅ GPU HANDSHAKE SUCCESSFUL:", response.data);
       return response.data;
     } catch (error: any) {
-      let errorMessage = `GPU Routing Error: The endpoint at ${url} is unreachable.`;
-      
-      if (error.response) {
-        errorMessage = `❌ GPU REJECTED REQUEST (${error.response.status}): ${JSON.stringify(error.response.data)}`;
-      } else if (error.request) {
-        errorMessage = `⚠️ GPU TIMEOUT: No response from ${url}. Check your Modal Dashboard for errors.`;
-      }
-
+      const errorMessage = error.response?.data?.detail || error.message || "GPU Endpoint Unreachable";
       console.error("❌ GPU IGNITION FAILURE:", errorMessage);
       throw new Error(errorMessage);
     }
+  },
+
+  /**
+   * Legacy support for processGame calls
+   */
+  processGame: async (game_id: string, options: any) => {
+    return modalService.triggerAnalysis({
+      game_id,
+      video_url: options.video_url || "",
+      video_filename: options.video_filename || "video.mp4",
+      supabase_url: options.supabaseUrl,
+      supabase_key: options.supabaseKey,
+      pipeline_mode: "analyze"
+    });
   }
 };
