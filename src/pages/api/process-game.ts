@@ -121,7 +121,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_filename: videoFilename,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY,
-      pipeline_mode: "unified_raw_factory"
+      pipeline_mode: "analyze"
     };
 
     // Ignition Step 1: Tell the DB we are starting (15%)

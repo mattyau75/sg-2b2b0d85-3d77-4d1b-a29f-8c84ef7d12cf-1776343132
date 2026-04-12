@@ -10,10 +10,8 @@ export const modalService = {
     supabaseKey: string, 
     metadata?: any 
   }) => {
-    // FOOLPROOF URL CONSTRUCTION
-    // Username: mattjeffs (Separated by DOUBLE DASH --)
-    // App: basketball-scout (Separated by SINGLE DASH -)
-    // Function: analyze
+    // ELITE HARD-LOCKED URL
+    // Format: https://{username}--{app_name}-{function_name}.modal.run
     const url = "https://mattjeffs--basketball-scout-analyze.modal.run";
     
     console.log(`🚀 IGNITING GPU CLUSTER AT: ${url}`);
