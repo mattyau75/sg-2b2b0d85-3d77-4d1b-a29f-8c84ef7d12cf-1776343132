@@ -29,7 +29,9 @@ import {
   Trophy,
   Video,
   HardDrive,
-  AlertCircle
+  AlertCircle,
+  Trash2,
+  Play
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -432,50 +434,72 @@ export default function GameDetailPage() {
             {!game?.m1_complete ? (
               <ModuleLocked moduleNum={2} requiredModule="Module 1: Calibration" />
             ) : (
-              <Card className="bg-card/40 border-white/5 p-8 space-y-8">
-                <div className="flex items-center justify-between">
-                  <div className="space-y-1">
-                    <h3 className="text-2xl font-black flex items-center gap-2 uppercase tracking-tighter"><Zap className="h-6 w-6 text-primary" /> Module 2: Unified Discovery Swarm</h3>
-                    <p className="text-sm text-muted-foreground font-mono italic">GPU-accelerated raw entity detection and event tracking.</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      onClick={() => handleStartDiscovery(false)} 
-                      disabled={analyzing || isCurrentlyProcessing} 
-                      className={cn("font-bold h-10 px-10 uppercase tracking-tighter shadow-lg shadow-primary/20", "bg-primary")}
-                    >
-                      {(analyzing || isCurrentlyProcessing) ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-                      {(analyzing || isCurrentlyProcessing) ? "ANALYZING..." : "ANALYZE AI DETECTION"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div className="p-8 rounded-2xl bg-white/5 border border-white/10 shadow-inner relative overflow-hidden group">
-                    <div className="space-y-4 relative z-10">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-black uppercase tracking-[0.3em] text-white">GPU Swarm Status: {isCurrentlyProcessing ? "Active Analysis" : "Ready for Ignition"}</span>
-                        <span className="text-2xl font-black italic text-primary font-mono tracking-tighter">{game?.progress_percentage || 0}%</span>
+              <Card className="bg-secondary/30 border-muted overflow-hidden relative group">
+                <div className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Zap className="h-5 w-5 text-primary" />
                       </div>
-                      <Progress value={game?.progress_percentage || 0} className="h-2 bg-white/5" />
+                      <div>
+                        <h3 className="text-lg font-bold uppercase tracking-tight">Module 2: Detection Swarm</h3>
+                        <p className="text-[10px] text-muted-foreground font-mono uppercase tracking-widest">Unified Raw Factory • M2+M3+M4</p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleResetAnalysis}
+                        disabled={resetting}
+                        className="h-8 text-[10px] font-mono border-red-500/20 hover:bg-red-500/10 text-red-400"
+                      >
+                        {resetting ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <Trash2 className="h-3 w-3 mr-1.5" />}
+                        RESET SWARM
+                      </Button>
+                      
+                      {!isCurrentlyProcessing && (
+                        <Button 
+                          onClick={() => handleStartDiscovery()}
+                          disabled={analyzing || healthStatus.supabase === 'invalid'}
+                          size="sm"
+                          className="h-8 text-[10px] font-mono bg-primary hover:bg-primary/90"
+                        >
+                          {analyzing ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : <Play className="h-3 w-3 mr-1.5" />}
+                          IGNITE AI CLUSTER
+                        </Button>
+                      )}
                     </div>
                   </div>
 
-                  <div className="p-6 rounded-2xl border border-white/5 bg-card/20 space-y-4">
-                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                      <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <Terminal className="h-3 w-3" /> Live Technical Trace
-                      </h4>
-                    </div>
-                    <div className="h-48 overflow-y-auto font-mono text-[11px] space-y-2 pr-4 custom-scrollbar">
-                      {game?.processing_metadata?.worker_logs?.map((log: any, i: number) => (
-                        <div key={i} className="flex gap-3 text-muted-foreground/80 hover:text-white transition-colors">
-                          <span className="text-primary/50 shrink-0">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
-                          <span className={cn(log.severity === 'error' ? 'text-red-400' : log.severity === 'success' ? 'text-emerald-400 font-bold' : 'text-white/70')}>
-                            {log.message}
-                          </span>
+                  <div className="space-y-6">
+                    <div className="p-8 rounded-2xl bg-white/5 border border-white/10 shadow-inner relative overflow-hidden group">
+                      <div className="space-y-4 relative z-10">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-black uppercase tracking-[0.3em] text-white">GPU Swarm Status: {isCurrentlyProcessing ? "Active Analysis" : "Ready for Ignition"}</span>
+                          <span className="text-2xl font-black italic text-primary font-mono tracking-tighter">{game?.progress_percentage || 0}%</span>
                         </div>
-                      ))}
+                        <Progress value={game?.progress_percentage || 0} className="h-2 bg-white/5" />
+                      </div>
+                    </div>
+
+                    <div className="p-6 rounded-2xl border border-white/5 bg-card/20 space-y-4">
+                      <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                        <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <Terminal className="h-3 w-3" /> Live Technical Trace
+                        </h4>
+                      </div>
+                      <div className="h-48 overflow-y-auto font-mono text-[11px] space-y-2 pr-4 custom-scrollbar">
+                        {game?.processing_metadata?.worker_logs?.map((log: any, i: number) => (
+                          <div key={i} className="flex gap-3 text-muted-foreground/80 hover:text-white transition-colors">
+                            <span className="text-primary/50 shrink-0">[{new Date(log.timestamp).toLocaleTimeString([], { hour12: false })}]</span>
+                            <span className={cn(log.severity === 'error' ? 'text-red-400' : log.severity === 'success' ? 'text-emerald-400 font-bold' : 'text-white/70')}>
+                              {log.message}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
