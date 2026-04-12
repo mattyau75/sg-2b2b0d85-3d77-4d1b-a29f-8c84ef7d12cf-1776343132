@@ -140,8 +140,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } as any).eq('id', finalGameId);
 
     // Ignition Step 2: Fire and Forget
-    modalService.processGame(signedUrl, gpuConfig).catch(err => {
-      console.error("[UnifiedFactory] Ignition Failure:", err);
+    // Ensure we pass the LIVE environment keys to the Modal function
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!supabaseUrl || !supabaseKey) {
+       console.error("❌ CRITICAL: Missing credentials for Modal handoff");
+    }
+
+    // Call Modal function via service
+    modalService.processGame(finalGameId, {
+      supabaseUrl,
+      supabaseKey,
+      metadata: gpuConfig
+    }).catch(err => {
+      console.error("❌ Modal Ignition Failed:", err);
     });
 
     return res.status(202).json({ success: true, message: "Unified GPU Factory Ignited" });
