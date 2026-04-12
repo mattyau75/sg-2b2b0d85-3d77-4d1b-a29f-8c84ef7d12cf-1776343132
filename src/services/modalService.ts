@@ -50,10 +50,12 @@ export const modalService = {
           handshake_version: "Senior-Direct-2.0"
         }
       });
+      console.log(`[ModalService] Swarm Handshake Success:`, response.status);
       return response.data;
     } catch (error: any) {
-      console.error("[ModalService] GPU Cluster Handoff Failed:", error.response?.data || error.message);
-      throw error;
+      const errorDetail = error.response?.data || error.message;
+      console.error("[ModalService] FATAL GPU HANDOFF ERROR:", errorDetail);
+      throw new Error(`GPU Handoff Failed: ${JSON.stringify(errorDetail)}`);
     }
   }
 };
