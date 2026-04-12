@@ -12,9 +12,13 @@ export const modalService = {
     supabaseUrl: string;
     supabaseKey: string;
   }) => {
-    const MODAL_ENDPOINT = "https://your-modal-user--basketball-scout-ai-analyze.modal.run";
+    // 🛡️ DYNAMIC URL RESOLUTION
+    // Pattern: https://<username>--basketball-scout-ai-analyze.modal.run
+    const MODAL_ENDPOINT = process.env.MODAL_ENDPOINT_URL || 
+                          "https://your-modal-user--basketball-scout-ai-analyze.modal.run";
 
     try {
+      console.log("🚀 IGNITION ATTEMPT: Calling GPU at", MODAL_ENDPOINT);
       const response = await axios.post(MODAL_ENDPOINT, {
         game_id: options.gameId,
         video_url: options.videoUrl,

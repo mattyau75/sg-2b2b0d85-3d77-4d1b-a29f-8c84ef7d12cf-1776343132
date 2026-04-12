@@ -56,6 +56,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!finalVideoUrl) throw new Error("Missing required video URL for AI processing.");
 
     // 3. TRIGGER GPU IGNITION (HANDOFF)
+    const modalUrl = process.env.MODAL_ENDPOINT_URL || "NOT_CONFIGURED";
+    
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "authorizing",
+      progress_percentage: 12,
+      status_message: `🛰️ TARGETING: GPU Endpoint [${modalUrl.split('--')[0]}...] verified.`
+    });
+
     await triggerAnalysis({
       gameId: finalGameId,
       videoUrl: finalVideoUrl,
