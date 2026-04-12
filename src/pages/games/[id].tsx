@@ -27,7 +27,9 @@ import {
   MapPin,
   Settings2,
   Trophy,
-  Video
+  Video,
+  HardDrive,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VideoPlayer } from "@/components/VideoPlayer";
@@ -47,9 +49,8 @@ const isValidUUID = (uuid: string) => {
 
 export default function GameDetailPage() {
   const router = useRouter();
-  const { id } = router.query;
-  const gameId = typeof id === "string" ? id : undefined;
-  
+  const { id: gameId } = router.query;
+  const { showBanner } = useUpload();
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("m1");
@@ -71,6 +72,12 @@ export default function GameDetailPage() {
   
   // Diagnostic Banner State (Local override for specific GPU errors)
   const [banner, setBanner] = useState<{ title: string; message: string; severity: BannerSeverity } | null>(null);
+
+  // NEW: Pre-Ignition Health State
+  const [healthStatus, setHealthStatus] = useState<{
+    supabase: 'valid' | 'invalid' | 'checking',
+    storage: 'valid' | 'invalid' | 'checking'
+  }>({ supabase: 'checking', storage: 'checking' });
 
   const fetchGameData = useCallback(async (isUpdate = false) => {
     if (!gameId || !isValidUUID(gameId)) {
@@ -119,8 +126,25 @@ export default function GameDetailPage() {
   }, [gameId, videoUrl]);
 
   useEffect(() => {
-    fetchGameData();
-  }, [fetchGameData]);
+    if (gameId) {
+      fetchGameData();
+      checkSystemHealth();
+    }
+  }, [gameId]);
+
+  const checkSystemHealth = async () => {
+    // Proactive check for Service Role Key and R2
+    try {
+      const res = await fetch('/api/storage/test-connection');
+      const data = await res.json();
+      setHealthStatus({
+        supabase: data.supabase_service_role ? 'valid' : 'invalid',
+        storage: data.r2_connected ? 'valid' : 'invalid'
+      });
+    } catch (e) {
+      setHealthStatus({ supabase: 'invalid', storage: 'invalid' });
+    }
+  };
 
   useEffect(() => {
     if (!gameId || !isValidUUID(gameId)) return;
@@ -291,18 +315,51 @@ export default function GameDetailPage() {
 
   return (
     <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'}`}>
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
-        {/* Diagnostic Banner Rendering */}
+      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
+        {/* ELITE DIAGNOSTIC BANNER */}
         {banner && (
-          <div className="mb-6">
-            <DiagnosticBanner 
-              title={banner.title} 
-              message={banner.message} 
-              severity={banner.severity} 
-              onClose={() => setBanner(null)} 
-            />
-          </div>
+          <DiagnosticBanner 
+            title={banner.title} 
+            message={banner.message} 
+            severity={banner.severity} 
+            onClose={() => setBanner(null)} 
+          />
         )}
+
+        {/* SYSTEM HEALTH MONITOR (PRE-IGNITION) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          <div className={cn(
+            "p-4 rounded-xl border flex items-center justify-between",
+            healthStatus.supabase === 'valid' ? "bg-emerald-500/10 border-emerald-500/20" : "bg-red-500/10 border-red-500/20"
+          )}>
+            <div className="flex items-center gap-3">
+              <ShieldCheck className={cn("h-5 w-5", healthStatus.supabase === 'valid' ? "text-emerald-500" : "text-red-500")} />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">Master Credentials</p>
+                <p className="text-sm font-semibold">{healthStatus.supabase === 'valid' ? "Authenticated & Secure" : "Credential Stall Detected"}</p>
+              </div>
+            </div>
+            {healthStatus.supabase === 'invalid' && (
+              <AlertCircle className="h-5 w-5 text-red-500 animate-pulse" />
+            )}
+          </div>
+
+          <div className={cn(
+            "p-4 rounded-xl border flex items-center justify-between",
+            healthStatus.storage === 'valid' ? "bg-emerald-500/10 border-emerald-500/20" : "bg-red-500/10 border-red-500/20"
+          )}>
+            <div className="flex items-center gap-3">
+              <HardDrive className={cn("h-5 w-5", healthStatus.storage === 'valid' ? "text-emerald-500" : "text-red-500")} />
+              <div>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground font-bold">R2 Storage Uplink</p>
+                <p className="text-sm font-semibold">{healthStatus.storage === 'valid' ? "Uplink Established" : "Storage Handshake Failed"}</p>
+              </div>
+            </div>
+            {healthStatus.storage === 'invalid' && (
+              <AlertCircle className="h-5 w-5 text-red-500 animate-pulse" />
+            )}
+          </div>
+        </div>
 
         {/* Elite Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-6 rounded-2xl bg-card/50 border border-primary/20 shadow-xl relative overflow-hidden">
