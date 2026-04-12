@@ -30,7 +30,7 @@ export const modalService = {
     metadata?: any 
   }) => {
     const userName = process.env.MODAL_USER_NAME || "dribblestats";
-    const appName = process.env.MODAL_APP_NAME || "dribble-swarm";
+    const appName = "basketball-scout-gpu"; // Matches modal_worker.py exactly
     const url = `https://${userName}-${appName}-process-game-factory.modal.run`;
     
     console.log(`🚀 Attempting GPU Ignition at: ${url}`);
