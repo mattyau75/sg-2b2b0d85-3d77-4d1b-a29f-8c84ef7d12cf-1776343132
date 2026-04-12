@@ -2,7 +2,7 @@ import axios from "axios";
 
 /**
  * ELITE MODAL SERVICE BRIDGE
- * Hard-coded to your specific Dashboard URL for 100% Reliability.
+ * Hard-coded to your verified Dashboard URL for 100% Reliability.
  */
 export const modalService = {
   processGame: async (gameId: string, options: { 
@@ -31,12 +31,12 @@ export const modalService = {
       console.log("✅ GPU HANDSHAKE SUCCESSFUL:", response.data);
       return response.data;
     } catch (error: any) {
-      let errorMessage = "GPU Routing Error (404): The endpoint at " + url + " does not exist. Please ensure you have run 'Deploy to Modal.com' in GitHub Actions.";
+      let errorMessage = `GPU Routing Error: The endpoint at ${url} is unreachable.`;
       
       if (error.response) {
         errorMessage = `❌ GPU REJECTED REQUEST (${error.response.status}): ${JSON.stringify(error.response.data)}`;
       } else if (error.request) {
-        errorMessage = `⚠️ GPU TIMEOUT: No response from ${url}. The cluster may be cold-starting.`;
+        errorMessage = `⚠️ GPU TIMEOUT: No response from ${url}. Check your Modal Dashboard for errors.`;
       }
 
       console.error("❌ GPU IGNITION FAILURE:", errorMessage);

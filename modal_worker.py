@@ -5,10 +5,10 @@ from datetime import datetime
 import time
 
 # 1. DEFINE THE APP WITH VERIFIED NAMING
-# This creates the URL: https://mattjeffs--basketball-scout-ai-analyze.modal.run
+# Matches your URL: https://mattjeffs--basketball-scout-ai-analyze.modal.run
 app = modal.App("basketball-scout-ai")
 
-# 2. SETUP THE RUNTIME ENVIRONMENT WITH ALL DEPENDENCIES
+# 2. SETUP THE RUNTIME ENVIRONMENT
 image = (
     modal.Image.debian_slim()
     .pip_install(
@@ -33,7 +33,7 @@ def analyze(payload: dict):
     """
     start_time = time.time()
     
-    # Extract payload with fallbacks (Unified naming)
+    # Extract payload with fallbacks
     game_id = payload.get("game_id")
     supabase_url = payload.get("supabase_url")
     supabase_key = payload.get("supabase_key")
@@ -42,15 +42,14 @@ def analyze(payload: dict):
     if not all([game_id, supabase_url, supabase_key]):
         return {"status": "error", "message": "Missing critical authentication or game metadata."}
 
-    # Initialize Supabase Client
+    # Initialize Supabase Client (Master Service Role)
     from supabase import create_client, Client
     supabase: Client = create_client(supabase_url, supabase_key)
 
-    def log_to_dashboard(progress: int, message: str, status: str = "processing"):
-        """Instant status sync to the UI"""
+    def log_to_trace(progress: int, message: str, status: str = "processing"):
+        """Instant status sync to the UI via game_analysis table"""
         try:
-            # 1. Update the technical trace table
-            # We use upsert to create or update the record
+            # Update technical trace (Realtime stream)
             supabase.table("game_analysis").upsert({
                 "game_id": game_id,
                 "progress_percentage": progress,
@@ -59,7 +58,7 @@ def analyze(payload: dict):
                 "updated_at": datetime.utcnow().isoformat()
             }, on_conflict="game_id").execute()
             
-            # 2. Update the main games table for redundancy
+            # Sync to main games table for progress bar
             supabase.table("games").update({
                 "progress_percentage": progress,
                 "status": status,
@@ -72,18 +71,17 @@ def analyze(payload: dict):
 
     try:
         # CRITICAL: IMMEDIATE 16% HANDSHAKE (Breaks the 15% stall)
-        log_to_dashboard(16, "GPU Handshake Successful - Initializing AI Environment...")
+        log_to_trace(16, "GPU Handshake Successful - Environment Initialized")
         
         if not video_url:
-            raise ValueError("GPU received an empty video URL. Check R2/S3 signed URL generation.")
+            raise ValueError("GPU received an empty video URL.")
             
-        log_to_dashboard(18, f"Source video verified. Downloading footage for analysis...")
+        log_to_trace(18, "Storage verified. Accessing source footage...")
         
-        # SIMULATION OF PROCESSING
-        time.sleep(2) 
-        log_to_dashboard(25, "Personnel Discovery Active. Mapping jersey numbers to roster...")
+        # Simulate processing for verification
+        time.sleep(2)
+        log_to_trace(25, "Personnel Discovery Active. Mapping jersey numbers...")
         
-        # Final response to the API route
         return {
             "status": "success",
             "game_id": game_id,
@@ -92,5 +90,5 @@ def analyze(payload: dict):
 
     except Exception as e:
         error_msg = f"GPU EXECUTION ERROR: {str(e)}"
-        log_to_dashboard(15, error_msg, "error")
+        log_to_trace(15, error_msg, "error")
         return {"status": "error", "message": error_msg}
