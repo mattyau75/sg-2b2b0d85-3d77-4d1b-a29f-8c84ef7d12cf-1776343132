@@ -37,6 +37,7 @@ import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
 import { showBanner } from "@/components/DiagnosticBanner";
+import { useToast } from "@/hooks/use-toast";
 
 const STATUS_PROGRESS: Record<string, number> = {
   'queued': 15,
@@ -48,6 +49,7 @@ const STATUS_PROGRESS: Record<string, number> = {
 };
 
 export default function Dashboard() {
+  const { toast } = useToast();
   const router = useRouter();
   const [activeJobs, setActiveJobs] = useState<any[]>([]);
   const [recentGames, setRecentGames] = useState<any[]>([]);
