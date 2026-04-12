@@ -277,6 +277,9 @@ export default function GameDetailPage() {
   const handleResetAnalysis = async () => {
     if (!gameId) return;
     setResetting(true);
+    setBanner(null);
+    setAnalyzing(false);
+    
     try {
       const response = await fetch('/api/reset-game-analysis', {
         method: 'POST',
