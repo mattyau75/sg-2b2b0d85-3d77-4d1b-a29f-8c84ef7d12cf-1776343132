@@ -52,7 +52,18 @@ const isValidUUID = (uuid: string) => {
 export default function GameDetailPage() {
   const router = useRouter();
   const { id: gameIdRaw } = router.query;
-  const gameId = Array.isArray(gameIdRaw) ? gameIdRaw[0] : gameIdRaw;
+  
+  // 🛡️ STABLE ID BRIDGE: Ensuring the ID is locked for all modules
+  const [gameId, setGameId] = useState<string | null>(null);
+  
+  useEffect(() => {
+    if (router.isReady && gameIdRaw) {
+      const id = Array.isArray(gameIdRaw) ? gameIdRaw[0] : gameIdRaw;
+      if (isValidUUID(id)) {
+        setGameId(id);
+      }
+    }
+  }, [router.isReady, gameIdRaw]);
   
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -160,7 +171,11 @@ export default function GameDetailPage() {
   }, [gameId, fetchGameData]);
 
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
-    if (!gameId || !game) return;
+    // 🛡️ IGNITION GUARD: Verify stable ID before handshake
+    if (!gameId || !game) {
+      showBanner("System Stall: Game ID not yet stabilized. Please wait for hydration.", "error", "Ignition Blocked");
+      return;
+    }
     
     setManualStartRequested(true);
     setAnalyzing(true);
@@ -184,7 +199,7 @@ export default function GameDetailPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          game_id: gameId, 
+          gameId: gameId, // Standardized to camelCase for the API
           video_path: game.video_path, 
           dry_run: isDryRun,
           homeColor: game.home_team_color,
@@ -508,9 +523,9 @@ export default function GameDetailPage() {
           <TabsContent value="m5">
             {!game?.m2_complete ? (
               <ModuleLocked moduleNum={3} requiredModule="Module 2: Discovery Swarm" />
-            ) : (
+            ) : gameId && (
               <MappingDashboard 
-                gameId={game.id} 
+                gameId={gameId} 
                 aiMappings={aiMappings} 
                 homeRoster={homeRoster} 
                 awayRoster={awayRoster} 

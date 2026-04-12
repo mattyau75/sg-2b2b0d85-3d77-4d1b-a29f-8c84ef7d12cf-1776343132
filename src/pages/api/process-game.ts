@@ -5,12 +5,11 @@ import { triggerAnalysis } from "@/services/modalService";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 🛡️ ATOMIC ID EXTRACTION: Scan all possible locations in the payload
-  const { gameId, metadata, videoUrl } = req.body;
-  const finalGameId = gameId || metadata?.gameId || metadata?.id || req.body?.id;
+  // 🛡️ ATOMIC ID EXTRACTION: Supporting all naming conventions
+  const { gameId, game_id, metadata } = req.body;
+  const finalGameId = gameId || game_id || metadata?.gameId || metadata?.game_id || metadata?.id;
 
   if (!finalGameId) {
-    console.error("❌ CRITICAL: No Game ID found in request body:", req.body);
     return res.status(400).json({ 
       message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." 
     });
