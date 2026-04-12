@@ -386,9 +386,32 @@ export default function GameDetailPage() {
 
   const handleManualStep3 = async () => {
     if (!gameId || !checkSequence(2)) return;
+    
+    setManualStartRequested(true);
+    setIsWarming(true);
+    showBanner("🚀 PHASE 3: Dispatching Ignition Signal to GPU Cluster...", "info", "Ignition Launched");
+
+    if (provisioningTimeout) clearTimeout(provisioningTimeout);
+    const timeout = setTimeout(() => {
+      if (game?.progress_percentage < 16) {
+        showBanner("GPU Cluster is warming up (45-90s). Please wait for the 16% handshake.", "info", "System Warming");
+      }
+    }, 45000);
+    setProvisioningTimeout(timeout);
+
     await handleStartDiscovery();
-    setCompletedSteps(prev => [...new Set([...prev, 2])]);
+    // 🛡️ DO NOT setCompletedSteps(2) here. We wait for the heartbeat in useEffect.
   };
+
+  // 🛡️ HEARTBEAT MONITOR: Auto-advance Phase 3 when GPU speaks
+  useEffect(() => {
+    if (manualStartRequested && game?.progress_percentage >= 16 && !completedSteps.includes(2)) {
+      setCompletedSteps(prev => [...new Set([...prev, 2])]);
+      setIsWarming(false);
+      showBanner("✅ PHASE 3 COMPLETE: GPU Heartbeat Received at 16%.", "success", "Swarm Active");
+      if (provisioningTimeout) clearTimeout(provisioningTimeout);
+    }
+  }, [game?.progress_percentage, manualStartRequested, completedSteps]);
 
   const handleManualStep4 = async () => {
     if (!gameId || !checkSequence(3)) return;
@@ -589,9 +612,9 @@ export default function GameDetailPage() {
                         variant={completedSteps.includes(2) ? "secondary" : "outline"}
                         className={`text-[10px] h-10 border-dashed ${completedSteps.includes(2) ? "border-green-500/50" : "border-primary/30"}`}
                         onClick={handleManualStep3}
-                        disabled={analyzing}
+                        disabled={isWarming}
                       >
-                        {analyzing ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : (completedSteps.includes(2) ? "✅ PHASE 3: IGNITED" : "3. IGNITE GPU")}
+                        {isWarming ? <RefreshCw className="h-3 w-3 animate-spin mr-1.5" /> : (completedSteps.includes(2) ? "✅ PHASE 3: IGNITED" : "3. IGNITE GPU")}
                       </Button>
 
                       <Button 
