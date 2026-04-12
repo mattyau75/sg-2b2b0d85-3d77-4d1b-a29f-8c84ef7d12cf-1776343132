@@ -37,8 +37,19 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
   const handleManualMatch = async (mappingId: string, playerId: string) => {
     setSaving(mappingId);
     try {
-      await rosterService.updateMapping(mappingId, playerId);
-      showBanner("Identity Linked", "success");
+      // Direct Link: Map AI Track to Real Player
+      const { error } = await supabase
+        .from('ai_player_mappings')
+        .update({ 
+          real_player_id: playerId, 
+          is_manual_override: true,
+          updated_at: new Date().toISOString()
+        } as any)
+        .eq('id', mappingId);
+
+      if (error) throw error;
+      
+      showBanner("Personnel Identity Locked", "success");
       onRefresh();
     } catch (error: any) {
       showBanner(error.message || "Mapping Failed", "error");
