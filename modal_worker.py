@@ -4,9 +4,9 @@ import json
 from datetime import datetime
 import time
 
-# 1. DEFINE THE APP WITH SIMPLIFIED NAMING
-# This creates the URL: https://mattjeffs--basketball-scout-analyze.modal.run
-app = modal.App("basketball-scout")
+# 1. DEFINE THE APP WITH UNIQUE NAMING
+# This creates the URL: https://mattjeffs--basketball-scout-v2-analyze.modal.run
+app = modal.App("basketball-scout-v2")
 
 # 2. SETUP THE RUNTIME ENVIRONMENT
 image = modal.Image.debian_slim().pip_install(

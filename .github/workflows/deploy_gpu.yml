@@ -40,7 +40,6 @@ jobs:
 
       - name: Deploy to Modal
         run: |
-          # Force deployment of the specific worker file to the specific app name
           modal deploy modal_worker.py
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
