@@ -197,15 +197,19 @@ export default function Dashboard() {
   };
 
   const handleIgniteAI = async (gameId: string) => {
-    // 🛡️ FATAL ERROR GUARD: Ensure Game ID is valid
+    // 🛡️ ATOMIC ID GUARD: Prevent 'null' or 'undefined' ignition
     if (!gameId || gameId === 'undefined') {
       console.error("❌ CRITICAL: Attempted ignition with invalid Game ID.");
-      showBanner("Missing required Game ID. Please refresh and try again.", "error", "Ignition Failed");
+      toast({
+        title: "Ignition Failed",
+        description: "Missing required Game ID. Please ensure the game is saved and refresh.",
+        variant: "destructive"
+      });
       return;
     }
 
     try {
-      // 1. PRIME HANDSHAKE INITIALIZATION
+      // 1. PRIME HANDSHAKE INITIALIZATION (Local Optimistic Log)
       setWorkerLogs([{
         id: `sys-${Date.now()}`,
         timestamp: new Date().toISOString(),

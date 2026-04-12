@@ -1,25 +1,23 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { supabase } from "@/integrations/supabase/client";
-import { modalService } from "@/services/modalService";
+import { triggerAnalysis } from "@/services/modalService";
 
-/**
- * ELITE IGNITION API: The Prime Handshake Gatekeeper
- */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 🛡️ EXTRACT PAYLOAD IMMEDIATELY
-  const { gameId, videoUrl, metadata } = req.body;
-  const finalGameId = gameId || metadata?.gameId || metadata?.id;
+  // 🛡️ ATOMIC ID EXTRACTION: Scan all possible locations in the payload
+  const { gameId, metadata, videoUrl } = req.body;
+  const finalGameId = gameId || metadata?.gameId || metadata?.id || req.body?.id;
 
   if (!finalGameId) {
+    console.error("❌ CRITICAL: No Game ID found in request body:", req.body);
     return res.status(400).json({ 
       message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." 
     });
   }
 
   try {
-    // 🤝 PRIME HANDSHAKE: THE VERY FIRST OPERATIONAL COMMAND
+    // 🤝 PRIME HANDSHAKE: Establish DB link as the absolute first command
     const { error: handshakeError } = await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
@@ -27,45 +25,33 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Started..."
     });
 
-    if (handshakeError) {
-      console.error("Prime Handshake Failed:", handshakeError);
-      throw new Error(`Database Handshake Failure: ${handshakeError.message}`);
-    }
+    if (handshakeError) throw handshakeError;
 
-    // 2. SYSTEM INTEGRITY CHECK
-    if (!videoUrl) {
-      throw new Error("Missing required video URL for AI discovery.");
-    }
-
+    // 2. AUTHORIZATION & METADATA PREP
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "authorizing",
-      progress_percentage: 10,
-      status_message: "🔐 AUTH: Synchronizing credentials with GPU cluster..."
+      progress_percentage: 5,
+      status_message: "🔐 AUTH: Authorizing GPU cluster and verifying video payload..."
     });
 
-    // 3. TRIGGER TRI-DIRECTIONAL HANDSHAKE (API -> GPU)
-    await modalService.triggerAnalysis({
+    if (!videoUrl) throw new Error("Missing required video URL for AI processing.");
+
+    // 3. TRIGGER GPU IGNITION
+    await triggerAnalysis({
       gameId: finalGameId,
-      videoUrl: videoUrl,
-      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
-      metadata: metadata
+      videoUrl,
+      metadata: metadata || { id: finalGameId },
+      supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     });
 
-    await supabase.from("game_analysis").insert({
-      game_id: finalGameId,
-      status: "dispatching",
-      progress_percentage: 14,
-      status_message: "📡 NETWORK: Handshake received by Modal. GPU Awakening..."
-    });
-
-    return res.status(200).json({ success: true, gameId: finalGameId });
+    return res.status(200).json({ message: "Ignition signal dispatched successfully." });
 
   } catch (error: any) {
     console.error("❌ IGNITION FAILURE:", error);
     
-    // FORENSIC ERROR BROADCAST
+    // FORENSIC ERROR LOGGING: Push directly to trace
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "error",
