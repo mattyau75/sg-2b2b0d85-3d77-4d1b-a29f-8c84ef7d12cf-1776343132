@@ -120,10 +120,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_url: signedUrl,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY, // DIRECT MASTER HANDSHAKE
-      home_team_id: homeTeamId,
-      away_team_id: awayTeamId,
-      home_roster: homeRoster || [],
-      away_roster: awayRoster || []
+      // Rosters are no longer required for Module 2 - Switching to Raw Discovery Mode
+      discovery_mode: "raw_personnel"
     };
 
     // LAUNCHER MODE: Trigger the GPU and immediately release the request
