@@ -10,27 +10,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     console.log(`[ResetAnalysis] Forcing reset for game: ${gameId}`);
 
-    // 1. Reset Game Status and Clear Metadata
+    // 1. Reset Game Status and Clear Metadata in ONE transaction
+    // We clear worker_logs and progress markers inside the processing_metadata JSONB field
     const { error: gameError } = await supabase
       .from("games")
       .update({
         status: "pending",
-        processing_metadata: {},
-        is_m2_complete: false,
-        analysis_progress: 0
-      })
+        progress_percentage: 0,
+        ignition_status: "pending",
+        last_error: null,
+        processing_metadata: {
+          worker_logs: [],
+          last_heartbeat: null,
+          ignition_time: null
+        } as any,
+        m2_complete: false,
+        updated_at: new Date().toISOString()
+      } as any)
       .eq("id", gameId);
 
     if (gameError) throw gameError;
 
-    // 2. Clear Worker Logs for this game
-    const { error: logsError } = await supabase
-      .from("worker_logs")
-      .delete()
-      .eq("game_id", gameId);
-
-    // Some systems might not have worker_logs yet, ignore error
-    console.log(`[ResetAnalysis] ✅ System cleared for ${gameId}`);
+    console.log(`[ResetAnalysis] ✅ System state cleared for ${gameId}`);
 
     return res.status(200).json({ success: true });
   } catch (error: any) {

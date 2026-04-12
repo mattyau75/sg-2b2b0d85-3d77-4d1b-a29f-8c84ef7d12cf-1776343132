@@ -278,23 +278,20 @@ export default function GameDetailPage() {
     if (!gameId) return;
     setResetting(true);
     try {
-      const { error } = await supabase
-        .from('games')
-        .update({
-          status: 'scheduled',
-          last_error: null,
-          progress_percentage: 0,
-          processing_metadata: { 
-            ...(game?.processing_metadata || {}), 
-            worker_logs: [],
-            last_heartbeat: null
-          }
-        } as any)
-        .eq('id', gameId);
+      const response = await fetch('/api/reset-game-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId })
+      });
 
-      if (error) throw error;
-      showBanner("All status flags cleared. Ready for re-ignition.", "info", "Swarm Cluster Reset");
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.error || "Failed to reset analysis state");
+      }
+
+      showBanner("All system states cleared. Bottleneck resolved.", "success", "Swarm Reset Complete");
       await fetchGameData(true);
+      setBanner(null);
     } catch (error: any) {
       showBanner(error.message, "error", "Reset Failed");
     } finally {
