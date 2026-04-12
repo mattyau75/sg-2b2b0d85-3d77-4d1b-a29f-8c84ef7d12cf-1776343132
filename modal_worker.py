@@ -20,8 +20,7 @@ image = modal.Image.debian_slim().pip_install(
     image=image,
     gpu="A10G",
     timeout=1200,
-    container_idle_timeout=60,
-    mounts=[modal.Mount.from_local_file(".env.local", remote_path="/root/.env.local")] if os.path.exists(".env.local") else []
+    container_idle_timeout=60
 )
 @modal.web_endpoint(method="POST")
 def analyze(payload: dict):
@@ -29,8 +28,6 @@ def analyze(payload: dict):
     Foolproof GPU Entry Point.
     Receives: game_id, supabase_url, supabase_key
     """
-    start_time = time.time()
-    
     # Extract coordinates
     game_id = payload.get("game_id")
     sb_url = payload.get("supabase_url")
@@ -45,21 +42,29 @@ def analyze(payload: dict):
         log_entry = f"[{timestamp}] {severity.upper()}: {msg}"
         
         # Fetch existing metadata to append logs
-        res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
-        current_meta = res.data[0].get("processing_metadata") or {}
+        try:
+            res = sb.table("games").select("processing_metadata").eq("id", game_id).execute()
+            current_meta = res.data[0].get("processing_metadata") or {}
+            
+            logs = current_meta.get("worker_logs", [])
+            logs.append({
+                "timestamp": datetime.utcnow().isoformat(),
+                "message": msg,
+                "severity": severity
+            })
+            
+            current_meta["worker_logs"] = logs[-100:] # Keep last 100 entries
+            current_meta["gpu_status"] = "processing" if step < 100 else "completed"
+            current_meta["analysis_step"] = step
+            
+            sb.table("games").update({
+                "processing_metadata": current_meta,
+                "processing_step": step,
+                "progress_percentage": step
+            }).eq("id", game_id).execute()
+        except Exception as e:
+            print(f"Failed to log to dashboard: {str(e)}")
         
-        logs = current_meta.get("worker_logs", [])
-        logs.append(log_entry)
-        
-        current_meta["worker_logs"] = logs[-100:] # Keep last 100 entries
-        current_meta["gpu_status"] = "processing" if step < 100 else "completed"
-        current_meta["analysis_step"] = step
-        
-        sb.table("games").update({
-            "processing_metadata": current_meta,
-            "processing_step": step,
-            "progress_percentage": step
-        }).eq("id", game_id).execute()
         print(log_entry)
 
     # TRIGGER 16% AWAKENING IMMEDIATELY (BREAKER OF THE 15% STALL)
