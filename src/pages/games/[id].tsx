@@ -165,15 +165,32 @@ export default function GameDetailPage() {
       const response = await fetch('/api/process-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ game_id: gameId, video_path: game.video_path, dry_run: isDryRun })
+        body: JSON.stringify({ 
+          game_id: gameId, 
+          video_path: game.video_path, 
+          dry_run: isDryRun,
+          // Explicitly pass these for legacy support if env is lagging
+          homeColor: game.home_team_color,
+          awayColor: game.away_team_color
+        })
       });
+
+      const data = await response.json();
 
       if (response.ok) {
         showBanner("GPU Swarm Ignition Successful", "success", "Swarm Launched");
         await fetchGameData(true);
+      } else {
+        // Handle the "STALL DETECTED" errors explicitly
+        showBanner(data.message || "Ignition Failed", "error", "System Stall");
+        setBanner({
+          title: "Critical System Stall",
+          message: data.message || "The GPU cluster could not be ignited. Please check your credentials in Settings.",
+          severity: "error"
+        });
       }
     } catch (error: any) {
-      showBanner(error.message, "error", "Ignition Failed");
+      showBanner(error.message || "Connection lost during ignition", "error", "Ignition Failed");
     } finally {
       setAnalyzing(false);
       setIsWarming(false);
