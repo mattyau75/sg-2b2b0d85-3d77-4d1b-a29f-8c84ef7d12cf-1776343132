@@ -1,6 +1,6 @@
 ---
 title: "Re-engineer Unified GPU Factory (Modules 2-4)"
-status: "in_progress"
+status: "done"
 priority: "urgent"
 type: "feature"
 tags: ["gpu", "unified-pipeline", "raw-data"]
@@ -13,7 +13,7 @@ position: 67
 Combine Personnel Discovery (M2), Statistical Analysis (M3), and Tactical Insights (M4) into a single, decoupled GPU process that produces raw AI-Entity data.
 
 ## Checklist:
-- [ ] Refactor `modal_worker.py` to produce a unified `raw_payload` (Entities + Events)
-- [ ] Update `process-game.ts` to launch the Unified Factory in Fire-and-Forget mode
-- [ ] Create `src/services/mappingService.ts` to handle the new "Module 5" logic
-- [ ] Update Game Dashboard to support "Ghost" Entity mapping
+- [x] Consolidate M2, M3, M4 into a single Raw Discovery Pipeline
+- [x] Remove roster dependency from GPU ignition
+- [x] Implement Async Fire-and-Forget Spawn pattern
+- [x] Update modal_worker.py to output raw tracking/event data
