@@ -197,14 +197,20 @@ export default function Dashboard() {
   };
 
   const handleIgniteAI = async (gameId: string) => {
+    // 🛡️ FATAL ERROR GUARD: Ensure Game ID is valid
+    if (!gameId || gameId === 'undefined') {
+      console.error("❌ CRITICAL: Attempted ignition with invalid Game ID.");
+      showBanner("Missing required Game ID. Please refresh and try again.", "error", "Ignition Failed");
+      return;
+    }
+
     try {
       // 1. PRIME HANDSHAKE INITIALIZATION
-      // Clear logs and show the initial system dispatch message
       setWorkerLogs([{
         id: `sys-${Date.now()}`,
         timestamp: new Date().toISOString(),
         level: 'info',
-        message: '🚀 SYSTEM: Dispatching Prime Ignition Signal...',
+        message: `🚀 SYSTEM: Dispatching Prime Ignition Signal for Game [${gameId.slice(0, 8)}...]`,
         module: 'DASHBOARD'
       }]);
       

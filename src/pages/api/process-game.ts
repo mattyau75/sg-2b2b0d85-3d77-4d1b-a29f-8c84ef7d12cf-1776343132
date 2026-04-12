@@ -8,11 +8,14 @@ import { modalService } from "@/services/modalService";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  const { gameId, videoUrl, metadata } = req.body;
-  const finalGameId = gameId || metadata?.gameId;
+  // 🛡️ EXTRACT IDENTIFIER FROM ALL POSSIBLE LOCATIONS
+  const { gameId, metadata } = req.body;
+  const finalGameId = gameId || metadata?.gameId || metadata?.id;
 
   if (!finalGameId) {
-    return res.status(400).json({ message: "Missing required Game ID for ignition." });
+    return res.status(400).json({ 
+      message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." 
+    });
   }
 
   try {
