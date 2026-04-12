@@ -153,13 +153,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     modalService.processGame(signedUrl, { game_id: finalGameId, ...gpuConfig }).then(async (modalRes) => {
       console.log(`[ProcessGame] ✅ Modal.com Response:`, modalRes);
-      // Force an immediate 15% pulse so UI never stalls at 10%
-      await supabase.from('games').update({ 
+      
+      // SENIOR FIX: Perform the 15% pulse with explicit metadata initialization
+      const { error: pulseError } = await supabase.from('games').update({ 
         status: 'analyzing', 
         progress_percentage: 15,
         ignition_status: 'ignited',
+        processing_metadata: {
+          worker_logs: [{
+            timestamp: new Date().toISOString(),
+            message: "App Server: GPU Handshake Verified. Swarm Ignited.",
+            severity: "success"
+          }],
+          last_heartbeat: new Date().toISOString()
+        },
         updated_at: new Date().toISOString()
       } as any).eq('id', finalGameId);
+
+      if (pulseError) {
+        console.error("[ProcessGame] Pulse Update Failed:", pulseError);
+      }
     }).catch(err => {
       console.error("[ProcessGame] GPU Handoff Failed:", err.message);
       supabase.from('games').update({ 
