@@ -42,9 +42,15 @@ def update_pulse(sb, game_id, progress, message, severity="info"):
         modal.Secret.from_name("r2-credentials")
     ]
 )
-def process_game_factory(game_id: str, supabase_url: string, supabase_key: string, metadata: dict = None):
+@modal.web_endpoint(method="POST")
+def process_game_factory(data: dict):
     """Unified Factory: M2 (Detection) + M3 (Mapping) + M4 (Calibration)"""
     from supabase import create_client
+    
+    game_id = data.get("game_id")
+    supabase_url = data.get("supabase_url")
+    supabase_key = data.get("supabase_key")
+    metadata = data.get("metadata", {})
     
     # 1. INITIALIZE & HANDSHAKE
     print(f"🚀 GPU AWAKENING: Game ID {game_id}")
