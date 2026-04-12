@@ -21,13 +21,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       throw new Error("Missing video source for AI analysis.");
     }
 
-    // 2. PRIME HANDSHAKE (0-5%)
-    // Establish link first to provide immediate trace feedback
+    // 🛡️ HANDSHAKE STABILIZER: Ensure frontend listener is ready
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    // 1. PRIME HANDSHAKE: Establish link
     await supabase.from("game_analysis").insert({
       game_id: finalGameId,
       status: "initializing",
       progress_percentage: 5,
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
+    });
+
+    // 2. FORENSIC PAYLOAD LOG
+    await supabase.from("game_analysis").insert({
+      game_id: finalGameId,
+      status: "authorizing",
+      progress_percentage: 10,
+      status_message: `📦 PAYLOAD: Video Source [${finalVideoUrl?.substring(0, 30)}...] identified.`
     });
 
     // 3. AUTHORIZATION (5-14%)

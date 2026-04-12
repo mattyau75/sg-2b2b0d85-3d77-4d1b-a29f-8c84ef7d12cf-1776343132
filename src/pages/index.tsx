@@ -206,12 +206,27 @@ export default function Dashboard() {
 
     // 1. CLEAR PREVIOUS NOISE
     if (activeChannel) {
-      console.log("🧹 CLEANUP: Closing stale handshake channel...");
       await supabase.removeChannel(activeChannel);
     }
 
     try {
       setIgnitingGameId(gameId);
+      
+      // 🛡️ LOCAL TECHNICAL HEARTBEAT: Immediate 0s Visibility
+      setWorkerLogs([{
+        id: `local-init-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        message: '📡 SYSTEM: Initializing Elite Technical Handshake...',
+        module: 'DASHBOARD'
+      }, {
+        id: `local-sync-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        level: 'info',
+        message: '🔄 SYNC: Stabilizing Supabase Realtime Channel...',
+        module: 'SYSTEM'
+      }]);
+
       const stableGameId = gameId.toLowerCase(); // 🛡️ NORMALIZE FOR FILTER
 
       setWorkerLogs([{
