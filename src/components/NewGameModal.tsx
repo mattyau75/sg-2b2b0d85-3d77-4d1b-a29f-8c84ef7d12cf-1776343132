@@ -81,13 +81,13 @@ export function NewGameModal() {
       const { data: newGame, error: gameError } = await supabase
         .from('games')
         .insert({
-          team_home: values.homeTeam,
-          team_away: values.awayTeam,
-          jersey_home: values.homeColor,
-          jersey_away: values.awayColor,
+          home_team_id: values.homeTeam, // UUID from select
+          away_team_id: values.awayTeam, // UUID from select
+          home_team_color: values.homeColor,
+          away_team_color: values.awayColor,
           video_path: videoPath,
-          processing_status: 'pending'
-        })
+          status: 'pending'
+        } as any)
         .select('id')
         .single();
 

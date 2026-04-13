@@ -223,12 +223,8 @@ export default function GamesPage() {
         )}
       </div>
 
-      <NewGameModal 
-        isOpen={isNewGameModalOpen} 
-        onClose={() => setIsNewGameModalOpen(false)} 
-        onUploadSuccess={handleUploadSuccess}
-      />
-
+      <NewGameModal />
+      
       <EditGameTeamsModal 
         game={selectedGameForEdit}
         isOpen={isEditModalOpen}
