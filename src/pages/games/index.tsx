@@ -201,15 +201,9 @@ export default function GamesPage() {
               <div className="space-y-2">
                 <h3 className="text-2xl font-black uppercase tracking-tighter">No Games Found</h3>
                 <p className="text-muted-foreground text-sm font-medium">
-                  Your scouting library is empty. Upload your first game link to ignite the AI engine.
+                  Your scouting library is empty.
                 </p>
               </div>
-              <Button 
-                onClick={() => setIsNewGameModalOpen(true)}
-                className="bg-primary hover:bg-primary/90 text-white font-black px-10 h-12 rounded-xl shadow-xl shadow-primary/20 uppercase tracking-widest text-xs"
-              >
-                Analyze First Game
-              </Button>
             </div>
           </Card>
         )}
