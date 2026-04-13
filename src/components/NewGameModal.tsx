@@ -55,6 +55,8 @@ const formSchema = z.object({
     required_error: "Game date is required",
   }),
   venueId: z.string().min(1, "Venue selection required"),
+  homeScore: z.coerce.number().min(0).default(0),
+  awayScore: z.coerce.number().min(0).default(0),
 });
 
 export function NewGameModal() {
@@ -75,6 +77,8 @@ export function NewGameModal() {
       awayTeam: "",
       gameDate: new Date(),
       venueId: "",
+      homeScore: 0,
+      awayScore: 0,
     },
   });
 
@@ -134,6 +138,8 @@ export function NewGameModal() {
           away_team_id: values.awayTeam,
           date: values.gameDate.toISOString(),
           venue_id: values.venueId,
+          home_score: values.homeScore,
+          away_score: values.awayScore,
           video_path: videoPath,
           status: 'pending'
         } as any)
@@ -373,6 +379,39 @@ export function NewGameModal() {
                   />
                 </div>
 
+                <div className="space-y-4 pt-4 border-t border-white/5">
+                  <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <Palette className="h-3 w-3 text-primary" /> Truth Scoreboard (Calibration)
+                  </FormLabel>
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="homeScore"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Home Final</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-xl text-center focus:ring-primary/20" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="awayScore"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Away Final</FormLabel>
+                          <FormControl>
+                            <Input type="number" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-xl text-center focus:ring-accent/20" />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground italic">Ground-truth scores are used to calibrate AI detection accuracy for this game.</p>
+                </div>
+
                 <div className="space-y-4">
                   <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                     <UploadCloud className="h-3 w-3 text-primary" /> Source Intelligence (Video)
@@ -417,7 +456,7 @@ export function NewGameModal() {
                 >
                   {uploading ? "Streaming Intelligence..." : (
                     <span className="flex items-center gap-2 group-hover:scale-105 transition-transform">
-                      Ignite AI Analysis <CheckCircle2 className="h-5 w-5" />
+                      Add Game <CheckCircle2 className="h-5 w-5" />
                     </span>
                   )}
                 </Button>
