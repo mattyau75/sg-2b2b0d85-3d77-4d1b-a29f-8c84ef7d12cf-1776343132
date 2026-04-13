@@ -131,3 +131,31 @@ def analyze_endpoint(data: dict):
         "message": "🚀 Swarm Signal Received. GPU Cluster Initializing...",
         "game_id": game_id
     }
+
+@app.function(secrets=[modal.Secret.from_name("supabase-keys")])
+@modal.web_endpoint(method="POST", label="ping")
+def ping_endpoint(data: dict):
+    """FORENSIC PING: Simple loopback test to confirm Supabase ↔ GPU connectivity"""
+    from supabase import create_client
+    test_id = data.get("test_id", "manual-ping-" + str(int(time.time())))
+    
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not url or not key:
+        return {"status": "error", "message": "❌ SECRETS MISSING in Modal.com"}
+        
+    try:
+        supabase = create_client(url, key)
+        timestamp_z = datetime.utcnow().isoformat() + "Z"
+        
+        supabase.table("handshake_debug").upsert({
+            "test_id": test_id,
+            "status": "success",
+            "message": "✅ GPU Handshake Verified. Service Role Authority confirmed.",
+            "gpu_heartbeat": timestamp_z
+        }, on_conflict=["test_id"]).execute()
+        
+        return {"status": "success", "test_id": test_id, "heartbeat": timestamp_z}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
