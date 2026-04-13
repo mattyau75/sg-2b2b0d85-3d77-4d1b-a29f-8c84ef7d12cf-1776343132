@@ -136,9 +136,15 @@ export default function GameDetailPage() {
     if (!mod || !mod.key) return;
 
     try {
+      // Use explicit keys to satisfy strict TypeScript definitions from Supabase
+      const updatePayload: any = {};
+      if (mod.key) {
+        updatePayload[mod.key] = isComplete;
+      }
+
       const { error } = await supabase
         .from('games')
-        .update({ [mod.key]: isComplete })
+        .update(updatePayload)
         .eq('id', gameId);
 
       if (error) throw error;
