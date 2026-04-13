@@ -93,7 +93,8 @@ export const showBanner = (message: string, severity: BannerSeverity = "info", t
       id: Math.random().toString(36).substr(2, 9), 
       message, 
       severity,
-      title 
+      title,
+      // 🛡️ STICKY PERSISTENCE: No duration property means it never auto-hides
     },
   });
   window.dispatchEvent(event);

@@ -131,7 +131,9 @@ export type Database = {
           event_type: string
           game_id: string | null
           id: string
+          module_id: string | null
           payload: Json
+          severity: string | null
           timestamp_ms: number
         }
         Insert: {
@@ -139,7 +141,9 @@ export type Database = {
           event_type: string
           game_id?: string | null
           id?: string
+          module_id?: string | null
           payload: Json
+          severity?: string | null
           timestamp_ms: number
         }
         Update: {
@@ -147,7 +151,9 @@ export type Database = {
           event_type?: string
           game_id?: string | null
           id?: string
+          module_id?: string | null
           payload?: Json
+          severity?: string | null
           timestamp_ms?: number
         }
         Relationships: [
