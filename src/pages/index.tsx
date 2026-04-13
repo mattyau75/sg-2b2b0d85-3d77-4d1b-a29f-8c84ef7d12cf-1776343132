@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { NewGameModal } from "@/components/NewGameModal";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { DiagnosticBanner, showBanner } from "@/components/DiagnosticBanner";
 import { supabase } from "@/integrations/supabase/client";
@@ -133,17 +132,8 @@ export default function Dashboard() {
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
-            <Button 
-              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
-              onClick={() => setIsNewGameModalOpen(true)}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              ANALYZE NEW GAME
-            </Button>
           </div>
         </div>
-
-        <NewGameModal />
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[

@@ -1,7 +1,7 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film, Fingerprint } from "lucide-react";
+import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film, Fingerprint, Plus } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 
 interface LayoutProps {

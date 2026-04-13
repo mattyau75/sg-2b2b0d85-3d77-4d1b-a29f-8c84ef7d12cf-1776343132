@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +36,7 @@ import { storageService } from "@/services/storageService";
 import { Badge } from "@/components/ui/badge";
 import { showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 const formSchema = z.object({
   homeTeam: z.string().min(2, "Home team required"),
@@ -50,6 +51,7 @@ export function NewGameModal() {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [stage, setStage] = useState<'details' | 'upload' | 'igniting'>('details');
+  const [teams, setTeams] = useState<any[]>([]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -60,6 +62,14 @@ export function NewGameModal() {
       awayColor: "#3b82f6",
     },
   });
+
+  useEffect(() => {
+    const fetchTeams = async () => {
+      const { data } = await supabase.from('teams').select('id, name');
+      if (data) setTeams(data);
+    };
+    if (isOpen) fetchTeams();
+  }, [isOpen]);
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!file) {
@@ -159,7 +169,7 @@ export function NewGameModal() {
                             <ShieldCheck className="h-3 w-3 text-primary" /> Home Roster
                           </FormLabel>
                           <FormControl>
-                            <Input placeholder="Warriors" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-primary/50 transition-all" />
+                            <Input placeholder="Enter Home Team Name" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-primary/50" />
                           </FormControl>
                           <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
                         </FormItem>
@@ -194,7 +204,7 @@ export function NewGameModal() {
                             <Swords className="h-3 w-3 text-accent" /> Away Roster
                           </FormLabel>
                           <FormControl>
-                            <Input placeholder="Lakers" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-accent/50 transition-all" />
+                            <Input placeholder="Enter Away Team Name" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-accent/50" />
                           </FormControl>
                           <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
                         </FormItem>

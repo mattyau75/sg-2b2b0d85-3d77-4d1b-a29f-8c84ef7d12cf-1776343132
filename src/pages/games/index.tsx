@@ -19,7 +19,6 @@ import {
   Filter
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { NewGameModal } from "@/components/NewGameModal";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -84,13 +83,6 @@ export default function GamesPage() {
             </h1>
             <p className="text-muted-foreground text-sm font-medium">Manage historical footage and AI scouting reports.</p>
           </div>
-          <Button 
-            className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300 h-12 rounded-xl font-bold px-6 shrink-0"
-            onClick={() => setIsNewGameModalOpen(true)}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            ADD NEW GAME
-          </Button>
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -223,8 +215,6 @@ export default function GamesPage() {
         )}
       </div>
 
-      <NewGameModal />
-      
       <div className="flex items-center justify-between mb-12">
         <div className="space-y-1">
           <h1 className="text-4xl font-black uppercase tracking-tighter italic italic flex items-center gap-3">
