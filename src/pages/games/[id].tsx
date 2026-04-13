@@ -28,6 +28,7 @@ import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
 import { MappingDashboard } from "@/components/MappingDashboard";
 import { showBanner } from "@/components/DiagnosticBanner";
+import { workflowService } from "@/services/workflowService";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; desc: string }> = {
   'pending': { label: 'Queued', color: 'text-zinc-400', desc: 'Awaiting cluster provisioning.' },
@@ -48,6 +49,7 @@ export default function GameDetailPage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   const [aiMappings, setAiMappings] = useState<any[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const fetchGameData = useCallback(async () => {
     if (!gameId) return;
@@ -79,6 +81,27 @@ export default function GameDetailPage() {
       setLoading(false);
     }
   }, [gameId, videoUrl]);
+
+  const handleInitiatePhase = async (phase: string) => {
+    if (!gameId) return;
+    setIsProcessing(true);
+    try {
+      showBanner(`Initiating Phase ${phase}...`, "info", "SYSTEM HANDSHAKE");
+      
+      if (phase === "m2") {
+        // Explicit manual trigger for GPU ignition
+        await axios.post('/api/process-game', { gameId });
+        await workflowService.advanceModule(gameId as string, 'ignited');
+        showBanner("GPU Cluster Ignited. Streaming active.", "success", "PHASE 02 START");
+      }
+      
+      await fetchGameData();
+    } catch (err: any) {
+      showBanner(err.message || "Phase Initiation Failed", "error", "HARD STALL");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   useEffect(() => {
     fetchGameData();
@@ -161,10 +184,17 @@ export default function GameDetailPage() {
           </TabsList>
 
           <TabsContent value="m1" className="space-y-6">
-             <Card className="bg-card/40 border-white/5 p-12 text-center space-y-4">
+             <Card className="bg-card/40 border-white/5 p-12 text-center space-y-6">
                 <CheckCircle2 className="h-12 w-12 text-emerald-500 mx-auto" />
                 <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Baseline Verified</h3>
-                <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Team jerseys and roster metadata are correctly synchronized with the AI discovery engine.</p>
+                <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Ready for GPU Cluster Injection. No auto-triggering active.</p>
+                <Button 
+                  onClick={() => handleInitiatePhase("m2")} 
+                  disabled={isProcessing || game?.status === 'analyzing' || game?.status === 'completed'}
+                  className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic h-14 px-8 rounded-xl"
+                >
+                  {isProcessing ? "Igniting..." : "Initiate GPU Swarm (Module 02)"}
+                </Button>
              </Card>
           </TabsContent>
 
