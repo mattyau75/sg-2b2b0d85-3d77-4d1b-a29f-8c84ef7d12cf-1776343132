@@ -404,7 +404,7 @@ export default function GameDetailPage() {
     if (provisioningTimeout) clearTimeout(provisioningTimeout);
     const timeout = setTimeout(() => {
       if (game?.progress_percentage < 16) {
-        const diagnosticMessage = "⚠️ HANDSHAKE DELAY: GPU Cluster is taking longer than 45s to provision. Possible 'Cold Start' or Network Congestion.";
+        const diagnosticMessage = "⚠️ HANDSHAKE DELAY: GPU Cluster is taking longer than 45s. Action Required: Please verify that 'supabase-keys' secret is correctly configured in your Modal.com dashboard.";
         showBanner(diagnosticMessage, "warning", "Diagnostic Alert");
         handleTraceLog({
           status: 'warning',
