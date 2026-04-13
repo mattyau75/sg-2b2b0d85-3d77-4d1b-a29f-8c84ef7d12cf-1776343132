@@ -250,15 +250,23 @@ export function NewGameModal() {
                             </Button>
                           </FormControl>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-background border-white/10" align="start">
+                        <PopoverContent 
+                          className="w-auto p-0 bg-background border-white/10 z-[110]" 
+                          align="start"
+                          side="bottom"
+                          onFocusOutside={(e) => e.preventDefault()}
+                        >
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={field.onChange}
+                            onSelect={(date) => {
+                              field.onChange(date);
+                            }}
                             disabled={(date) =>
                               date > new Date() || date < new Date("1900-01-01")
                             }
                             initialFocus
+                            className="rounded-xl border-none"
                           />
                         </PopoverContent>
                       </Popover>
