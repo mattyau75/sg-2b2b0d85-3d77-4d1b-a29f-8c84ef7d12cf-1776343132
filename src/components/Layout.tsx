@@ -1,7 +1,7 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film } from "lucide-react";
+import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film, Fingerprint } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 
 interface LayoutProps {
@@ -33,6 +33,7 @@ export function Layout({ children, title, description }: LayoutProps) {
               { icon: History, label: "Games", href: "/games" },
               { icon: BarChart3, label: "Analytics", href: "/analytics" },
               { icon: PlayCircle, label: "Highlights", href: "/highlights" },
+              { icon: Fingerprint, label: "System Handshake", href: "/debug/handshake" },
               { icon: HelpCircle, label: "Help & Tips", href: "/help" },
             ].map((item) => (
               <Link
