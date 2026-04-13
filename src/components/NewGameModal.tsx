@@ -1,166 +1,302 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Video, FileVideo, Upload, Loader2, X } from "lucide-react";
-import { useUploads } from "@/contexts/UploadContext";
-import { cn } from "@/lib/utils";
-import { showBanner } from "@/components/DiagnosticBanner";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { 
+  Plus, 
+  UploadCloud, 
+  Swords, 
+  ShieldCheck, 
+  Cpu, 
+  AlertCircle,
+  CheckCircle2,
+  X,
+  Palette
+} from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { supabase } from "@/integrations/supabase/client";
+import { storageService } from "@/services/storageService";
+import { Badge } from "@/components/ui/badge";
+import { showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
 
-interface NewGameModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onUploadSuccess: (gameId: string) => void;
-}
+const formSchema = z.object({
+  homeTeam: z.string().min(2, "Home team required"),
+  awayTeam: z.string().min(2, "Away team required"),
+  homeColor: z.string().default("#f97316"),
+  awayColor: z.string().default("#3b82f6"),
+});
 
-export function NewGameModal({ isOpen, onClose, onUploadSuccess }: NewGameModalProps) {
-  const { startUpload, activeUploads, cancelUpload } = useUploads();
-  const [isStarting, setIsStarting] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+export function NewGameModal() {
+  const [isOpen, setIsOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [stage, setStage] = useState<'details' | 'upload' | 'igniting'>('details');
 
-  const currentUpload = activeUploads.find(u => u.fileName === selectedFile?.name);
-  const isUploading = !!currentUpload && currentUpload.status === "uploading";
-  const uploadProgress = currentUpload?.progress || 0;
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      homeTeam: "",
+      awayTeam: "",
+      homeColor: "#f97316",
+      awayColor: "#3b82f6",
+    },
+  });
 
-  const handleCancel = () => {
-    if (isUploading && currentUpload) {
-      cancelUpload(currentUpload.id);
+  const onSubmit = async (values: z.infer<typeof formSchema>) => {
+    if (!file) {
+      showBanner("Missing Video Source", "error");
+      return;
     }
-    setSelectedFile(null);
-    onClose();
-  };
+    setStage('upload');
+    setUploading(true);
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setSelectedFile(file);
-  };
-
-  const handleStartUpload = async () => {
-    if (!selectedFile) return;
-    setIsStarting(true);
-    
     try {
-      const result = await startUpload(selectedFile, {
-        cameraType: "panning"
+      // 1. UPLOAD TO R2 (Multi-part for 8GB Support)
+      const videoPath = await storageService.uploadVideo(file, (progress) => {
+        setUploadProgress(progress);
       });
+
+      setStage('igniting');
       
-      const gameId = result as unknown as string;
-      
-      if (gameId) {
-        showBanner("Upload Complete", "success");
-        onUploadSuccess(gameId);
-      }
-    } catch (error: any) {
-      showBanner(error.message || "Upload Failed", "error");
-    } finally {
-      setIsStarting(false);
+      // 2. REGISTER IN SUPABASE (UUID GENERATED)
+      const { data: newGame, error: gameError } = await supabase
+        .from('games')
+        .insert({
+          team_home: values.homeTeam,
+          team_away: values.awayTeam,
+          jersey_home: values.homeColor,
+          jersey_away: values.awayColor,
+          video_path: videoPath,
+          processing_status: 'pending'
+        })
+        .select('id')
+        .single();
+
+      if (gameError || !newGame) throw new Error("Failed to register scout session.");
+
+      // 3. TRIGGER STATELESS IGNITION
+      await axios.post('/api/process-game', {
+        gameId: newGame.id,
+        metadata: {
+          home: values.homeTeam,
+          away: values.awayTeam,
+          colors: { home: values.homeColor, away: values.awayColor }
+        }
+      });
+
+      showBanner("GPU Swarm Ignited", "success");
+      setIsOpen(false);
+      resetState();
+    } catch (err: any) {
+      console.error("Scout Initiation Failed:", err);
+      showBanner(err.message || "Handshake Failure", "error");
+      setStage('details');
+      setUploading(false);
     }
+  };
+
+  const resetState = () => {
+    setFile(null);
+    setUploadProgress(0);
+    setUploading(false);
+    setStage('details');
+    form.reset();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleCancel}>
-      <DialogContent className="max-w-2xl bg-[#0B0E14] border-white/5 p-0 overflow-hidden shadow-2xl shadow-black/50">
-        <div className="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Video className="h-4 w-4 text-primary" />
-              </div>
-              <DialogTitle className="text-2xl font-black tracking-tight text-white uppercase">
-                Step 1 : Upload Game Video
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em]">
-              High-Density Ingestion Engine • Raw Footage Input
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+    <Dialog open={isOpen} onOpenChange={(val) => {
+      if (!uploading) {
+        setIsOpen(val);
+        if (!val) resetState();
+      }
+    }}>
+      <DialogTrigger asChild>
+        <Button className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-tighter italic h-12 px-6 rounded-none skew-x-[-12deg]">
+          <span className="skew-x-[12deg] flex items-center gap-2">
+            <Plus className="h-5 w-5" /> New Scout Session
+          </span>
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-hidden rounded-3xl">
+        <DialogHeader className="p-8 pb-0">
+          <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic italic flex items-center gap-3">
+            <Cpu className="h-8 w-8 text-primary animate-pulse" />
+            Initiate <span className="text-primary not-italic">AI Swarm</span>
+          </DialogTitle>
+        </DialogHeader>
 
-        <div className="px-8 py-6">
-          <div 
-            onClick={() => !isStarting && !isUploading && fileInputRef.current?.click()}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              const file = e.dataTransfer.files?.[0];
-              if (file && !isStarting && !isUploading) setSelectedFile(file);
-            }}
-            className={cn(
-              "group relative flex flex-col items-center justify-center border-2 border-dashed rounded-2xl p-16 transition-all duration-300 cursor-pointer",
-              selectedFile ? "border-primary bg-primary/5 shadow-inner" : "border-border hover:border-primary/50 hover:bg-muted/5",
-              (isStarting || isUploading) && "opacity-80 cursor-not-allowed pointer-events-none"
-            )}
-          >
-            <input type="file" ref={fileInputRef} className="hidden" accept="video/*" onChange={handleFileSelect} />
-            
-            {isUploading ? (
-              <div className="flex flex-col items-center gap-8 w-full max-w-sm">
-                <div className="relative h-20 w-20">
-                  <Loader2 className="h-20 w-20 text-primary animate-spin absolute inset-0 opacity-20" />
-                  <div className="absolute inset-0 flex items-center justify-center font-mono text-sm font-bold text-primary">
-                    {Math.round(uploadProgress)}%
+        <div className="p-8 space-y-8">
+          {stage === 'details' ? (
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="homeTeam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <ShieldCheck className="h-3 w-3 text-primary" /> Home Roster
+                          </FormLabel>
+                          <FormControl>
+                            <Input placeholder="Warriors" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-primary/50 transition-all" />
+                          </FormControl>
+                          <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="homeColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <Palette className="h-3 w-3 text-primary" /> Primary Color
+                          </FormLabel>
+                          <FormControl>
+                            <div className="flex items-center gap-4">
+                              <Input type="color" {...field} className="w-12 h-12 p-1 bg-transparent border-none rounded-full cursor-pointer" />
+                              <span className="font-mono text-xs uppercase text-muted-foreground tracking-tighter">{field.value}</span>
+                            </div>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <div className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="awayTeam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <Swords className="h-3 w-3 text-accent" /> Away Roster
+                          </FormLabel>
+                          <FormControl>
+                            <Input placeholder="Lakers" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-accent/50 transition-all" />
+                          </FormControl>
+                          <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="awayColor"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <Palette className="h-3 w-3 text-accent" /> Primary Color
+                          </FormLabel>
+                          <FormControl>
+                            <div className="flex items-center gap-4">
+                              <Input type="color" {...field} className="w-12 h-12 p-1 bg-transparent border-none rounded-full cursor-pointer" />
+                              <span className="font-mono text-xs uppercase text-muted-foreground tracking-tighter">{field.value}</span>
+                            </div>
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
-                <div className="w-full space-y-3">
-                  <Progress value={uploadProgress} className="h-2.5 bg-primary/10" />
-                  <p className="text-center text-sm font-medium text-muted-foreground italic animate-pulse">
-                    Streaming footage to DribbleStats Cloud...
-                  </p>
-                </div>
-              </div>
-            ) : selectedFile ? (
-              <div className="flex flex-col items-center gap-4">
-                <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20">
-                  <FileVideo className="h-10 w-10 text-primary" />
-                </div>
-                <div className="text-center">
-                  <p className="text-lg font-bold text-foreground line-clamp-1 max-w-[300px]">{selectedFile.name}</p>
-                  <p className="text-xs text-muted-foreground mt-1 uppercase tracking-tighter">Click or drag to replace file</p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="h-20 w-20 rounded-full bg-muted/20 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                  <Upload className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <p className="text-xl font-bold text-foreground">Drag & Drop Game Footage</p>
-                <p className="text-sm text-muted-foreground mt-2">Elite precision starts with high-quality MP4 or MOV</p>
-              </>
-            )}
-          </div>
-        </div>
 
-        <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5">
-          <Button 
-            variant="ghost" 
-            onClick={handleCancel} 
-            className="text-muted-foreground hover:text-foreground font-bold"
-          >
-            {isUploading ? "CANCEL UPLOAD" : "CANCEL"}
-          </Button>
-          <Button 
-            onClick={handleStartUpload} 
-            disabled={!selectedFile || isStarting || isUploading}
-            className="bg-primary hover:bg-primary/90 min-w-[200px] h-14 rounded-xl font-black text-xs tracking-widest uppercase shadow-xl shadow-primary/20"
-          >
-            {isStarting || isUploading ? (
-              <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> {isUploading ? 'INGESTING...' : 'INITIATING...'}</>
-            ) : (
-              <><Upload className="h-4 w-4 mr-2" /> UPLOAD FOOTAGE</>
-            )}
-          </Button>
-        </DialogFooter>
+                <div className="space-y-4">
+                  <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                    <UploadCloud className="h-3 w-3 text-primary" /> Source Intelligence (Video)
+                  </FormLabel>
+                  <div 
+                    className={`
+                      relative group border-2 border-dashed rounded-3xl p-12 transition-all cursor-pointer
+                      ${file ? 'border-primary/50 bg-primary/5' : 'border-white/5 hover:border-primary/30 hover:bg-white/5'}
+                    `}
+                    onClick={() => document.getElementById('video-upload')?.click()}
+                  >
+                    <input 
+                      type="file" 
+                      id="video-upload" 
+                      className="hidden" 
+                      accept="video/*" 
+                      onChange={(e) => setFile(e.target.files?.[0] || null)}
+                    />
+                    <div className="flex flex-col items-center text-center gap-4">
+                      <div className={`p-4 rounded-full bg-background border ${file ? 'border-primary/50 text-primary' : 'border-white/10 text-muted-foreground'}`}>
+                        <UploadCloud className="h-8 w-8" />
+                      </div>
+                      {file ? (
+                        <div className="space-y-1">
+                          <p className="text-white font-bold">{file.name}</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest">{(file.size / (1024 * 1024)).toFixed(2)} MB Ready</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-1">
+                          <p className="text-white font-bold uppercase tracking-tighter">Drop footage or click to browse</p>
+                          <p className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest">Supports 8GB / 1-hour footage</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  disabled={uploading || !file}
+                  className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic rounded-2xl group transition-all"
+                >
+                  {uploading ? "Streaming Intelligence..." : (
+                    <span className="flex items-center gap-2 group-hover:scale-105 transition-transform">
+                      Ignite AI Analysis <CheckCircle2 className="h-5 w-5" />
+                    </span>
+                  )}
+                </Button>
+              </form>
+            </Form>
+          ) : (
+            <div className="py-20 flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in duration-500">
+              <div className="relative">
+                <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
+                <Cpu className="h-24 w-24 text-primary relative animate-bounce" />
+              </div>
+              <div className="space-y-4 max-w-sm">
+                <h3 className="text-2xl font-black uppercase tracking-tighter text-white">
+                  {stage === 'upload' ? 'Streaming Intelligence' : 'Igniting GPU Swarm'}
+                </h3>
+                <p className="text-sm text-muted-foreground font-medium">
+                  {stage === 'upload' 
+                    ? `Injecting 8GB heavy-payload footage into R2 cluster. DO NOT CLOSE THIS WINDOW.` 
+                    : `Establishing stateless handshake with Modal.com GPU. Analysis sequence starting.`
+                  }
+                </p>
+                <div className="w-full space-y-2 mt-8">
+                  <div className="flex justify-between text-[10px] font-mono uppercase tracking-widest font-black">
+                    <span className="text-muted-foreground">Pulse Depth</span>
+                    <span className="text-primary">{uploadProgress}%</span>
+                  </div>
+                  <Progress value={uploadProgress} className="h-2 bg-white/5" />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );
