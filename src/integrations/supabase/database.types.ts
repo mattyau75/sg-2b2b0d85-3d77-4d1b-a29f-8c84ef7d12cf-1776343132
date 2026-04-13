@@ -119,7 +119,7 @@ export type Database = {
           {
             foreignKeyName: "game_analysis_game_id_fkey"
             columns: ["game_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "games"
             referencedColumns: ["id"]
           },
@@ -148,6 +148,7 @@ export type Database = {
           processing_metadata: Json | null
           progress_percentage: number | null
           status: string | null
+          status_message: string | null
           updated_at: string | null
           venue: string | null
           venue_id: string | null
@@ -176,6 +177,7 @@ export type Database = {
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
+          status_message?: string | null
           updated_at?: string | null
           venue?: string | null
           venue_id?: string | null
@@ -204,6 +206,7 @@ export type Database = {
           processing_metadata?: Json | null
           progress_percentage?: number | null
           status?: string | null
+          status_message?: string | null
           updated_at?: string | null
           venue?: string | null
           venue_id?: string | null
