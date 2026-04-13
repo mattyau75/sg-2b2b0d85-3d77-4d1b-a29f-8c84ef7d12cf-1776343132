@@ -85,27 +85,24 @@ def log_to_trace(supabase, game_id, progress, message, status="processing"):
 )
 def process_game_swarm(game_id: str, video_url: str = None):
     import os
-    import time
     from supabase import create_client
     
-    # 🛡️ FORENSIC SECRET AUDIT: Confirm Modal.com secrets are loaded
+    # 1. ATOMIC ID NORMALIZATION (LOWERCASE ONLY)
+    game_id = game_id.lower()
+    
+    # 2. SECRET VALIDATION GUARD (NO SILENT FAILURES)
     url = os.environ.get("SUPABASE_URL")
     key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
     if not url or not key:
-        print("❌ FATAL: Modal.com 'supabase-keys' secret is missing or misconfigured.")
-        print(f"DEBUG - URL Present: {bool(url)}, Key Present: {bool(key)}")
+        print(f"❌ FATAL: Modal.com 'supabase-keys' secret is missing. URL: {bool(url)}, KEY: {bool(key)}")
         return {"status": "error", "message": "Modal.com secrets (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) are missing."}
 
-    # 🛡️ ATOMIC ID ALIGNMENT
-    game_id = game_id.lower()
-    start_time = time.time()
-    
     supabase = create_client(url, key)
 
     try:
-        # 🚀 IMMEDIATE 16% HANDSHAKE
-        log_to_trace(supabase, game_id, 16, "✅ GPU HANDSHAKE: Elite Cluster Awakened & Normalized.")
+        # 3. GPU HANDSHAKE (Standardized Log)
+        log_to_trace(supabase, game_id, 16, "✅ GPU HANDSHAKE: Elite Cluster Awakened.")
         
         if not video_url:
             raise ValueError("GPU received an empty video URL payload.")

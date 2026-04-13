@@ -5,15 +5,24 @@ import { triggerAnalysis } from "@/services/modalService";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 1. EXTRACT & VALIDATE IMMEDIATELY
+  // 1. ATOMIC ID NORMALIZATION (LOWERCASE ONLY)
   const { gameId, video_path, videoUrl: bodyVideoUrl } = req.body;
-  const finalGameId = (gameId || req.body.game_id || req.body.metadata?.gameId)?.toLowerCase();
+  const rawId = gameId || req.body.game_id || req.body.metadata?.gameId;
+  const finalGameId = rawId?.toString().toLowerCase();
 
   if (!finalGameId) {
     return res.status(400).json({ success: false, message: "Missing gameId for analysis ignition." });
   }
 
   try {
+    // 2. PRIME HANDSHAKE (Standardized Log)
+    await supabase.from("game_analysis").upsert({
+      game_id: finalGameId,
+      status: "initializing",
+      progress_percentage: 5,
+      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
+    }, { onConflict: 'game_id' });
+
     // 2. FETCH VIDEO SOURCE FROM DB IF MISSING
     let finalVideoUrl = bodyVideoUrl || video_path;
     
@@ -41,14 +50,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 🛡️ HANDSHAKE STABILIZER: Ensure frontend listener is ready
     await new Promise(resolve => setTimeout(resolve, 1200));
-
-    // 1. PRIME HANDSHAKE (Use UPSERT to prevent conflicts)
-    await supabase.from("game_analysis").upsert({
-      game_id: finalGameId,
-      status: "initializing",
-      progress_percentage: 5,
-      status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
-    }, { onConflict: 'game_id' });
 
     // 2. FORENSIC PAYLOAD LOG
     await supabase.from("game_analysis").upsert({

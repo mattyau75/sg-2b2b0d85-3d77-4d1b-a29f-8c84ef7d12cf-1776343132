@@ -337,11 +337,19 @@ export default function GameDetailPage() {
 
     if (activeChannel) await supabase.removeChannel(activeChannel);
 
+    // 1. ATOMIC ID NORMALIZATION
+    const normalizedId = gameId.toLowerCase();
+
     const channel = supabase
-      .channel(`manual-sync-detail-${gameId.toLowerCase()}`)
+      .channel(`manual-sync-detail-${normalizedId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId.toLowerCase()}` },
+        { 
+          event: '*', // 🛡️ MATCH UPSERT PATTERN
+          schema: 'public', 
+          table: 'game_analysis', 
+          filter: `game_id=eq.${normalizedId}` 
+        },
         (payload) => {
           const entry = (payload.new || payload.old) as any;
           if (!entry) return;
