@@ -341,16 +341,25 @@ export default function GameDetailPage() {
       .channel(`manual-sync-detail-${gameId.toLowerCase()}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId.toLowerCase()}` },
+        { event: '*', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId.toLowerCase()}` },
         (payload) => {
-          const entry = payload.new as any;
+          const entry = (payload.new || payload.old) as any;
+          if (!entry) return;
+          
           setGame((prev: any) => ({
             ...prev,
+            progress_percentage: entry.progress_percentage ?? prev.progress_percentage,
+            status: entry.status ?? prev.status,
             processing_metadata: {
               ...prev.processing_metadata,
               worker_logs: [
                 ...(prev.processing_metadata?.worker_logs || []),
-                { timestamp: entry.created_at, message: entry.status_message, severity: entry.status === 'error' ? 'error' : 'info' }
+                { 
+                  id: `log-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  timestamp: entry.updated_at || entry.created_at || new Date().toISOString(), 
+                  message: entry.status_message, 
+                  severity: entry.status === 'error' ? 'error' : 'info' 
+                }
               ]
             }
           }));

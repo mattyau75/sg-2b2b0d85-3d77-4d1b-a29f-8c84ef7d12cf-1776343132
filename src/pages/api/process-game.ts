@@ -42,21 +42,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 🛡️ HANDSHAKE STABILIZER: Ensure frontend listener is ready
     await new Promise(resolve => setTimeout(resolve, 1200));
 
-    // 1. PRIME HANDSHAKE: Establish link
-    await supabase.from("game_analysis").insert({
+    // 1. PRIME HANDSHAKE (Use UPSERT to prevent conflicts)
+    await supabase.from("game_analysis").upsert({
       game_id: finalGameId,
       status: "initializing",
       progress_percentage: 5,
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
-    });
+    }, { onConflict: 'game_id' });
 
     // 2. FORENSIC PAYLOAD LOG
-    await supabase.from("game_analysis").insert({
+    await supabase.from("game_analysis").upsert({
       game_id: finalGameId,
       status: "authorizing",
       progress_percentage: 10,
       status_message: `📦 PAYLOAD: Video Source [${finalVideoUrl?.substring(0, 30)}...] identified.`
-    });
+    }, { onConflict: 'game_id' });
 
     // 3. AUTHORIZATION (5-14%)
     await supabase.from("game_analysis").insert({
