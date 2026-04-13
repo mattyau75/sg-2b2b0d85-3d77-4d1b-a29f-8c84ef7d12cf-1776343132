@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Loader2, Info } from "lucide-react";
+import { Info } from "lucide-react";
 
 export default function GamesPage() {
   const { activeUploads, cancelUpload } = useUploads();
