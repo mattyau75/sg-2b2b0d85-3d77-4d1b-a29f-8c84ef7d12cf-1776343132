@@ -46,6 +46,10 @@ export default function Dashboard() {
   });
   const [loading, setLoading] = useState(true);
   const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -193,8 +197,14 @@ export default function Dashboard() {
                       </div>
                     ))
                   ) : (
-                    <div className="py-12 text-center text-muted-foreground text-sm font-mono">
-                      No analyzed games found. Ignite your first swarm.
+                    <div className="flex flex-col items-center justify-center py-20 px-4 border-2 border-dashed border-white/5 rounded-3xl bg-muted/5">
+                      <div className="h-16 w-16 bg-muted/10 rounded-full flex items-center justify-center mb-6">
+                        <Activity className="h-8 w-8 text-muted-foreground/30" />
+                      </div>
+                      <h3 className="text-xl font-bold uppercase tracking-tight mb-2">No Active Intelligence</h3>
+                      <p className="text-muted-foreground text-sm max-w-xs text-center font-medium">
+                        Your scouting queue is currently empty. Visit the games archive to initiate new analysis.
+                      </p>
                     </div>
                   )}
                 </div>
