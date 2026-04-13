@@ -36,6 +36,7 @@ import { storageService } from "@/services/storageService";
 import { Badge } from "@/components/ui/badge";
 import { showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
+import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
