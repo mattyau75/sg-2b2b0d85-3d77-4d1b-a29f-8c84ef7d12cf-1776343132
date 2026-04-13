@@ -5,11 +5,10 @@ import { triggerAnalysis } from "@/services/modalService";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 1. ATOMIC EXTRACTION
-  const { gameId, video_path, videoUrl: bodyVideoUrl, metadata } = req.body;
-  const rawId = gameId || req.body.game_id || metadata?.gameId || metadata?.game_id || metadata?.id;
-  const finalGameId = typeof rawId === 'string' ? rawId.toLowerCase() : null;
-  const finalVideoUrl = bodyVideoUrl || video_path || metadata?.videoUrl;
+  // 1. EXTRACT & VALIDATE IMMEDIATELY
+  const { gameId, video_path, videoUrl: bodyVideoUrl } = req.body;
+  const finalGameId = (gameId || req.body.game_id || req.body.metadata?.gameId)?.toLowerCase();
+  const finalVideoUrl = bodyVideoUrl || video_path || req.body.metadata?.videoUrl;
 
   if (!finalGameId) {
     return res.status(400).json({ message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." });
@@ -52,7 +51,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await triggerAnalysis({
       gameId: finalGameId,
       videoUrl: finalVideoUrl,
-      metadata: metadata || {},
+      metadata: req.body.metadata || {},
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
       supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
     });

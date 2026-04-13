@@ -57,30 +57,19 @@ def log_progress(supabase, game_id, progress, status, message):
 @app.function(
     image=image,
     gpu="A10G",
-    timeout=1200,
-    container_idle_timeout=60
+    timeout=1800,
+    secrets=[modal.Secret.from_name("supabase-keys")]
 )
-@modal.web_endpoint(method="POST")
-def analyze(payload: dict):
-    """
-    ELITE GPU ENTRY POINT
-    Hardened for instant feedback and robust error reporting.
-    Ignores Modal secrets to use fresh dynamic payload keys.
-    """
-    start_time = time.time()
+def process_game_swarm(game_id: str, video_url: str = None):
+    import os
+    from supabase import create_client
     
-    # FORCED PAYLOAD EXTRACTION - This bypasses any Modal.com Dashboard secrets
-    game_id = payload.get("game_id")
-    supabase_url = payload.get("supabase_url")
-    supabase_key = payload.get("supabase_key") # The fresh Service Role Key
-    video_url = payload.get("video_url")
-
-    if not all([game_id, supabase_url, supabase_key]):
-        return {"status": "error", "message": "CRITICAL: Missing dynamic credentials from website payload."}
-
-    # Initialize Supabase Client (Master Service Role)
-    from supabase import create_client, Client
-    supabase: Client = create_client(supabase_url, supabase_key)
+    # 🛡️ ATOMIC ID ALIGNMENT: Force lowercase to match Realtime Channel
+    game_id = game_id.lower()
+    
+    url = os.environ.get("SUPABASE_URL")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    supabase = create_client(url, key)
 
     def log_to_trace(progress: int, message: str, status: str = "processing"):
         """Instant status sync to the UI via game_analysis table"""
@@ -106,8 +95,8 @@ def analyze(payload: dict):
             print(f"Failed to log to dashboard: {str(e)}")
 
     try:
-        # CRITICAL: IMMEDIATE 16% HANDSHAKE (Breaks the 15% stall)
-        log_progress(supabase, game_id, 16, "processing", "✅ GPU HANDSHAKE: Elite Cluster Awakened & Authenticated.")
+        # 🚀 IMMEDIATE 16% HANDSHAKE: First line of execution
+        log_progress(supabase, game_id, 16, "processing", "✅ GPU HANDSHAKE: Elite Cluster Awakened & Normalized.")
         
         if not video_url:
             raise ValueError("GPU received an empty video URL.")

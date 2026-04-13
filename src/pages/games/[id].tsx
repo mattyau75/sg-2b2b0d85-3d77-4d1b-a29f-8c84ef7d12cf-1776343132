@@ -361,7 +361,7 @@ export default function GameDetailPage() {
           setIsSubscribed(true);
           setActiveChannel(channel);
           setCompletedSteps(prev => [...new Set([...prev, 0])]);
-          showBanner("✅ PHASE 1 COMPLETE: Realtime Connection Verified.", "success", "Sync Established");
+          showBanner(`✅ PHASE 1 COMPLETE: Listening on channel [${gameId.toLowerCase()}]`, "success", "Sync Established");
         }
       });
   };
