@@ -410,7 +410,10 @@ export default function GameDetailPage() {
       const response = await fetch('/api/process-game', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ gameId: gameId.toLowerCase() })
+        body: JSON.stringify({ 
+          gameId: gameId.toLowerCase(),
+          video_path: game?.video_path // Proactively include video source
+        })
       });
 
       if (!response.ok) {
@@ -447,6 +450,7 @@ export default function GameDetailPage() {
 
   // 🛡️ PERSISTENT TRACE HANDLER: Prevent log clearing between phases
   const handleTraceLog = (entry: any) => {
+    const validTimestamp = entry.created_at || new Date().toISOString();
     setGame((prev: any) => ({
       ...prev,
       processing_metadata: {
@@ -454,8 +458,8 @@ export default function GameDetailPage() {
         worker_logs: [
           ...(prev.processing_metadata?.worker_logs || []),
           { 
-            id: entry.id || Date.now(), 
-            timestamp: entry.created_at || new Date().toISOString(), 
+            id: entry.id || `log-${Date.now()}`, 
+            timestamp: validTimestamp, 
             message: entry.status_message, 
             severity: entry.status === 'error' ? 'error' : 'info' 
           }

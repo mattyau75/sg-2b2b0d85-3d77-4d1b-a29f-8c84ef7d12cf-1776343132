@@ -8,13 +8,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 1. EXTRACT & VALIDATE IMMEDIATELY
   const { gameId, video_path, videoUrl: bodyVideoUrl } = req.body;
   const finalGameId = (gameId || req.body.game_id || req.body.metadata?.gameId)?.toLowerCase();
-  const finalVideoUrl = bodyVideoUrl || video_path || req.body.metadata?.videoUrl;
 
   if (!finalGameId) {
-    return res.status(400).json({ message: "❌ CRITICAL SYSTEM STALL: Missing required Game ID for ignition." });
+    return res.status(400).json({ success: false, message: "Missing gameId for analysis ignition." });
   }
 
   try {
+    // 2. FETCH VIDEO SOURCE FROM DB IF MISSING
+    let finalVideoUrl = bodyVideoUrl || video_path;
+    
+    if (!finalVideoUrl) {
+      console.log(`[API] Fetching missing video source for game: ${finalGameId}`);
+      const { data: game, error: fetchError } = await supabase
+        .from("games")
+        .select("video_path")
+        .eq("id", finalGameId)
+        .single();
+      
+      if (fetchError || !game?.video_path) {
+        return res.status(404).json({ success: false, message: "Missing video source for AI analysis. Please ensure a video was uploaded in Module 1." });
+      }
+      finalVideoUrl = game.video_path;
+    }
+
+    // 3. DISPATCH TO MODAL
+    console.log(`[API] Dispatching ignition to Modal for game ${finalGameId} with source: ${finalVideoUrl}`);
+
     // 🛡️ PRE-FLIGHT VALIDATION
     if (!finalVideoUrl) {
       throw new Error("Missing video source for AI analysis.");
