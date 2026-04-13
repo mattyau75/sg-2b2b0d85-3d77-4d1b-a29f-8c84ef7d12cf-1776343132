@@ -264,7 +264,7 @@ export function NewGameModal() {
                       <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                         <CalendarIcon className="h-3 w-3 text-primary" /> Actual Game Date
                       </FormLabel>
-                      <Popover>
+                      <Popover modal={true}>
                         <PopoverTrigger asChild>
                           <FormControl>
                             <Button
@@ -287,7 +287,7 @@ export function NewGameModal() {
                           className="w-auto p-0 bg-background border-white/10 z-[110]" 
                           align="start"
                           side="bottom"
-                          onFocusOutside={(e) => e.preventDefault()}
+                          sideOffset={4}
                         >
                           <Calendar
                             mode="single"
@@ -299,7 +299,7 @@ export function NewGameModal() {
                               date > new Date() || date < new Date("1900-01-01")
                             }
                             initialFocus
-                            className="rounded-xl border-none"
+                            className="rounded-xl border border-white/10"
                           />
                         </PopoverContent>
                       </Popover>
