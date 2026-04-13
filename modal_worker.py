@@ -90,15 +90,17 @@ def process_game_swarm(game_id: str, video_url: str = None):
     # 1. ATOMIC ID NORMALIZATION (LOWERCASE ONLY)
     game_id = game_id.lower()
     
-    # 2. SECRET VALIDATION GUARD (NO SILENT FAILURES)
+    # 2. SUPABASE SERVICE-ROLE AUTHENTICATION (HIGHEST AUTHORITY)
     url = os.environ.get("SUPABASE_URL")
-    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
-    if not url or not key:
-        print(f"❌ FATAL: Modal.com 'supabase-keys' secret is missing. URL: {bool(url)}, KEY: {bool(key)}")
-        return {"status": "error", "message": "Modal.com secrets (SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY) are missing."}
+    if not url or not service_key:
+        error_msg = f"❌ FATAL: Modal.com 'supabase-keys' secret is missing or misconfigured. URL Present: {bool(url)}, SERVICE_KEY Present: {bool(service_key)}"
+        print(error_msg)
+        return {"status": "error", "message": error_msg}
 
-    supabase = create_client(url, key)
+    # Initialize Supabase with Service Role Key to bypass RLS for high-performance syncing
+    supabase = create_client(url, service_key)
 
     try:
         # 3. GPU HANDSHAKE (Standardized Log)
