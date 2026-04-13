@@ -41,8 +41,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 const formSchema = z.object({
   homeTeam: z.string().min(2, "Home team required"),
   awayTeam: z.string().min(2, "Away team required"),
-  homeColor: z.string().default("#f97316"),
-  awayColor: z.string().default("#3b82f6"),
 });
 
 export function NewGameModal() {
@@ -58,8 +56,6 @@ export function NewGameModal() {
     defaultValues: {
       homeTeam: "",
       awayTeam: "",
-      homeColor: "#f97316",
-      awayColor: "#3b82f6",
     },
   });
 
@@ -91,10 +87,8 @@ export function NewGameModal() {
       const { data: newGame, error: gameError } = await supabase
         .from('games')
         .insert({
-          home_team_id: values.homeTeam, // UUID from select
-          away_team_id: values.awayTeam, // UUID from select
-          home_team_color: values.homeColor,
-          away_team_color: values.awayColor,
+          home_team_id: values.homeTeam,
+          away_team_id: values.awayTeam,
           video_path: videoPath,
           status: 'pending'
         } as any)
@@ -108,8 +102,7 @@ export function NewGameModal() {
         gameId: newGame.id,
         metadata: {
           home: values.homeTeam,
-          away: values.awayTeam,
-          colors: { home: values.homeColor, away: values.awayColor }
+          away: values.awayTeam
         }
       });
 
@@ -175,23 +168,6 @@ export function NewGameModal() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="homeColor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <Palette className="h-3 w-3 text-primary" /> Primary Color
-                          </FormLabel>
-                          <FormControl>
-                            <div className="flex items-center gap-4">
-                              <Input type="color" {...field} className="w-12 h-12 p-1 bg-transparent border-none rounded-full cursor-pointer" />
-                              <span className="font-mono text-xs uppercase text-muted-foreground tracking-tighter">{field.value}</span>
-                            </div>
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
                   </div>
 
                   <div className="space-y-6">
@@ -207,23 +183,6 @@ export function NewGameModal() {
                             <Input placeholder="Enter Away Team Name" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-accent/50" />
                           </FormControl>
                           <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="awayColor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                            <Palette className="h-3 w-3 text-accent" /> Primary Color
-                          </FormLabel>
-                          <FormControl>
-                            <div className="flex items-center gap-4">
-                              <Input type="color" {...field} className="w-12 h-12 p-1 bg-transparent border-none rounded-full cursor-pointer" />
-                              <span className="font-mono text-xs uppercase text-muted-foreground tracking-tighter">{field.value}</span>
-                            </div>
-                          </FormControl>
                         </FormItem>
                       )}
                     />
