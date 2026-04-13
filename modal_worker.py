@@ -112,11 +112,7 @@ def analyze_endpoint(data: dict):
     if not url or not service_key:
         return {
             "status": "error", 
-            "message": "🚨 MODAL SECRET ERROR: 'supabase-keys' group found but keys (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY) are missing or misnamed.",
-            "diagnostic": {
-                "url_present": bool(url),
-                "key_present": bool(service_key)
-            }
+            "message": "🚨 MODAL SECRET ERROR: 'supabase-keys' group found but keys (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY) are missing or misnamed."
         }
         
     if not game_id:

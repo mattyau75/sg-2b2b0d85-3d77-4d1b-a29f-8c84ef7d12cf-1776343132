@@ -8,7 +8,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // 1. ATOMIC ID NORMALIZATION
   const { gameId } = req.body;
   const finalGameId = gameId.toString().toLowerCase();
-  const isHandshake = finalGameId.includes('handshake');
   
   let finalVideoUrl = "";
 
@@ -26,29 +25,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }, { onConflict: 'game_id' });
 
     // 2. FETCH SECURE R2 HANDOVER URL (3-Hour Expiry)
-    if (!isHandshake) {
-      const { data: gameData, error: fetchError } = await supabase
-        .from("games")
-        .select("video_path")
-        .eq("id", finalGameId)
-        .single();
+    const { data: gameData, error: fetchError } = await supabase
+      .from("games")
+      .select("video_path")
+      .eq("id", finalGameId)
+      .single();
 
-      if (fetchError || !gameData?.video_path) {
-        return res.status(404).json({ 
-          success: false, 
-          message: `❌ IGNITION FAILED: Video source not found for game ${finalGameId}.` 
-        });
-      }
-
-      // 🛡️ Generate a long-life 3-hour URL for the GPU
-      const { data: signedUrlData, error: signError } = await supabase.storage
-        .from('game-videos')
-        .createSignedUrl(gameData.video_path, 10800); // 3 hours
-
-      finalVideoUrl = signedUrlData?.signedUrl || "";
-    } else {
-      console.log(`🧪 Handshake detected for ${finalGameId}. Skipping video validation.`);
+    if (fetchError || !gameData?.video_path) {
+      return res.status(404).json({ 
+        success: false, 
+        message: `❌ IGNITION FAILED: Video source not found for game ${finalGameId}.` 
+      });
     }
+
+    // 🛡️ Generate a long-life 3-hour URL for the GPU
+    const { data: signedUrlData, error: signError } = await supabase.storage
+      .from('game-videos')
+      .createSignedUrl(gameData.video_path, 10800); // 3 hours
+
+    finalVideoUrl = signedUrlData?.signedUrl || "";
 
     // 3. DISPATCH TO MODAL
     console.log(`[API] Dispatching ignition to Modal for game ${finalGameId} with source: ${finalVideoUrl}`);

@@ -237,33 +237,6 @@ export type Database = {
           },
         ]
       }
-      handshake_debug: {
-        Row: {
-          gpu_heartbeat: string | null
-          id: string
-          message: string | null
-          status: string | null
-          test_id: string
-          updated_at: string | null
-        }
-        Insert: {
-          gpu_heartbeat?: string | null
-          id?: string
-          message?: string | null
-          status?: string | null
-          test_id: string
-          updated_at?: string | null
-        }
-        Update: {
-          gpu_heartbeat?: string | null
-          id?: string
-          message?: string | null
-          status?: string | null
-          test_id?: string
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
       lineup_stats: {
         Row: {
           assists: number | null
