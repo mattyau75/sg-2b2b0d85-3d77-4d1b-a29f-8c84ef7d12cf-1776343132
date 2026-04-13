@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -21,33 +22,33 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
-  Plus, 
+  PlusCircle, 
   UploadCloud, 
   Swords, 
   ShieldCheck, 
   Cpu, 
-  AlertCircle,
   CheckCircle2,
   X,
-  Palette
+  Palette,
+  MapPin,
+  Check,
+  Calendar as CalendarIcon,
+  HardDrive
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
-import { Badge } from "@/components/ui/badge";
 import { showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
-import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { MapPin, PlusCircle, Check, X, ShieldCheck, Swords, Palette, CheckCircle2, Calendar as CalendarIcon, HardDrive, Cpu, Play } from "lucide-react";
 import { useUploads } from "@/contexts/UploadContext";
 import { useRouter } from "next/router";
 
@@ -128,15 +129,11 @@ export function NewGameModal() {
     }
 
     try {
-      // Trigger background process
       await startUpload(file, values);
-      
-      // Immediate response
       showBanner("Upload Initiated - Tracking in Directory", "success");
       setIsOpen(false);
       resetState();
       
-      // Redirect if not already on games page
       if (router.pathname !== "/games") {
         router.push("/games");
       }
@@ -162,7 +159,7 @@ export function NewGameModal() {
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-hidden rounded-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="p-8 pb-4 shrink-0">
+        <DialogHeader className="p-8 pb-4 shrink-0 text-left">
           <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic flex items-center gap-3">
             <Cpu className="h-8 w-8 text-primary animate-pulse" /> Mission Initiation
           </DialogTitle>
@@ -171,69 +168,65 @@ export function NewGameModal() {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-8 pb-8">
-          <div className="space-y-8">
+        <ScrollArea className="flex-1">
+          <div className="px-8 pb-8 space-y-8">
             {stage === 'details' && (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="homeTeam"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                              <ShieldCheck className="h-3 w-3 text-primary" /> Home Roster
-                            </FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-primary/20">
-                                  <SelectValue placeholder="Select Home Team" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="bg-background border-white/10">
-                                {teams.map((team) => (
-                                  <SelectItem key={team.id} value={team.id}>
-                                    {team.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="homeTeam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <ShieldCheck className="h-3 w-3 text-primary" /> Home Roster
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-primary/20">
+                                <SelectValue placeholder="Select Home Team" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background border-white/10">
+                              {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                        </FormItem>
+                      )}
+                    />
 
-                    <div className="space-y-6">
-                      <FormField
-                        control={form.control}
-                        name="awayTeam"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                              <Swords className="h-3 w-3 text-accent" /> Away Roster
-                            </FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl>
-                                <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-accent/20">
-                                  <SelectValue placeholder="Select Away Team" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="bg-background border-white/10">
-                                {teams.map((team) => (
-                                  <SelectItem key={team.id} value={team.id}>
-                                    {team.name}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="awayTeam"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                            <Swords className="h-3 w-3 text-accent" /> Away Roster
+                          </FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-accent/20">
+                                <SelectValue placeholder="Select Away Team" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background border-white/10">
+                              {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                        </FormItem>
+                      )}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -440,34 +433,7 @@ export function NewGameModal() {
               </Form>
             )}
 
-            {stage === 'upload' && (
-              <div className="py-20 flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in duration-500">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
-                  <Cpu className="h-24 w-24 text-primary relative animate-bounce" />
-                </div>
-                <div className="space-y-4 max-w-sm">
-                  <h3 className="text-2xl font-black uppercase tracking-tighter text-white">
-                    {stage === 'upload' ? 'Streaming Intelligence' : 'Igniting GPU Swarm'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground font-medium">
-                    {stage === 'upload' 
-                      ? `Injecting 8GB heavy-payload footage into R2 cluster. DO NOT CLOSE THIS WINDOW.` 
-                      : `Establishing stateless handshake with Modal.com GPU. Analysis sequence starting.`
-                    }
-                  </p>
-                  <div className="w-full space-y-2 mt-8">
-                    <div className="flex justify-between text-[10px] font-mono uppercase tracking-widest font-black">
-                      <span className="text-muted-foreground">Pulse Depth</span>
-                      <span className="text-primary">{uploadProgress}%</span>
-                    </div>
-                    <Progress value={uploadProgress} className="h-2 bg-white/5" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {stage === 'igniting' && (
+            {(stage === 'upload' || stage === 'igniting') && (
               <div className="py-20 flex flex-col items-center justify-center text-center space-y-8 animate-in fade-in zoom-in duration-500">
                 <div className="relative">
                   <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full animate-pulse" />
