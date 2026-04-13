@@ -173,17 +173,21 @@ export default function GameDetailPage() {
   useEffect(() => {
     if (!gameId || !isValidUUID(gameId)) return;
 
+    // 🛡️ ULTIMATE HANDSHAKE: Real-time Pulse Monitoring
     const channel = supabase
-      .channel(`game-analysis-${gameId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
-        const newGameData = payload.new;
-        setGame((prev: any) => ({ ...prev, ...newGameData }));
-        if (newGameData.status === 'completed' || newGameData.status === 'error') fetchGameData(true);
+      .channel(`game_pulse_${gameId}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'games',
+        filter: `id=eq.${gameId}` 
+      }, (payload) => {
+        setGame(payload.new as any);
       })
-      .subscribe((status) => setIsRealtimeActive(status === 'SUBSCRIBED'));
+      .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [gameId, fetchGameData]);
+  }, [gameId]);
 
   const handleStartDiscovery = async (isDryRun: boolean = false) => {
     // 🛡️ IGNITION GUARD: Verify stable ID before handshake

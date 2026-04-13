@@ -13,6 +13,8 @@ import { useUploads } from "@/contexts/UploadContext";
 import { cn } from "@/lib/utils";
 import { showBanner } from "@/components/DiagnosticBanner";
 import { Progress } from "@/components/ui/progress";
+import { supabase } from "@/integrations/supabase/client";
+import axios from "axios";
 
 interface NewGameModalProps {
   isOpen: boolean;

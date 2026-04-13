@@ -85,6 +85,19 @@ export default function Dashboard() {
     return true;
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'ignited':
+        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">GPU Warming Up</Badge>;
+      case 'analyzing':
+        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50 animate-pulse">Streaming Analysis</Badge>;
+      case 'completed':
+        return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">Analysis Ready</Badge>;
+      default:
+        return <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/50">Queued</Badge>;
+    }
+  };
+
   // 🛡️ REALTIME CLEANUP GUARD: Prevent channel noise
   const [activeChannel, setActiveChannel] = useState<any>(null);
 

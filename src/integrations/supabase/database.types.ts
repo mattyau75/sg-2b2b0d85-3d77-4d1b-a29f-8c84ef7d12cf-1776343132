@@ -125,6 +125,41 @@ export type Database = {
           },
         ]
       }
+      game_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          game_id: string | null
+          id: string
+          payload: Json
+          timestamp_ms: number
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          game_id?: string | null
+          id?: string
+          payload: Json
+          timestamp_ms: number
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          game_id?: string | null
+          id?: string
+          payload?: Json
+          timestamp_ms?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_events_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           away_score: number | null
@@ -141,11 +176,13 @@ export type Database = {
           id: string
           ignition_status: string | null
           last_error: string | null
+          last_gpu_heartbeat: string | null
           last_heartbeat: string | null
           m1_complete: boolean | null
           m2_complete: boolean | null
           m3_complete: boolean | null
           processing_metadata: Json | null
+          processing_status: string | null
           progress_percentage: number | null
           status: string | null
           status_message: string | null
@@ -170,11 +207,13 @@ export type Database = {
           id?: string
           ignition_status?: string | null
           last_error?: string | null
+          last_gpu_heartbeat?: string | null
           last_heartbeat?: string | null
           m1_complete?: boolean | null
           m2_complete?: boolean | null
           m3_complete?: boolean | null
           processing_metadata?: Json | null
+          processing_status?: string | null
           progress_percentage?: number | null
           status?: string | null
           status_message?: string | null
@@ -199,11 +238,13 @@ export type Database = {
           id?: string
           ignition_status?: string | null
           last_error?: string | null
+          last_gpu_heartbeat?: string | null
           last_heartbeat?: string | null
           m1_complete?: boolean | null
           m2_complete?: boolean | null
           m3_complete?: boolean | null
           processing_metadata?: Json | null
+          processing_status?: string | null
           progress_percentage?: number | null
           status?: string | null
           status_message?: string | null
