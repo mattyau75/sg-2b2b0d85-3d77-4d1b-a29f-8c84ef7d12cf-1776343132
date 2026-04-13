@@ -482,7 +482,7 @@ export default function GameDetailPage() {
             id: entry.id || `log-${Date.now()}`, 
             timestamp: validTimestamp, 
             message: entry.status_message, 
-            severity: entry.status === 'error' ? 'error' : 'info' 
+            severity: entry.status === 'error' ? 'error' : entry.status === 'warning' ? 'warning' : 'info' 
           }
         ]
       }

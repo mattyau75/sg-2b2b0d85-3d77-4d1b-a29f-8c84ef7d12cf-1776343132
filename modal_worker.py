@@ -56,15 +56,15 @@ def process_game_swarm(game_id: str, video_url: str = None):
     game_id = game_id.lower()
     start_time = time.time()
     
-    # 2. FORENSIC SECRET AUDIT (Confirm Modal.com secrets are loaded)
+    # 2. FORENSIC SECRET AUDIT (Masked for security)
     url = os.environ.get("SUPABASE_URL")
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
-    # 🛡️ RUNTIME ENV CHECK (Visible in Modal Logs)
-    print(f"📡 ENV CHECK - URL: {bool(url)}, SERVICE_KEY: {bool(service_key)}")
+    print(f"📡 GPU AUDIT - URL Found: {bool(url)} ({url[:12] if url else 'N/A'}...)")
+    print(f"📡 GPU AUDIT - KEY Found: {bool(service_key)} ({service_key[:8] if service_key else 'N/A'}...)")
     
     if not url or not service_key:
-        error_msg = "❌ FATAL: Modal.com 'supabase-keys' secret is missing."
+        error_msg = f"❌ FATAL: Modal.com 'supabase-keys' secret is missing or misconfigured. URL: {bool(url)}, SERVICE_KEY: {bool(service_key)}"
         print(error_msg)
         return {"status": "error", "message": error_msg}
 
@@ -102,10 +102,24 @@ def process_game_swarm(game_id: str, video_url: str = None):
 @app.function(secrets=[modal.Secret.from_name("supabase-keys")])
 @modal.web_endpoint(method="POST", label="analyze")
 def analyze_endpoint(data: dict):
-    """ELITE ENTRY POINT: Receives the signal from Next.js and launches the swarm"""
+    """ELITE ENTRY POINT: Performs forensic audit BEFORE spawning the swarm"""
     game_id = data.get("game_id")
     video_url = data.get("video_url")
     
+    # 🛡️ PRE-FLIGHT SECRET AUDIT
+    url = os.environ.get("SUPABASE_URL")
+    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    if not url or not service_key:
+        return {
+            "status": "error", 
+            "message": "🚨 MODAL SECRET ERROR: 'supabase-keys' group found but keys (SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY) are missing or misnamed.",
+            "diagnostic": {
+                "url_present": bool(url),
+                "key_present": bool(service_key)
+            }
+        }
+        
     if not game_id:
         return {"status": "error", "message": "Missing game_id"}
         
