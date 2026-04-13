@@ -23,7 +23,7 @@ def log_to_trace(supabase, game_id, progress, message, status="processing"):
         timestamp_z = datetime.utcnow().isoformat() + "Z"
         
         # 1. Update the Analysis Trace (Realtime Hub)
-        # Using list-based on_conflict for supabase-py v2.5.1
+        # 🛡️ FIX: Using list-based on_conflict for supabase-py v2.5.1 consistency
         supabase.table("game_analysis").upsert({
             "game_id": game_id,
             "progress_percentage": progress,
@@ -72,7 +72,7 @@ def process_game_swarm(game_id: str, video_url: str = None):
     supabase = create_client(url, service_key)
 
     try:
-        # 🚀 IMMEDIATE 16% HANDSHAKE
+        # 🚀 IMMEDIATE 16% HANDSHAKE (Moved to top for instant feedback)
         log_to_trace(supabase, game_id, 16, "✅ GPU HANDSHAKE: Elite Cluster Awakened.")
         
         if not video_url:
