@@ -159,7 +159,7 @@ export function NewGameModal() {
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-hidden rounded-3xl max-h-[90vh] flex flex-col">
-        <DialogHeader className="p-8 pb-4 shrink-0 text-left">
+        <DialogHeader className="p-8 pb-4 shrink-0">
           <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic flex items-center gap-3">
             <Cpu className="h-8 w-8 text-primary animate-pulse" /> Mission Initiation
           </DialogTitle>
@@ -168,8 +168,8 @@ export function NewGameModal() {
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1">
-          <div className="px-8 pb-8 space-y-8">
+        <ScrollArea className="flex-1 px-8 pb-8">
+          <div className="space-y-8">
             {stage === 'details' && (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

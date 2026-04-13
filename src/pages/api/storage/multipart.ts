@@ -46,15 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (action === "complete") {
       const { uploadId, key, parts } = req.body;
       
-      console.log(`[Multipart] Completing upload: ${uploadId} for key: ${key}`);
-      console.log(`[Multipart] Received ${parts?.length} parts for reassembly`);
-
-      if (!parts || !Array.isArray(parts)) {
-        console.error("[Multipart] Invalid parts list:", parts);
-        return res.status(400).json({ success: false, message: "Invalid parts list provided for completion" });
-      }
-
-      // Ensure ETags are correctly formatted and parts are sorted by part number
+      // Ensure ETags are correctly formatted and parts are sorted
       const sortedParts = parts
         .sort((a, b) => a.partNumber - b.partNumber)
         .map(p => ({
@@ -62,18 +54,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           PartNumber: p.partNumber
         }));
 
-      console.log(`[Multipart] Sorted parts for R2:`, sortedParts);
+      const command = new CompleteMultipartUploadCommand({
+        Bucket: bucketName,
+        Key: key,
+        UploadId: uploadId,
+        MultipartUpload: {
+          Parts: sortedParts
+        }
+      });
 
       try {
-        const command = new CompleteMultipartUploadCommand({
-          Bucket: bucketName,
-          Key: key,
-          UploadId: uploadId,
-          MultipartUpload: {
-            Parts: sortedParts
-          }
-        });
-
         const result = await r2Client.send(command);
         console.log("[Multipart] Reassembly successful:", result.Location);
         console.log("[Multipart] R2 Result:", { Location: result.Location, Bucket: result.Bucket, Key: result.Key });
