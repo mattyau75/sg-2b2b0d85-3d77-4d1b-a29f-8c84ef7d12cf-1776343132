@@ -1,6 +1,6 @@
 ---
 title: Deterministic Pipeline UI & Mapping Engine
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: ["ui", "workflow", "mapping"]
@@ -16,6 +16,6 @@ Implement the full 4-module interactive workflow on the Game Detail page. Ensure
 - [x] Implement Module 01: Payload Calibration (Metadata verification & R2 check)
 - [x] Implement Module 02: GPU Swarm Ignition (Manual handshake trigger)
 - [x] Implement Module 03: Analysis Stream (Live progress & terminal trace)
-- [/] Implement Module 04: Mapping & Finalization (Transition to Roster Personnel)
-- [/] Update src/components/MappingDashboard.tsx for UUID & Raw Entity support
-- [ ] Final UI polish and validation
+- [x] Implement Module 04: Mapping & Finalization (Transition to Roster Personnel)
+- [x] Update src/components/MappingDashboard.tsx for UUID & Raw Entity support
+- [x] Final UI polish and validation
