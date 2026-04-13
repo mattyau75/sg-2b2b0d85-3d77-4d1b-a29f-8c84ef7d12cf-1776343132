@@ -203,16 +203,16 @@ export default function GameDetailPage() {
                 <div className="space-y-8 animate-in fade-in zoom-in duration-500">
                   <HardDrive className="h-16 w-16 text-primary animate-pulse mx-auto" />
                   <div className="space-y-4">
-                    <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Payload Synchronization</h3>
-                    <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Verifying 8GB R2 payload integrity and secure 3-hour handover tokens.</p>
+                    <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Asset Verification & Calibration</h3>
+                    <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Video payload secured in R2. Verify team identity and color calibration before ignition.</p>
                   </div>
                   <div className="flex flex-col gap-3">
                     <Button 
                       onClick={() => handleInitiatePhase("m2")}
-                      disabled={isProcessing}
+                      disabled={isProcessing || game?.status === 'analyzing' || game?.status === 'completed'}
                       className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic h-16 px-12 rounded-2xl shadow-xl shadow-primary/20"
                     >
-                      {isProcessing ? <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> : "Verify & Initiate GPU Swarm"}
+                      {isProcessing ? <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> : "Ignite AI Analysis"}
                     </Button>
                   </div>
                 </div>

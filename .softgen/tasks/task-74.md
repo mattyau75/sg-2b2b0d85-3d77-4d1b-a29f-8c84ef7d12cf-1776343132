@@ -1,6 +1,6 @@
 ---
 title: Manual GPU Ignition & De-coupled Upload Workflow
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: ["workflow", "gpu", "ui"]
@@ -14,6 +14,6 @@ Remove auto-triggering of /api/process-game from UploadContext. Implement a manu
 
 ## Checklist:
 - [x] Remove automatic process-game call from src/contexts/UploadContext.tsx
-- [ ] Implement "Ignite AI" manual trigger in src/pages/games/[id].tsx
-- [ ] Add "Awaiting Analysis" status indicator to Game Cards in src/pages/games/index.tsx
-- [ ] Ensure ignition payload includes verified video paths and calibration data
+- [x] Implement "Ignite AI" manual trigger in src/pages/games/[id].tsx
+- [x] Add "Awaiting Analysis" status indicator to Game Cards in src/pages/games/index.tsx
+- [x] Ensure ignition payload includes verified video paths and calibration data

@@ -183,10 +183,12 @@ export default function GamesPage() {
                         variant="outline" 
                         className={cn(
                           "font-mono text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-md",
-                          game.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-primary/10 text-primary border-primary/20'
+                          game.status === 'completed' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 
+                          game.status === 'pending' ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' :
+                          'bg-primary/10 text-primary border-primary/20'
                         )}
                       >
-                        {game.status}
+                        {game.status === 'pending' ? 'Awaiting Analysis' : game.status}
                       </Badge>
                       <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono uppercase tracking-widest font-bold">
                         <Calendar className="h-3 w-3" />
