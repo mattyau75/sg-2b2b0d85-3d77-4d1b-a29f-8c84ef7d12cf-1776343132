@@ -1,6 +1,6 @@
 ---
 title: Persistent Background Uploads & Directory Progress
-status: in_progress
+status: done
 priority: urgent
 type: feature
 tags: ["upload", "ui", "real-time"]
@@ -13,7 +13,7 @@ position: 73
 Redirect user to Games Directory immediately upon "Add Game" click. Use UploadContext to track background progress and display live bars in the Directory UI.
 
 ## Checklist:
-- [ ] Refactor NewGameModal.tsx to use non-blocking background upload + immediate redirect
-- [ ] Update src/contexts/UploadContext.tsx to support persistent background tracking
-- [ ] Implement "Active Uploads" section in src/pages/games/index.tsx
-- [ ] Enhance GameCard UI with real-time progress indicators
+- [x] Refactor NewGameModal.tsx to use non-blocking background upload + immediate redirect
+- [x] Update src/contexts/UploadContext.tsx to support persistent background tracking
+- [x] Implement "Active Uploads" section in src/pages/games/index.tsx
+- [x] Enhance GameCard UI with real-time progress indicators
