@@ -37,10 +37,21 @@ import { Badge } from "@/components/ui/badge";
 import { showBanner } from "@/components/DiagnosticBanner";
 import axios from "axios";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 const formSchema = z.object({
   homeTeam: z.string().min(2, "Home team required"),
   awayTeam: z.string().min(2, "Away team required"),
+  gameDate: z.date({
+    required_error: "Game date is required",
+  }),
 });
 
 export function NewGameModal() {
@@ -56,6 +67,7 @@ export function NewGameModal() {
     defaultValues: {
       homeTeam: "",
       awayTeam: "",
+      gameDate: new Date(),
     },
   });
 
@@ -72,23 +84,22 @@ export function NewGameModal() {
       showBanner("Missing Video Source", "error");
       return;
     }
-    setStage('upload');
     setUploading(true);
+    setStage('upload');
 
     try {
-      // 1. UPLOAD TO R2 (Multi-part for 8GB Support)
       const videoPath = await storageService.uploadVideo(file, (progress) => {
         setUploadProgress(progress);
       });
 
       setStage('igniting');
       
-      // 2. REGISTER IN SUPABASE (UUID GENERATED)
       const { data: newGame, error: gameError } = await supabase
         .from('games')
         .insert({
           home_team_id: values.homeTeam,
           away_team_id: values.awayTeam,
+          date: values.gameDate.toISOString(),
           video_path: videoPath,
           status: 'pending'
         } as any)
@@ -188,6 +199,50 @@ export function NewGameModal() {
                     />
                   </div>
                 </div>
+
+                <FormField
+                  control={form.control}
+                  name="gameDate"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                        <CalendarIcon className="h-3 w-3 text-primary" /> Actual Game Date
+                      </FormLabel>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <FormControl>
+                            <Button
+                              variant={"outline"}
+                              className={cn(
+                                "w-full h-12 bg-white/5 border-white/10 rounded-xl font-bold text-left justify-start px-4",
+                                !field.value && "text-muted-foreground"
+                              )}
+                            >
+                              <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                              {field.value ? (
+                                format(field.value, "PPP")
+                              ) : (
+                                <span>Pick a date</span>
+                              )}
+                            </Button>
+                          </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0 bg-background border-white/10" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={field.value}
+                            onSelect={field.onChange}
+                            disabled={(date) =>
+                              date > new Date() || date < new Date("1900-01-01")
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                    </FormItem>
+                  )}
+                />
 
                 <div className="space-y-4">
                   <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
