@@ -390,17 +390,48 @@ export default function GameDetailPage() {
     setManualStartRequested(true);
     setIsWarming(true);
     showBanner("🚀 PHASE 3: Dispatching Ignition Signal to GPU Cluster...", "info", "Ignition Launched");
-
+    
+    // 🛡️ FORENSIC DIAGNOSTIC WATCHDOG
     if (provisioningTimeout) clearTimeout(provisioningTimeout);
     const timeout = setTimeout(() => {
       if (game?.progress_percentage < 16) {
-        showBanner("GPU Cluster is warming up (45-90s). Please wait for the 16% handshake.", "info", "System Warming");
+        const diagnosticMessage = "⚠️ HANDSHAKE DELAY: GPU Cluster is taking longer than 45s to provision. Possible 'Cold Start' or Network Congestion.";
+        showBanner(diagnosticMessage, "warning", "Diagnostic Alert");
+        handleTraceLog({
+          status: 'warning',
+          status_message: diagnosticMessage,
+          module: 'SYSTEM'
+        });
       }
     }, 45000);
     setProvisioningTimeout(timeout);
 
-    await handleStartDiscovery();
-    // 🛡️ DO NOT setCompletedSteps(2) here. We wait for the heartbeat in useEffect.
+    try {
+      const response = await fetch('/api/process-game', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ gameId: gameId.toLowerCase() })
+      });
+
+      if (!response.ok) {
+        const err = await response.json();
+        const apiError = `❌ IGNITION FAILED: API returned [${response.status} ${response.statusText}]. Reason: ${err.message || 'Unknown'}`;
+        showBanner(apiError, "error", "Handshake Blocked");
+        handleTraceLog({ status: 'error', status_message: apiError, module: 'API' });
+        setIsWarming(false);
+      } else {
+        handleTraceLog({
+          status: 'success',
+          status_message: "✅ DISPATCH SUCCESS: Ignition Signal accepted by API. Waiting for GPU Heartbeat...",
+          module: 'API'
+        });
+      }
+    } catch (e: any) {
+      const netError = `❌ NETWORK ERROR: Could not reach ignition API. Check your connection.`;
+      showBanner(netError, "error", "Connection Lost");
+      handleTraceLog({ status: 'error', status_message: netError, module: 'CLIENT' });
+      setIsWarming(false);
+    }
   };
 
   // 🛡️ HEARTBEAT & DATA LOCK MONITOR: Auto-advance Phase 3 only when DATA is generated
