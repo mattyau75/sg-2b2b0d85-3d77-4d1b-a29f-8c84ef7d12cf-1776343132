@@ -36,10 +36,10 @@ import { Input } from "@/components/ui/input";
 import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check, AlertTriangle } from "lucide-react";
 
 const MODULES = [
-  { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: 'Asset Verification', key: 'm1_complete' },
-  { id: 'm2', label: 'GPU Swarm', icon: Cpu, desc: 'Cluster Ignition', key: 'm2_complete' },
-  { id: 'm3', label: 'Analysis', icon: Zap, desc: 'Stream Processing', key: 'm3_complete' },
-  { id: 'm4', label: 'Mapping', icon: Terminal, desc: 'Finalization', key: null }
+  { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: 'Parameter Setup', key: 'm1_complete' },
+  { id: 'm2', label: 'Processing', icon: Cpu, desc: 'AI Initialization', key: 'm2_complete' },
+  { id: 'm3', label: 'Analysis', icon: Zap, desc: 'Game Processing', key: 'm3_complete' },
+  { id: 'm4', label: 'Mapping', icon: Activity, desc: 'Roster Finalization', key: null }
 ];
 
 export default function GameDetailPage() {
@@ -126,10 +126,10 @@ export default function GameDetailPage() {
     setIsProcessing(true);
     try {
       if (phase === "m2") {
-        showBanner("Establishing GPU Cluster Handshake...", "info", "IGNITION START");
+        showBanner("Initializing AI Processing Hub...", "info", "READY");
         await axios.post('/api/process-game', { gameId });
         await workflowService.advanceModule(gameId as string, 'ignited');
-        showBanner("GPU Cluster Ignited. 1-Hour Stream Active.", "success", "PHASE 02 COMPLETE");
+        showBanner("Processing Hub Active. Analysis started.", "success", "PHASE 02 ACTIVE");
         setActiveTab("m2");
       }
       if (phase === "m3") {
@@ -239,7 +239,7 @@ export default function GameDetailPage() {
     <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'}`}>
       <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         
-        {/* Tactical Header */}
+        {/* Professional Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 rounded-3xl bg-card/50 border border-primary/20 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-4">
              <div className={cn(
@@ -247,14 +247,14 @@ export default function GameDetailPage() {
               isRealtimeActive ? "bg-accent/10 text-accent border-accent/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
             )}>
               {isRealtimeActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isRealtimeActive ? "ENCRYPTED CHANNEL" : "RECONNECTING"}
+              {isRealtimeActive ? "CONNECTED" : "OFFLINE"}
             </div>
           </div>
 
           <div className="space-y-4">
             <div className="flex items-center gap-3">
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-widest py-1 px-3 italic uppercase">
-                {game?.status || 'SCOUT SESSION PENDING'}
+                {game?.status || 'AWAITING SETUP'}
               </Badge>
               {game?.status === 'analyzing' && <Activity className="h-4 w-4 text-primary animate-pulse" />}
             </div>
@@ -269,13 +269,13 @@ export default function GameDetailPage() {
 
           <div className="flex flex-col items-end gap-3">
              <div className="text-right">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-1">Pulse Depth</p>
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-1">Analysis Progress</p>
                 <p className="text-3xl font-black text-primary italic leading-none">{game?.progress_percentage || 0}%</p>
              </div>
           </div>
         </div>
 
-        {/* Deterministic Pipeline Stepper */}
+        {/* Pipeline Stepper */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {MODULES.map((mod, idx) => {
             const isActive = activeTab === mod.id;
@@ -300,7 +300,7 @@ export default function GameDetailPage() {
                   {isCompleted && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
                   {isLocked && <Lock className="h-3 w-3 text-zinc-600" />}
                 </div>
-                <p className={cn("text-[10px] font-black uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-muted-foreground")}>Module 0{idx + 1}</p>
+                <p className={cn("text-[10px] font-black uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-muted-foreground")}>Step 0{idx + 1}</p>
                 <p className={cn("text-sm font-black uppercase tracking-tighter italic", isActive ? "text-white" : "text-white")}>{mod.label}</p>
                 <p className={cn("text-[10px] font-mono mt-2", isActive ? "text-white/60" : "text-muted-foreground/50")}>{mod.desc}</p>
               </button>

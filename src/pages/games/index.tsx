@@ -138,11 +138,11 @@ export default function GamesPage() {
           </Button>
         </div>
 
-        {/* Active Background Uploads */}
+        {/* Active Analysis Tracking */}
         {activeUploads.length > 0 && (
           <div className="space-y-4">
             <h2 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-              <UploadCloud className="h-4 w-4 animate-bounce" /> Active Intelligence Streams
+              <UploadCloud className="h-4 w-4 animate-bounce" /> Current Game Analysis
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {activeUploads.map((upload) => (
@@ -153,7 +153,7 @@ export default function GamesPage() {
                       <div className="space-y-1">
                         <p className="text-xs font-bold truncate max-w-[200px]">{upload.fileName}</p>
                         <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-tighter">
-                          {upload.status === 'uploading' ? 'Streaming to R2' : upload.status === 'processing' ? 'Igniting GPU Swarm' : 'Finalizing'}
+                          {upload.status === 'uploading' ? 'Streaming Video' : upload.status === 'processing' ? 'Processing AI' : 'Finalizing'}
                         </p>
                       </div>
                       <button 

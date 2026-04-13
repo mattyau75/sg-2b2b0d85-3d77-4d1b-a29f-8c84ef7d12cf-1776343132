@@ -33,7 +33,8 @@ import {
   MapPin,
   Check,
   Calendar as CalendarIcon,
-  HardDrive
+  HardDrive,
+  Trophy
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { storageService } from "@/services/storageService";
@@ -169,10 +170,10 @@ export function NewGameModal({
       <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-hidden rounded-3xl max-h-[90vh] flex flex-col">
         <DialogHeader className="p-8 pb-4 shrink-0">
           <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic flex items-center gap-3">
-            <Cpu className="h-8 w-8 text-primary animate-pulse" /> Mission Initiation
+            <Trophy className="h-8 w-8 text-primary" /> Game Registration
           </DialogTitle>
           <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-widest">
-            Register new game assets for GPU-accelerated intelligence processing
+            Submit game footage for AI-powered performance analysis and scouting
           </DialogDescription>
         </DialogHeader>
 
@@ -430,7 +431,7 @@ export function NewGameModal({
                       disabled={uploading || !file}
                       className="w-full h-16 bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic rounded-2xl group transition-all"
                     >
-                      {uploading ? "Streaming Intelligence..." : (
+                      {uploading ? "Preparing Game Data..." : (
                         <span className="flex items-center gap-2 group-hover:scale-105 transition-transform">
                           Add Game <CheckCircle2 className="h-5 w-5" />
                         </span>
