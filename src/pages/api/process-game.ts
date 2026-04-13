@@ -68,13 +68,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }, { onConflict: 'game_id' });
 
     // 4. TRIGGER GPU IGNITION (HANDOFF)
-    await triggerAnalysis({
+    const modalResponse = await triggerAnalysis({
       gameId: finalGameId,
       videoUrl: finalVideoUrl,
       metadata: req.body.metadata || {},
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "" // Use service key for the handoff
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || ""
     });
+
+    // 🛡️ MODAL SECRET CHECK
+    if (modalResponse?.status === 'error' && modalResponse?.message?.includes('SECRET ERROR')) {
+      await supabase.from("game_analysis").upsert({
+        game_id: finalGameId,
+        status: "error",
+        progress_percentage: 0,
+        status_message: modalResponse.message
+      }, { onConflict: 'game_id' });
+      
+      return res.status(500).json({ success: false, message: modalResponse.message });
+    }
 
     return res.status(200).json({ 
       message: "🚀 Swarm Launched Successfully.",
