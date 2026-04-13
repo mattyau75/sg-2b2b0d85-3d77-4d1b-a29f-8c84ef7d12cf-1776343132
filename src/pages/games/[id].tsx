@@ -29,6 +29,7 @@ import { storageService } from "@/services/storageService";
 import { MappingDashboard } from "@/components/MappingDashboard";
 import { showBanner } from "@/components/DiagnosticBanner";
 import { workflowService } from "@/services/workflowService";
+import axios from "axios";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; desc: string }> = {
   'pending': { label: 'Queued', color: 'text-zinc-400', desc: 'Awaiting cluster provisioning.' },

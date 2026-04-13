@@ -24,13 +24,16 @@ export const workflowService = {
   },
 
   async logTechnicalTrace(gameId: string, moduleId: string, message: string, severity: "info" | "warn" | "error" = "info") {
+    // 🛡️ ULTIMATE STANDARD: Required timestamp_ms for high-fidelity tracing
     const { error } = await supabase
       .from('game_events')
       .insert({
         game_id: gameId,
         event_type: `module_${moduleId}_trace`,
         severity,
-        payload: { message, timestamp: new Date().toISOString() }
+        payload: { message, timestamp: new Date().toISOString() },
+        timestamp_ms: Date.now(), // Fixes TS2769 error
+        module_id: moduleId
       });
     
     if (error) console.error("Trace logging failed:", error);
