@@ -46,6 +46,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { MapPin, PlusCircle, Check } from "lucide-react";
 
 const formSchema = z.object({
   homeTeam: z.string().min(2, "Home team required"),
@@ -53,15 +54,19 @@ const formSchema = z.object({
   gameDate: z.date({
     required_error: "Game date is required",
   }),
+  venueId: z.string().min(1, "Venue selection required"),
 });
 
 export function NewGameModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const [stage, setStage] = useState<'details' | 'upload' | 'igniting'>('details');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [stage, setStage] = useState<'details' | 'upload' | 'igniting'>('details');
   const [teams, setTeams] = useState<any[]>([]);
+  const [venues, setVenues] = useState<any[]>([]);
+  const [newVenueName, setNewVenueName] = useState("");
+  const [isAddingVenue, setIsAddingVenue] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,16 +74,43 @@ export function NewGameModal() {
       homeTeam: "",
       awayTeam: "",
       gameDate: new Date(),
+      venueId: "",
     },
   });
 
   useEffect(() => {
-    const fetchTeams = async () => {
-      const { data } = await supabase.from('teams').select('id, name');
-      if (data) setTeams(data);
+    const fetchData = async () => {
+      const [{ data: teamsData }, { data: venuesData }] = await Promise.all([
+        supabase.from('teams').select('*').order('name'),
+        supabase.from('venues').select('*').order('name')
+      ]);
+      if (teamsData) setTeams(teamsData);
+      if (venuesData) setVenues(venuesData);
     };
-    if (isOpen) fetchTeams();
-  }, [isOpen]);
+    fetchData();
+  }, []);
+
+  const handleAddVenue = async () => {
+    if (!newVenueName.trim()) return;
+    try {
+      const { data, error } = await supabase
+        .from('venues')
+        .insert({ name: newVenueName.trim() })
+        .select()
+        .single();
+      
+      if (error) throw error;
+      if (data) {
+        setVenues(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+        form.setValue("venueId", data.id);
+        setNewVenueName("");
+        setIsAddingVenue(false);
+        showBanner("Venue Registered", "success");
+      }
+    } catch (error) {
+      showBanner("Failed to register venue", "error");
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!file) {
@@ -101,6 +133,7 @@ export function NewGameModal() {
           home_team_id: values.homeTeam,
           away_team_id: values.awayTeam,
           date: values.gameDate.toISOString(),
+          venue_id: values.venueId,
           video_path: videoPath,
           status: 'pending'
         } as any)
@@ -109,12 +142,12 @@ export function NewGameModal() {
 
       if (gameError || !newGame) throw new Error("Failed to register game.");
 
-      // 3. TRIGGER STATELESS IGNITION
       await axios.post('/api/process-game', {
         gameId: newGame.id,
         metadata: {
           home: values.homeTeam,
-          away: values.awayTeam
+          away: values.awayTeam,
+          venue: values.venueId
         }
       });
 
@@ -274,6 +307,74 @@ export function NewGameModal() {
                     </FormItem>
                   )}
                 />
+
+                <div className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="venueId"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <MapPin className="h-3 w-3 text-primary" /> Venue Designation
+                          </div>
+                          {!isAddingVenue && (
+                            <button 
+                              type="button"
+                              onClick={() => setIsAddingVenue(true)}
+                              className="text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+                            >
+                              <PlusCircle className="h-3 w-3" /> New Venue
+                            </button>
+                          )}
+                        </FormLabel>
+                        
+                        {isAddingVenue ? (
+                          <div className="flex gap-2">
+                            <Input 
+                              placeholder="New Venue Name"
+                              value={newVenueName}
+                              onChange={(e) => setNewVenueName(e.target.value)}
+                              className="bg-white/5 border-white/10 rounded-xl h-12 font-bold flex-1"
+                              autoFocus
+                            />
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              onClick={() => setIsAddingVenue(false)}
+                              className="h-12 w-12 rounded-xl text-muted-foreground hover:bg-white/5"
+                            >
+                              <X className="h-5 w-5" />
+                            </Button>
+                            <Button 
+                              type="button"
+                              onClick={handleAddVenue}
+                              className="h-12 w-12 rounded-xl bg-primary hover:bg-primary/90 text-white"
+                            >
+                              <Check className="h-5 w-5" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-primary/20">
+                                <SelectValue placeholder="Identify Mission Coordinates" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background border-white/10">
+                              {venues.map((venue) => (
+                                <SelectItem key={venue.id} value={venue.id}>
+                                  {venue.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                        <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <div className="space-y-4">
                   <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
