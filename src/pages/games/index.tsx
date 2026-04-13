@@ -225,6 +225,16 @@ export default function GamesPage() {
 
       <NewGameModal />
       
+      <div className="flex items-center justify-between mb-12">
+        <div className="space-y-1">
+          <h1 className="text-4xl font-black uppercase tracking-tighter italic italic flex items-center gap-3">
+            <History className="h-8 w-8 text-primary" />
+            Game <span className="text-primary not-italic">Archive</span>
+          </h1>
+          <p className="text-muted-foreground font-mono text-[10px] uppercase tracking-widest">Historical Payload Registry</p>
+        </div>
+      </div>
+
       <EditGameTeamsModal 
         game={selectedGameForEdit}
         isOpen={isEditModalOpen}

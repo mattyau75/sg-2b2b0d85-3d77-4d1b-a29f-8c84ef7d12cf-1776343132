@@ -20,9 +20,10 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
+import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
+import { DiagnosticBanner, showBanner } from "@/components/DiagnosticBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
-import { showBanner } from "@/components/DiagnosticBanner";
 import { useToast } from "@/hooks/use-toast";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; progress: number }> = {
