@@ -110,16 +110,8 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           })
           .eq('id', gameData.id);
 
-        // 4. Trigger GPU Ignition
-        await axios.post('/api/process-game', {
-          gameId: gameData.id,
-          metadata: {
-            home: gameMetadata.homeTeam,
-            away: gameMetadata.awayTeam,
-            venue: gameMetadata.venueId
-          }
-        });
-
+        // REMOVED: Automatic GPU Ignition (Now a manual user action)
+        
         setActiveUploads(prev => prev.map(t => 
           t.id === uploadId ? { ...t, status: "completed" } : t
         ));
