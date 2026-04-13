@@ -14,8 +14,8 @@ Perform a full-stack re-alignment of the DribbleStats AI Elite platform to ensur
 
 ## Checklist:
 - [x] Create game_events table for high-speed GPU pulses
-- [ ] Refactor src/pages/index.tsx for UUID-driven data fetching and new status badges
-- [ ] Refactor src/pages/games/[id].tsx for real-time tactical pulse monitoring
+- [/] Refactor src/pages/index.tsx for UUID-driven data fetching and new status badges
+- [/] Refactor src/pages/games/[id].tsx for real-time tactical pulse monitoring
 - [ ] Optimize src/services/storageService.ts for 8GB multipart upload reliability
 - [ ] Audit src/pages/analysis-queue.tsx for status synchronization
 - [ ] Final check_for_errors and UI verification

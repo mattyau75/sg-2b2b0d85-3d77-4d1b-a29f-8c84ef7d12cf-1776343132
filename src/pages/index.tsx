@@ -9,44 +9,28 @@ import {
   Activity, 
   TrendingUp,
   Cpu,
-  Download,
-  ListTodo,
-  Video,
   History,
   Trophy,
   ChevronRight,
-  Youtube,
-  FileVideo,
   Plus,
   RefreshCw,
-  LayoutDashboard
+  LayoutDashboard,
+  Zap
 } from "lucide-react";
-import { ShotChart as ShotChartComponent, type Shot } from "@/components/ShotChart";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
-import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
 import { showBanner } from "@/components/DiagnosticBanner";
 import { useToast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
 
-const STATUS_PROGRESS: Record<string, number> = {
-  'queued': 15,
-  'processing': 35,
-  'analyzing': 65,
-  'finalizing': 90,
-  'completed': 100,
-  'error': 0
+const STATUS_CONFIG: Record<string, { label: string; color: string; progress: number }> = {
+  'pending': { label: 'Queued', color: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/50', progress: 10 },
+  'ignited': { label: 'GPU Warming', color: 'bg-blue-500/20 text-blue-400 border-blue-500/50', progress: 20 },
+  'analyzing': { label: 'Streaming', color: 'bg-orange-500/20 text-orange-400 border-orange-500/50 animate-pulse', progress: 65 },
+  'completed': { label: 'Ready', color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/50', progress: 100 },
+  'error': { label: 'Stall', color: 'bg-red-500/20 text-red-400 border-red-500/50', progress: 0 }
 };
 
 export default function Dashboard() {
@@ -61,124 +45,59 @@ export default function Dashboard() {
     speed: "0.4s/f"
   });
   const [loading, setLoading] = useState(true);
-  const [workerLogs, setWorkerLogs] = useState<any[]>([]);
-  const [ignitingGameId, setIgnitingGameId] = useState<string | null>(null);
   const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
 
-  // 🛡️ MANUAL STEPPER STATE
-  const [manualMode, setManualMode] = useState(false);
-  const [completedSteps, setCompletedSteps] = useState<number[]>([]);
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const fetchDashboardData = async () => {
+    setLoading(true);
+    try {
+      const { data: games, error: gamesError } = await supabase
+        .from("games")
+        .select(`
+          *,
+          home_team:teams!games_home_team_id_fkey(name),
+          away_team:teams!games_away_team_id_fkey(name)
+        `)
+        .order("created_at", { ascending: false });
+      
+      if (!gamesError && games) {
+        setRecentGames(games.filter(g => g.status === 'completed').slice(0, 3));
+        
+        const active = games
+          .filter(g => g.status !== 'completed' && g.status !== 'scheduled')
+          .map(g => ({
+            id: g.id,
+            name: `${g.home_team?.name || 'Home'} vs ${g.away_team?.name || 'Away'}`,
+            status: g.status,
+            progress: g.progress_percentage || STATUS_CONFIG[g.status]?.progress || 10
+          }));
+        setActiveJobs(active);
+      }
 
-  const checkSequence = (step: number) => {
-    if (step > 0 && !completedSteps.includes(step - 1)) {
-      const stepNames = ["SYNC REALTIME", "VERIFY PAYLOAD", "IGNITE GPU SWARM", "FINALIZE M2"];
-      toast({
-        title: "Sequence Blocked",
-        description: `Please complete Phase ${step}: ${stepNames[step - 1]} before proceeding.`,
-        variant: "destructive"
-      });
-      return false;
+      const { count } = await supabase
+        .from("play_by_play")
+        .select('id', { count: 'exact', head: true });
+
+      setStatsSummary(prev => ({
+        ...prev,
+        totalClips: count || 0
+      }));
+    } catch (err) {
+      console.error("Dashboard fetch error:", err);
+    } finally {
+      setLoading(false);
     }
-    return true;
   };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'ignited':
-        return <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/50">GPU Warming Up</Badge>;
-      case 'analyzing':
-        return <Badge className="bg-orange-500/20 text-orange-400 border-orange-500/50 animate-pulse">Streaming Analysis</Badge>;
-      case 'completed':
-        return <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/50">Analysis Ready</Badge>;
-      default:
-        return <Badge className="bg-zinc-500/20 text-zinc-400 border-zinc-500/50">Queued</Badge>;
-    }
-  };
-
-  // 🛡️ REALTIME CLEANUP GUARD: Prevent channel noise
-  const [activeChannel, setActiveChannel] = useState<any>(null);
 
   useEffect(() => {
-    const fetchDashboardData = async () => {
-      setLoading(true);
-      try {
-        const { data: games, error: gamesError } = await supabase
-          .from("games")
-          .select(`
-            *,
-            home_team:teams!games_home_team_id_fkey(name),
-            away_team:teams!games_away_team_id_fkey(name)
-          `)
-          .order("created_at", { ascending: false });
-        
-        if (!gamesError && games) {
-          setRecentGames(games.filter(g => g.status === 'completed').slice(0, 3));
-          
-          const active = games
-            .filter(g => g.status !== 'completed' && g.status !== 'scheduled')
-            .map(g => ({
-              id: g.id,
-              name: `${g.home_team?.name || 'Home'} vs ${g.away_team?.name || 'Away'}`,
-              status: g.status,
-              progress: STATUS_PROGRESS[g.status as string] || 10
-            }));
-          setActiveJobs(active);
-        }
-
-        const { count, error: countError } = await supabase
-          .from("play_by_play")
-          .select('id', { count: 'exact', head: true })
-          .not("video_url", "is", null);
-
-        if (!countError) {
-          setStatsSummary(prev => ({
-            ...prev,
-            totalClips: count || 0
-          }));
-        }
-      } catch (err) {
-        console.error("Dashboard fetch error:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchDashboardData();
 
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('dashboard-sync')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'games' },
-        (payload) => {
-          const updatedGame = payload.new as any;
-          
-          if (updatedGame.status === 'completed') {
-            setActiveJobs(prev => prev.filter(j => j.id !== updatedGame.id));
-            showBanner(`Analysis for ${updatedGame.home_team?.name || 'Game'} complete.`, "success", "Workflow Finished");
-            fetchDashboardData();
-          } else if (updatedGame.status !== 'scheduled') {
-            setActiveJobs(prev => {
-              const existing = prev.find(j => j.id === updatedGame.id);
-              if (existing) {
-                return prev.map(j => j.id === updatedGame.id ? {
-                  ...j,
-                  status: updatedGame.status,
-                  progress: STATUS_PROGRESS[updatedGame.status] || j.progress
-                } : j);
-              } else {
-                return [{
-                  id: updatedGame.id,
-                  name: "Analysis in Progress",
-                  status: updatedGame.status,
-                  progress: STATUS_PROGRESS[updatedGame.status] || 10
-                }, ...prev];
-              }
-            });
-          }
+        { event: '*', schema: 'public', table: 'games' },
+        () => {
+          fetchDashboardData();
         }
       )
       .subscribe();
@@ -188,283 +107,10 @@ export default function Dashboard() {
     };
   }, []);
 
-  const handleUploadSuccess = async (gameId: string) => {
+  const handleUploadSuccess = (gameId: string) => {
     setIsNewGameModalOpen(false);
-    showBanner("Game metadata initialized and video upload verified.", "success", "Ingestion Successful");
-    
-    // START INSTANT-ZERO TRACE LISTENER
-    // This ensures we see logs from 0s even before the API returns
-    const traceChannel = supabase
-      .channel(`trace-${gameId}`)
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'game_analysis',
-          filter: `game_id=eq.${gameId}`
-        },
-        (payload) => {
-          const update = payload.new as any;
-          setActiveJobs(prev => {
-            const existing = prev.find(j => j.id === gameId);
-            if (existing) {
-              return prev.map(j => j.id === gameId ? {
-                ...j,
-                status: update.status,
-                progress: update.progress_percentage || j.progress
-              } : j);
-            }
-            return prev;
-          });
-        }
-      )
-      .subscribe();
-
-    const { data, error } = await supabase
-      .from('games')
-      .select('*')
-      .eq('id', gameId)
-      .single();
-    
-    if (data) {
-      setSelectedGameForEdit(data);
-      setIsEditModalOpen(true);
-    }
-  };
-
-  const handleIgniteAI = async (gameId: string) => {
-    if (!gameId) return;
-
-    // 1. CLEAR PREVIOUS NOISE
-    if (activeChannel) {
-      await supabase.removeChannel(activeChannel);
-    }
-
-    try {
-      setIgnitingGameId(gameId);
-      
-      // 🛡️ LOCAL TECHNICAL HEARTBEAT: Immediate 0s Visibility
-      setWorkerLogs([{
-        id: `local-init-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        level: 'info',
-        message: '📡 SYSTEM: Initializing Elite Technical Handshake...',
-        module: 'DASHBOARD'
-      }, {
-        id: `local-sync-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        level: 'info',
-        message: '🔄 SYNC: Stabilizing Supabase Realtime Channel...',
-        module: 'SYSTEM'
-      }]);
-
-      const stableGameId = gameId.toLowerCase(); // 🛡️ NORMALIZE FOR FILTER
-
-      setWorkerLogs([{
-        id: `init-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        level: 'info',
-        message: '📡 SYSTEM: Synchronizing Atomic Handshake...',
-        module: 'DASHBOARD'
-      }]);
-
-      // 2. ESTABLISH CLEAN CHANNEL
-      const channel = supabase
-        .channel(`prime-sync-${stableGameId}`)
-        .on(
-          'postgres_changes',
-          { 
-            event: 'INSERT', 
-            schema: 'public', 
-            table: 'game_analysis', 
-            filter: `game_id=eq.${stableGameId}` 
-          },
-          (payload) => {
-            const entry = payload.new as any;
-            setWorkerLogs(prev => {
-              if (prev.some(l => l.message === entry.status_message)) return prev;
-              return [...prev, {
-                id: entry.id,
-                timestamp: entry.created_at || new Date().toISOString(),
-                level: entry.status === 'error' ? 'error' : 'info',
-                message: entry.status_message,
-                module: 'GPU'
-              }];
-            });
-            if (entry.progress_percentage !== undefined) {
-              setActiveJobs(prev => prev.map(j => j.id === gameId ? { ...j, progress: entry.progress_percentage, status: entry.status } : j));
-            }
-          }
-        )
-        .subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            setActiveChannel(channel);
-            console.log("✅ HANDSHAKE: Clean Channel Active.");
-            
-            // Wait for synchronization stabilization
-            await new Promise(resolve => setTimeout(resolve, 800));
-
-            try {
-              const response = await fetch('/api/process-game', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ gameId: stableGameId })
-              });
-
-              if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || "Ignition Failed");
-              }
-            } catch (apiErr: any) {
-              setWorkerLogs(prev => [...prev, {
-                id: `err-${Date.now()}`,
-                timestamp: new Date().toISOString(),
-                level: 'error',
-                message: `🚨 IGNITION FAILURE: ${apiErr.message}`,
-                module: 'SYSTEM'
-              }]);
-            }
-          }
-        });
-
-    } catch (err: any) {
-      console.error("Ignition Error:", err);
-    }
-  };
-
-  const handleKillSwarm = async (gameId: string) => {
-    try {
-      showBanner("Initiating emergency GPU shutdown...", "info", "Kill Signal Sent");
-      
-      // 1. SIGNAL CANCELLATION TO DATABASE
-      await supabase
-        .from("game_analysis")
-        .insert({
-          game_id: gameId,
-          status: 'cancelled',
-          status_message: '🛑 KILL SIGNAL: Manual termination requested by admin.',
-          progress_percentage: 0
-        });
-
-      // 2. UPDATE LOCAL UI
-      setActiveJobs(prev => prev.map(j => 
-        j.id === gameId ? { ...j, status: 'cancelled' } : j
-      ));
-      
-      setWorkerLogs(prev => [...prev, {
-        id: `kill-${Date.now()}`,
-        timestamp: new Date().toISOString(),
-        level: 'warn',
-        message: '🛑 SYSTEM: Shutdown command dispatched to GPU.',
-        module: 'SYSTEM'
-      }]);
-    } catch (err) {
-      console.error("Kill Swarm Error:", err);
-    }
-  };
-
-  const handleManualStep1 = async (gameId: string) => {
-    if (!checkSequence(0)) return;
-    if (!gameId) return;
-    setIgnitingGameId(gameId);
-    setWorkerLogs([{
-      id: `m1-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      level: 'info',
-      message: '📡 STEP 1: Initializing Manual Realtime Handshake...',
-      module: 'DASHBOARD'
-    }]);
-
-    if (activeChannel) await supabase.removeChannel(activeChannel);
-
-    const channel = supabase
-      .channel(`manual-sync-${gameId.toLowerCase()}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'game_analysis', filter: `game_id=eq.${gameId.toLowerCase()}` },
-        (payload) => {
-          const entry = payload.new as any;
-          setWorkerLogs(prev => [...prev, {
-            id: entry.id,
-            timestamp: entry.created_at || new Date().toISOString(),
-            level: entry.status === 'error' ? 'error' : 'info',
-            message: entry.status_message,
-            module: 'GPU'
-          }]);
-        }
-      )
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          setIsSubscribed(true);
-          setCompletedSteps(prev => [...new Set([...prev, 0])]);
-          setActiveChannel(channel);
-          setWorkerLogs(prev => [...prev, {
-            id: `m1-sub-${Date.now()}`,
-            timestamp: new Date().toISOString(),
-            level: 'success',
-            message: '✅ STEP 1 COMPLETE: Realtime Connection Verified.',
-            module: 'DASHBOARD'
-          }]);
-        }
-      });
-  };
-
-  const handleManualStep2 = async () => {
-    if (!checkSequence(1)) return;
-    if (!ignitingGameId) return;
-    setWorkerLogs(prev => [...prev, {
-      id: `m2-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      level: 'info',
-      message: '📦 STEP 2: Verifying Video Payload & ID Stability...',
-      module: 'DASHBOARD'
-    }]);
-
-    // Insert a log to DB to verify write access
-    const { error } = await supabase.from("game_analysis").insert({
-      game_id: ignitingGameId.toLowerCase(),
-      status: "verifying",
-      progress_percentage: 10,
-      status_message: "🛰️ STEP 2 COMPLETE: Forensic Payload Validated for GPU Ignition."
-    });
-
-    if (!error) setCompletedSteps(prev => [...new Set([...prev, 1])]);
-  };
-
-  const handleManualStep3 = async () => {
-    if (!checkSequence(2)) return;
-    if (!ignitingGameId) return;
-    setWorkerLogs(prev => [...prev, {
-      id: `m3-${Date.now()}`,
-      timestamp: new Date().toISOString(),
-      level: 'info',
-      message: '🚀 STEP 3: Dispatching Ignition Signal to Modal.com Cluster...',
-      module: 'DASHBOARD'
-    }]);
-
-    const response = await fetch('/api/process-game', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ gameId: ignitingGameId.toLowerCase() })
-    });
-
-    if (response.ok) setCompletedSteps(prev => [...new Set([...prev, 2])]);
-  };
-
-  const handleManualStep4 = async () => {
-    if (!checkSequence(3)) return;
-    if (!ignitingGameId) return;
-    const { error } = await supabase
-      .from("games")
-      .update({ m2_complete: true })
-      .eq('id', ignitingGameId);
-
-    if (!error) {
-      setCompletedSteps(prev => [...new Set([...prev, 3])]);
-      toast({ title: "Module 2 Complete", description: "The Swarm analysis has been finalized." });
-      setManualMode(false);
-    }
+    showBanner("Atomic Handshake Initialized. GPU ignition sequence started.", "success", "Swarm Launched");
+    router.push(`/games/${gameId}`);
   };
 
   return (
@@ -475,26 +121,23 @@ export default function Dashboard() {
             <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
               Dashboard Overview
             </h1>
-            <p className="text-muted-foreground">Welcome back, Scout. Here's your performance snapshot.</p>
+            <p className="text-muted-foreground">Elite Performance Snapshot • Automated Scouting Intelligence</p>
           </div>
           <div className="flex items-center gap-3">
             <Button 
               variant="outline" 
               size="icon" 
-              className="bg-muted/10 border-white/5 hover:bg-muted/20"
-              onClick={() => {
-                setLoading(true);
-                window.location.reload();
-              }}
+              className="bg-muted/10 border-white/5"
+              onClick={fetchDashboardData}
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
             </Button>
             <Button 
-              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all duration-300"
+              className="bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20"
               onClick={() => setIsNewGameModalOpen(true)}
             >
               <Plus className="h-4 w-4 mr-2" />
-              ADD NEW GAME
+              ANALYZE NEW GAME
             </Button>
           </div>
         </div>
@@ -507,10 +150,10 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: "Active Models", value: statsSummary.activeModels.toString(), icon: Cpu, color: "text-accent" },
+            { label: "AI Cluster", value: "A10G Swarm", icon: Cpu, color: "text-accent" },
             { label: "Total Clips", value: statsSummary.totalClips.toLocaleString(), icon: Play, color: "text-primary" },
-            { label: "Tracking Accuracy", value: statsSummary.accuracy, icon: Target, color: "text-emerald-400" },
-            { label: "Processing Speed", value: statsSummary.speed, icon: TrendingUp, color: "text-blue-400" },
+            { label: "Accuracy", value: statsSummary.accuracy, icon: Target, color: "text-emerald-400" },
+            { label: "Efficiency", value: statsSummary.speed, icon: TrendingUp, color: "text-blue-400" },
           ].map((stat, i) => (
             <Card key={i} className="glass-card border-none overflow-hidden group">
               <CardContent className="p-6">
@@ -533,15 +176,9 @@ export default function Dashboard() {
             <Card className="bg-card/50 border-border">
               <CardHeader className="flex flex-row items-center justify-between">
                 <CardTitle className="text-xl flex items-center gap-2">
-                  <History className="h-5 w-5 text-primary" /> Recent Analysis
+                  <History className="h-5 w-5 text-primary" /> Recent Intelligence
                 </CardTitle>
-                <Button 
-                  variant="ghost" 
-                  className="text-xs text-muted-foreground hover:text-primary"
-                  onClick={() => router.push('/games')}
-                >
-                  View All
-                </Button>
+                <Button variant="ghost" className="text-xs" onClick={() => router.push('/games')}>View All</Button>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -560,171 +197,71 @@ export default function Dashboard() {
                             <p className="text-sm font-bold group-hover:text-primary transition-colors">
                               {game.home_team?.name} vs {game.away_team?.name}
                             </p>
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-xs text-muted-foreground font-mono">
                               {new Date(game.created_at).toLocaleDateString()}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-6">
-                          <div className="text-right hidden sm:block">
-                            <p className="text-sm font-mono font-bold">Live</p>
-                            <p className="text-[10px] text-accent uppercase tracking-tighter">{game.status}</p>
-                          </div>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
-                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
                       </div>
                     ))
                   ) : (
-                    <div className="py-12 text-center space-y-4">
-                      <div className="h-16 w-16 bg-muted/30 rounded-full flex items-center justify-center mx-auto">
-                        <History className="h-8 w-8 text-muted-foreground/50" />
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-sm font-medium text-muted-foreground">No recent analysis found</p>
-                        <p className="text-xs text-muted-foreground/70">Start by analyzing a new game video</p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={() => setIsNewGameModalOpen(true)}>
-                        Analyze First Game
-                      </Button>
+                    <div className="py-12 text-center text-muted-foreground text-sm font-mono">
+                      No analyzed games found. Ignite your first swarm.
                     </div>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            <Tabs defaultValue="boxscore" className="w-full">
-              <TabsList className="bg-card/50 border border-white/5 p-1 rounded-xl mb-6">
-                <TabsTrigger value="boxscore" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
-                  Boxscore
-                </TabsTrigger>
-                <TabsTrigger value="pbp" className="rounded-lg data-[state=active]:bg-primary data-[state=active]:text-white">
-                  Play-by-Play
-                </TabsTrigger>
+            <Tabs defaultValue="overview" className="w-full">
+              <TabsList className="bg-card/50 border border-white/5 p-1 rounded-xl">
+                <TabsTrigger value="overview">Scouting Pulse</TabsTrigger>
+                <TabsTrigger value="models">Model Health</TabsTrigger>
               </TabsList>
-              
-              <TabsContent value="boxscore">
-                <Card className="glass-card border-none overflow-hidden min-h-[200px] flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground font-mono">No game stats available. Please select or analyze a game.</p>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="pbp">
-                <Card className="glass-card border-none p-8 text-center space-y-4">
-                  <Target className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                  <p className="text-sm text-muted-foreground font-mono">Select a game to view chronological event logs.</p>
+              <TabsContent value="overview">
+                <Card className="glass-card border-none min-h-[200px] flex items-center justify-center p-8 text-center">
+                  <p className="text-sm text-muted-foreground font-mono">Chronological event stream will appear here during active analysis pulses.</p>
                 </Card>
               </TabsContent>
             </Tabs>
           </div>
 
-          <div className="space-y-8">
+          <div className="space-y-6">
             <Card className="glass-card border-none">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="h-5 w-5 text-accent" />
-                  Shot Chart
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-sm uppercase tracking-widest font-black">
+                  <Zap className="h-4 w-4 text-primary" /> Live GPU Cluster
                 </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col items-center justify-center py-12 text-center space-y-4">
-                 <div className="h-32 w-full border border-dashed border-border/50 rounded-lg flex items-center justify-center bg-muted/10">
-                    <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">No Shot Data</p>
-                 </div>
-                 <p className="text-xs text-muted-foreground max-w-[180px]">Visualization will appear here once game processing is complete.</p>
-              </CardContent>
-            </Card>
-
-            <Card className="glass-card border-none">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-sm">
-                  <ListTodo className="h-4 w-4 text-primary" />
-                  Processing Queue
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                   <span className="text-[10px] font-mono text-muted-foreground">DEBUG</span>
-                   <Switch 
-                     checked={manualMode} 
-                     onCheckedChange={setManualMode}
-                     className="scale-75"
-                   />
-                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {manualMode && activeJobs.length > 0 && (
-                  <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 space-y-4 mb-6">
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] font-bold text-primary uppercase tracking-widest">Manual Command Center</p>
-                      <Badge variant="outline" className="text-[9px] border-primary/30 text-primary">OPERATOR MODE</Badge>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <Button 
-                        variant={completedSteps.includes(0) ? "secondary" : "outline"}
-                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(0) ? "border-green-500/50" : "border-primary/30"}`}
-                        onClick={() => handleManualStep1(activeJobs[0].id)}
-                      >
-                        {completedSteps.includes(0) ? "✅ PHASE 1: SYNCED" : "1. SYNC REALTIME"}
-                      </Button>
-
-                      <Button 
-                        variant={completedSteps.includes(1) ? "secondary" : "outline"}
-                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(1) ? "border-green-500/50" : "border-primary/30"}`}
-                        onClick={handleManualStep2}
-                      >
-                        {completedSteps.includes(1) ? "✅ PHASE 2: VERIFIED" : "2. VERIFY PAYLOAD"}
-                      </Button>
-
-                      <Button 
-                        variant={completedSteps.includes(2) ? "secondary" : "outline"}
-                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(2) ? "border-green-500/50" : "border-primary/30"}`}
-                        onClick={handleManualStep3}
-                      >
-                        {completedSteps.includes(2) ? "✅ PHASE 3: IGNITED" : "3. IGNITE GPU"}
-                      </Button>
-
-                      <Button 
-                        variant={completedSteps.includes(3) ? "secondary" : "outline"}
-                        className={`text-[10px] h-10 border-dashed ${completedSteps.includes(3) ? "border-green-500/50" : "border-primary/30"}`}
-                        onClick={handleManualStep4}
-                      >
-                        {completedSteps.includes(3) ? "✅ PHASE 4: LOCKED" : "4. FINALIZE M2"}
-                      </Button>
-                    </div>
-
-                    <div className="flex gap-1 justify-center">
-                      {[0, 1, 2, 3].map((s) => (
-                        <div key={s} className={`h-1 w-8 rounded-full ${completedSteps.includes(s) ? "bg-green-500" : "bg-primary/20"}`} />
-                      ))}
-                    </div>
-                  </div>
-                )}
                 {activeJobs.length > 0 ? (
-                  activeJobs.map((job, i) => (
-                    <div key={i} className="space-y-2 group">
-                      <div className="flex justify-between text-[10px] font-mono">
-                        <span className="text-muted-foreground uppercase truncate w-32 group-hover:text-foreground transition-colors">{job.name}</span>
-                        <span className={cn(
-                          "uppercase tracking-tighter font-bold",
-                          job.status === "error" ? "text-destructive" : 
-                          job.status === "finalizing" ? "text-accent" : "text-primary"
-                        )}>
-                          {job.status}
-                        </span>
+                  activeJobs.map((job, i) => {
+                    const config = STATUS_CONFIG[job.status] || STATUS_CONFIG.pending;
+                    return (
+                      <div key={i} className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/5">
+                        <div className="flex justify-between items-center">
+                          <span className="text-[10px] font-mono font-bold uppercase truncate w-32">{job.name}</span>
+                          <Badge variant="outline" className={cn("text-[8px] uppercase tracking-tighter", config.color)}>
+                            {config.label}
+                          </Badge>
+                        </div>
+                        <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
+                          <div 
+                            className="h-full bg-primary transition-all duration-1000"
+                            style={{ width: `${job.progress}%` }} 
+                          />
+                        </div>
+                        <div className="flex justify-between text-[8px] font-mono text-muted-foreground">
+                          <span>A10G INFUSION</span>
+                          <span>{job.progress}%</span>
+                        </div>
                       </div>
-                      <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden border border-white/5">
-                        <div 
-                          className={cn(
-                            "h-full transition-all duration-1000",
-                            job.status === "error" ? "bg-destructive" :
-                            job.status === "finalizing" ? "bg-accent" : "bg-primary"
-                          )}
-                          style={{ width: `${job.progress}%` }} 
-                        />
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
-                  <div className="py-4 text-center">
-                    <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">No active processing</p>
+                  <div className="py-8 text-center">
+                    <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">No Active GPU Pulsing</p>
                   </div>
                 )}
               </CardContent>
