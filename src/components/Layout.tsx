@@ -28,9 +28,9 @@ export function Layout({ children, title, description }: LayoutProps) {
           <nav className="flex-1 space-y-2">
             {[
               { icon: LayoutDashboard, label: "Dashboard", href: "/" },
-              { icon: Activity, label: "Processing Queue", href: "/analysis-queue" },
               { icon: Users, label: "Roster", href: "/roster" },
               { icon: History, label: "Games", href: "/games" },
+              { icon: Activity, label: "Processing Queue", href: "/analysis-queue" },
               { icon: BarChart3, label: "Analytics", href: "/analytics" },
               { icon: PlayCircle, label: "Highlights", href: "/highlights" },
               { icon: HelpCircle, label: "Help & Tips", href: "/help" },
