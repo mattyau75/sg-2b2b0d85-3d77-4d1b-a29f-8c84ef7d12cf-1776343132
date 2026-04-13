@@ -5,10 +5,12 @@ import { triggerAnalysis } from "@/services/modalService";
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') return res.status(405).json({ message: 'Method not allowed' });
 
-  // 1. ATOMIC ID NORMALIZATION (LOWERCASE ONLY)
-  const { gameId, video_path, videoUrl: bodyVideoUrl } = req.body;
-  const rawId = gameId || req.body.game_id || req.body.metadata?.gameId;
-  const finalGameId = rawId?.toString().toLowerCase();
+  // 1. ATOMIC ID NORMALIZATION
+  const { gameId } = req.body;
+  const finalGameId = gameId.toString().toLowerCase();
+  const isHandshake = finalGameId.includes('handshake');
+  
+  let finalVideoUrl = "";
 
   if (!finalGameId) {
     return res.status(400).json({ success: false, message: "Missing gameId for analysis ignition." });
@@ -23,21 +25,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status_message: "🤝 HANDSHAKE: Prime Ignition Sequence Established."
     }, { onConflict: 'game_id' });
 
-    // 2. FETCH VIDEO SOURCE FROM DB IF MISSING
-    let finalVideoUrl = bodyVideoUrl || video_path;
-    
-    if (!finalVideoUrl) {
-      console.log(`[API] Fetching missing video source for game: ${finalGameId}`);
-      const { data: game, error: fetchError } = await supabase
+    // 2. FETCH SECURE R2 HANDOVER URL (3-Hour Expiry)
+    if (!isHandshake) {
+      const { data: gameData, error: fetchError } = await supabase
         .from("games")
         .select("video_path")
         .eq("id", finalGameId)
         .single();
-      
-      if (fetchError || !game?.video_path) {
-        return res.status(404).json({ success: false, message: "Missing video source for AI analysis. Please ensure a video was uploaded in Module 1." });
+
+      if (fetchError || !gameData?.video_path) {
+        return res.status(404).json({ 
+          success: false, 
+          message: `❌ IGNITION FAILED: Video source not found for game ${finalGameId}.` 
+        });
       }
-      finalVideoUrl = game.video_path;
+
+      // 🛡️ Generate a long-life 3-hour URL for the GPU
+      const { data: signedUrlData, error: signError } = await supabase.storage
+        .from('game-videos')
+        .createSignedUrl(gameData.video_path, 10800); // 3 hours
+
+      finalVideoUrl = signedUrlData?.signedUrl || "";
+    } else {
+      console.log(`🧪 Handshake detected for ${finalGameId}. Skipping video validation.`);
     }
 
     // 3. DISPATCH TO MODAL

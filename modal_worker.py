@@ -45,35 +45,34 @@ def log_to_trace(supabase, game_id, progress, message, status="processing"):
 
 @app.function(
     image=image,
-    gpu=modal.gpu.A10G(), # Explicit GPU object for spec stability
-    timeout=1800,
+    gpu=modal.gpu.A10G(), # High-density GPU for elite scouting
+    timeout=3600, # 1-hour hard limit for full game analysis
     secrets=[modal.Secret.from_name("supabase-keys")]
 )
 def process_game_swarm(game_id: str, video_url: str = None):
     from supabase import create_client
+    import requests
+    import time
+    from datetime import datetime
     
-    # 1. ATOMIC ID NORMALIZATION (LOWERCASE ONLY)
+    # 🛡️ SYSTEM ENTRY POINT: Atomic Normalization
     game_id = game_id.lower()
     start_time = time.time()
     
-    # 2. FORENSIC SECRET AUDIT (Masked for security)
+    # Forensic Secret Audit
     url = os.environ.get("SUPABASE_URL")
-    service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
-    print(f"📡 GPU AUDIT - URL Found: {bool(url)} ({url[:12] if url else 'N/A'}...)")
-    print(f"📡 GPU AUDIT - KEY Found: {bool(service_key)} ({service_key[:8] if service_key else 'N/A'}...)")
+    if not url or not key:
+        print("❌ FATAL: Modal secrets missing. Communication severed.")
+        return
+        
+    supabase = create_client(url, key)
     
-    if not url or not service_key:
-        error_msg = f"❌ FATAL: Modal.com 'supabase-keys' secret is missing or misconfigured. URL: {bool(url)}, SERVICE_KEY: {bool(service_key)}"
-        print(error_msg)
-        return {"status": "error", "message": error_msg}
-
-    # Initialize Supabase with Service Role Key to bypass RLS
-    supabase = create_client(url, service_key)
-
     try:
-        # 🚀 IMMEDIATE 16% HANDSHAKE (Moved to top for instant feedback)
-        log_to_trace(supabase, game_id, 16, "✅ GPU HANDSHAKE: Elite Cluster Awakened.")
+        # 🚀 PULSE 1 (16%): Handshake Established
+        # We use stream processing to avoid loading 8GB into memory
+        log_to_trace(supabase, game_id, 16, "✅ ELITE HANDSHAKE: GPU Cluster active. Streaming 8GB source...")
         
         if not video_url:
             raise ValueError("GPU received an empty video URL payload.")
