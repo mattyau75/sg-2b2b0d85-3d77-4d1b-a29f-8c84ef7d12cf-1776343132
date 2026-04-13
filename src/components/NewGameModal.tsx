@@ -256,56 +256,56 @@ export function NewGameModal() {
                   </div>
                 </div>
 
-                <FormField
-                  control={form.control}
-                  name="gameDate"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                      <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-                        <CalendarIcon className="h-3 w-3 text-primary" /> Actual Game Date
-                      </FormLabel>
-                      <Popover modal={true}>
-                        <PopoverTrigger asChild>
-                          <FormControl>
-                            <Button
-                              variant={"outline"}
-                              className={cn(
-                                "w-full h-12 bg-white/5 border-white/10 rounded-xl font-bold text-left justify-start px-4",
-                                !field.value && "text-muted-foreground"
-                              )}
-                            >
-                              <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
-                              {field.value ? (
-                                format(field.value, "PPP")
-                              ) : (
-                                <span>Pick a date</span>
-                              )}
-                            </Button>
-                          </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent 
-                          className="w-auto p-0 bg-background border-white/10 z-[130]" 
-                          align="start"
-                          side="bottom"
-                          sideOffset={4}
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={field.value}
-                            onSelect={field.onChange}
-                            disabled={(date) =>
-                              date > new Date() || date < new Date("1900-01-01")
-                            }
-                            className="rounded-xl border border-white/10"
-                          />
-                        </PopoverContent>
-                      </Popover>
-                      <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
-                    </FormItem>
-                  )}
-                />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <FormField
+                    control={form.control}
+                    name="gameDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+                          <CalendarIcon className="h-3 w-3 text-primary" /> Game Date
+                        </FormLabel>
+                        <Popover modal={true}>
+                          <PopoverTrigger asChild>
+                            <FormControl>
+                              <Button
+                                variant={"outline"}
+                                className={cn(
+                                  "w-full h-12 bg-white/5 border-white/10 rounded-xl font-bold text-left justify-start px-4",
+                                  !field.value && "text-muted-foreground"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4 opacity-50" />
+                                {field.value ? (
+                                  format(field.value, "PPP")
+                                ) : (
+                                  <span>Pick a date</span>
+                                )}
+                              </Button>
+                            </FormControl>
+                          </PopoverTrigger>
+                          <PopoverContent 
+                            className="w-auto p-0 bg-background border-white/10 z-[130]" 
+                            align="start"
+                            side="bottom"
+                            sideOffset={4}
+                          >
+                            <Calendar
+                              mode="single"
+                              selected={field.value}
+                              onSelect={field.onChange}
+                              disabled={(date) =>
+                                date > new Date() || date < new Date("1900-01-01")
+                              }
+                              className="rounded-xl border border-white/10"
+                            />
+                          </PopoverContent>
+                        </Popover>
+                        <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
+                      </FormItem>
+                    )}
+                  />
 
-                <div className="space-y-4">
                   <FormField
                     control={form.control}
                     name="venueId"
@@ -313,7 +313,7 @@ export function NewGameModal() {
                       <FormItem className="flex flex-col">
                         <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <MapPin className="h-3 w-3 text-primary" /> Venue Designation
+                            <MapPin className="h-3 w-3 text-primary" /> Venue
                           </div>
                           {!isAddingVenue && (
                             <button 
@@ -355,7 +355,7 @@ export function NewGameModal() {
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
                               <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-primary/20">
-                                <SelectValue placeholder="Identify Mission Coordinates" />
+                                <SelectValue placeholder="Select Venue / Stadium" />
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent className="bg-background border-white/10">
