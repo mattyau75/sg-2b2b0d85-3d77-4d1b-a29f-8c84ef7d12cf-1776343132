@@ -14,8 +14,8 @@ export const modalService = {
   }) => {
     // 🛡️ DYNAMIC URL RESOLUTION
     // Using your verified Modal username: mattjeffs
-    const MODAL_ENDPOINT = process.env.MODAL_ENDPOINT_URL || 
-                          "https://mattjeffs--basketball-scout-ai-analyze.modal.run";
+    const modalUser = process.env.MODAL_USER_NAME || "mattjeffs";
+    const MODAL_ENDPOINT = `https://${modalUser}--basketball-scout-ai-analyze.modal.run`;
 
     try {
       console.log("🚀 IGNITION ATTEMPT: Calling GPU at", MODAL_ENDPOINT);

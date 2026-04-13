@@ -6,11 +6,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { test_id } = req.body;
   const modalProjectName = "basketball-scout-ai"; // From modal_worker.py app definition
+  const modalUser = process.env.MODAL_USER_NAME || "mattjeffs";
 
   try {
     // 🛡️ DYNAMIC MODAL URL RESOLUTION
     // The label is "ping", and app name is "basketball-scout-ai"
-    const modalUrl = `https://softgen--${modalProjectName}-ping.modal.run`;
+    const modalUrl = `https://${modalUser}--${modalProjectName}-ping.modal.run`;
 
     console.log(`📡 Dispatching Pulse to: ${modalUrl}`);
     
