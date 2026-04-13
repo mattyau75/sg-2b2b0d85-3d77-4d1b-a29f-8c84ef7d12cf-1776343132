@@ -13,6 +13,7 @@ interface UploadTask {
   status: "uploading" | "processing" | "completed" | "failed" | "cancelled";
   error?: string;
   gameId?: string;
+  metadata?: any;
 }
 
 interface UploadContextType {
@@ -48,21 +49,28 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     showBanner(`Analysis for ${task?.fileName || 'the video'} was terminated.`, "info", "Upload Cancelled");
   }, [activeUploads]);
 
-  const startUpload = useCallback(async (file: File, formData: any): Promise<string | undefined> => {
+  const startUpload = useCallback(async (file: File, gameMetadata: any): Promise<string | undefined> => {
+    const uploadId = crypto.randomUUID();
+    
     // 1. Create Game record in staging status
     const { data: gameData, error: gameError } = await supabase
       .from('games')
       .insert([{
-        status: 'uploading',
-        camera_type: formData.cameraType || 'panning'
+        home_team_id: gameMetadata.homeTeam,
+        away_team_id: gameMetadata.awayTeam,
+        date: gameMetadata.gameDate.toISOString(),
+        venue_id: gameMetadata.venueId,
+        home_score: gameMetadata.homeScore,
+        away_score: gameMetadata.awayScore,
+        status: 'uploading'
       }])
       .select()
       .single();
 
-    if (gameError) throw gameError;
-
-    const uploadId = crypto.randomUUID();
-    const videoKey = `raw-footage/${gameData.id}-${file.name.replace(/\s+/g, '_')}`;
+    if (gameError) {
+      showBanner("Failed to register game record", "error");
+      throw gameError;
+    }
 
     // Add task to tracking
     setActiveUploads(prev => [...prev, {
@@ -70,60 +78,70 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
       fileName: file.name,
       progress: 0,
       status: "uploading",
-      gameId: gameData.id
+      gameId: gameData.id,
+      metadata: gameMetadata
     }]);
 
-    try {
-      // 2. Perform Multipart Upload
-      const abortController = new AbortController();
-      abortControllers.current[uploadId] = abortController;
+    // Start background process (don't await the whole thing here so we can redirect)
+    (async () => {
+      try {
+        const abortController = new AbortController();
+        abortControllers.current[uploadId] = abortController;
 
-      await storageService.uploadVideo(file, (progress) => {
+        // 2. Perform Multipart Upload
+        const videoPath = await storageService.uploadVideo(file, (progress) => {
+          setActiveUploads(prev => prev.map(t => 
+            t.id === uploadId ? { ...t, progress } : t
+          ));
+        }, abortController.signal);
+
+        delete abortControllers.current[uploadId];
+
+        // 3. Update status to processing
         setActiveUploads(prev => prev.map(t => 
-          t.id === uploadId ? { ...t, progress } : t
+          t.id === uploadId ? { ...t, status: "processing", progress: 100 } : t
         ));
-      }, abortController.signal);
 
-      // Clean up controller after successful upload
-      delete abortControllers.current[uploadId];
+        await supabase
+          .from('games')
+          .update({ 
+            video_path: videoPath, 
+            status: 'pending' 
+          })
+          .eq('id', gameData.id);
 
-      // 3. Update game record with video path
-      const { error: updateError } = await supabase
-        .from('games')
-        .update({ 
-          video_path: videoKey, 
-          status: 'queued' 
-        })
-        .eq('id', gameData.id);
+        // 4. Trigger GPU Ignition
+        await axios.post('/api/process-game', {
+          gameId: gameData.id,
+          metadata: {
+            home: gameMetadata.homeTeam,
+            away: gameMetadata.awayTeam,
+            venue: gameMetadata.venueId
+          }
+        });
 
-      if (updateError) throw updateError;
+        setActiveUploads(prev => prev.map(t => 
+          t.id === uploadId ? { ...t, status: "completed" } : t
+        ));
 
-      // REMOVED: Immediate redirect. Returning gameId instead.
-      setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
-      return gameData.id;
+        // Auto-remove completed task after 5 seconds
+        setTimeout(() => {
+          setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
+        }, 5000);
 
-    } catch (error: any) {
-      // Clean up controller on failure
-      delete abortControllers.current[uploadId];
-
-      if (error.message === "CANCELLED") {
-        console.log("[UploadContext] Upload cancelled by user");
-        return;
+      } catch (error: any) {
+        delete abortControllers.current[uploadId];
+        console.error("[UploadContext] Background process failed:", error);
+        
+        setActiveUploads(prev => prev.map(u => 
+          u.id === uploadId ? { ...u, status: "failed", error: error.message } : u
+        ));
+        
+        showBanner("Background Analysis Failed", error.message, "error");
       }
+    })();
 
-      const serverData = error.response?.data;
-      console.error("[UploadContext] Background Upload Failed!", {
-        status: error.response?.status,
-        message: error.message,
-        serverDetails: serverData
-      });
-      
-      setActiveUploads(prev => prev.map(u => 
-        u.id === uploadId ? { ...u, status: "failed", error: serverData?.message || error.message } : u
-      ));
-      
-      showBanner("Upload Failed", error.response?.data?.message || error.message, "error");
-    }
+    return gameData.id;
   }, []);
 
   return (

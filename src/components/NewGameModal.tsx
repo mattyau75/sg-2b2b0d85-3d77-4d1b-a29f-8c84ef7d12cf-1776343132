@@ -47,6 +47,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { MapPin, PlusCircle, Check } from "lucide-react";
+import { useUploads } from "@/contexts/UploadContext";
+import { useRouter } from "next/router";
 
 const formSchema = z.object({
   homeTeam: z.string().min(2, "Home team required"),
@@ -61,6 +63,8 @@ const formSchema = z.object({
 
 export function NewGameModal() {
   const [isOpen, setIsOpen] = useState(false);
+  const { startUpload } = useUploads();
+  const router = useRouter();
   const [stage, setStage] = useState<'details' | 'upload' | 'igniting'>('details');
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -121,50 +125,23 @@ export function NewGameModal() {
       showBanner("Missing Video Source", "error");
       return;
     }
-    setUploading(true);
-    setStage('upload');
 
     try {
-      const videoPath = await storageService.uploadVideo(file, (progress) => {
-        setUploadProgress(progress);
-      });
-
-      setStage('igniting');
+      // Trigger background process
+      await startUpload(file, values);
       
-      const { data: newGame, error: gameError } = await supabase
-        .from('games')
-        .insert({
-          home_team_id: values.homeTeam,
-          away_team_id: values.awayTeam,
-          date: values.gameDate.toISOString(),
-          venue_id: values.venueId,
-          home_score: values.homeScore,
-          away_score: values.awayScore,
-          video_path: videoPath,
-          status: 'pending'
-        } as any)
-        .select('id')
-        .single();
-
-      if (gameError || !newGame) throw new Error("Failed to register game.");
-
-      await axios.post('/api/process-game', {
-        gameId: newGame.id,
-        metadata: {
-          home: values.homeTeam,
-          away: values.awayTeam,
-          venue: values.venueId
-        }
-      });
-
-      showBanner("GPU Swarm Ignited", "success");
+      // Immediate response
+      showBanner("Upload Initiated - Tracking in Directory", "success");
       setIsOpen(false);
       resetState();
+      
+      // Redirect if not already on games page
+      if (router.pathname !== "/games") {
+        router.push("/games");
+      }
     } catch (err: any) {
-      console.error("Scout Initiation Failed:", err);
-      showBanner(err.message || "Handshake Failure", "error");
-      setStage('details');
-      setUploading(false);
+      console.error("Initiation Failed:", err);
+      showBanner("Failed to start upload", "error");
     }
   };
 

@@ -24,8 +24,12 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { NewGameModal } from "@/components/NewGameModal";
+import { useUploads } from "@/contexts/UploadContext";
+import { Progress } from "@/components/ui/progress";
+import { UploadCloud, Loader2, AlertCircle, XCircle } from "lucide-react";
 
 export default function GamesPage() {
+  const { activeUploads, cancelUpload } = useUploads();
   const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -102,6 +106,56 @@ export default function GamesPage() {
             Filters
           </Button>
         </div>
+
+        {/* Active Background Uploads */}
+        {activeUploads.length > 0 && (
+          <div className="space-y-4">
+            <h2 className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
+              <UploadCloud className="h-4 w-4 animate-bounce" /> Active Intelligence Streams
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {activeUploads.map((upload) => (
+                <Card key={upload.id} className="bg-primary/5 border-primary/20 backdrop-blur-md relative overflow-hidden group">
+                  <div className="absolute top-0 left-0 h-full bg-primary/5 transition-all duration-500" style={{ width: `${upload.progress}%` }} />
+                  <CardHeader className="p-4 pb-2 relative z-10">
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold truncate max-w-[200px]">{upload.fileName}</p>
+                        <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-tighter">
+                          {upload.status === 'uploading' ? 'Streaming to R2' : upload.status === 'processing' ? 'Igniting GPU Swarm' : 'Finalizing'}
+                        </p>
+                      </div>
+                      <button 
+                        onClick={() => cancelUpload(upload.id)}
+                        className="text-muted-foreground hover:text-red-500 transition-colors"
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 pt-0 relative z-10">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center text-[10px] font-black font-mono">
+                        <span className={cn(
+                          upload.status === 'failed' ? "text-red-500" : "text-primary"
+                        )}>
+                          {upload.status === 'failed' ? 'ERROR' : `${Math.round(upload.progress)}%`}
+                        </span>
+                        {upload.status !== 'failed' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
+                      </div>
+                      <Progress value={upload.progress} className="h-1 bg-white/5" />
+                      {upload.error && (
+                        <p className="text-[9px] text-red-400 font-medium leading-tight mt-1 truncate">
+                          {upload.error}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
