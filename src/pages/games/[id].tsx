@@ -24,7 +24,6 @@ import {
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { storageService } from "@/services/storageService";
 import { MappingDashboard } from "@/components/MappingDashboard";
 import { showBanner } from "@/components/DiagnosticBanner";
 import { workflowService } from "@/services/workflowService";
@@ -34,7 +33,7 @@ import axios from "axios";
 const MODULES = [
   { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: '8GB Payload Verification' },
   { id: 'm2', label: 'GPU Swarm', icon: Cpu, desc: 'Cluster Ignition & Handshake' },
-  { id: 'm3', label: 'Analysis', icon: Zap, desc: 'Stream-Processing Stream' },
+  { id: 'm3', label: 'Analysis', icon: Zap, desc: 'Stream-Processing Pulse' },
   { id: 'm4', label: 'Mapping', icon: Terminal, desc: 'Data Finalization & Locking' }
 ];
 
@@ -48,6 +47,9 @@ export default function GameDetailPage() {
   const [activeTab, setActiveTab] = useState("m1");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
+  const [aiMappings, setAiMappings] = useState<any[]>([]);
+  const [homeRoster, setHomeRoster] = useState<any[]>([]);
+  const [awayRoster, setAwayRoster] = useState<any[]>([]);
 
   const fetchGameData = useCallback(async () => {
     if (!gameId) return;
@@ -59,6 +61,21 @@ export default function GameDetailPage() {
         .single();
       if (error) throw error;
       setGame(data);
+
+      // Fetch AI Mappings for Module 4
+      const { data: mappings } = await supabase
+        .from('ai_player_mappings')
+        .select('*, players(*)')
+        .eq('game_id', gameId);
+      setAiMappings(mappings || []);
+
+      // Fetch Rosters
+      if (data.home_team_id && data.away_team_id) {
+        const { data: homePlayers } = await supabase.from('players').select('*').eq('team_id', data.home_team_id);
+        const { data: awayPlayers } = await supabase.from('players').select('*').eq('team_id', data.away_team_id);
+        setHomeRoster(homePlayers || []);
+        setAwayRoster(awayPlayers || []);
+      }
     } catch (err) {
       console.error("Error fetching game:", err);
     } finally {
@@ -86,14 +103,20 @@ export default function GameDetailPage() {
     if (!gameId) return;
     setIsProcessing(true);
     try {
-      showBanner(`Initiating Phase ${phase}...`, "info", "SYSTEM HANDSHAKE");
-      
       if (phase === "m2") {
+        showBanner("Establishing GPU Cluster Handshake...", "info", "IGNITION START");
         await axios.post('/api/process-game', { gameId });
         await workflowService.advanceModule(gameId as string, 'ignited');
-        showBanner("GPU Cluster Ignited. Streaming active.", "success", "PHASE 02 START");
+        showBanner("GPU Cluster Ignited. 1-Hour Stream Active.", "success", "PHASE 02 COMPLETE");
+        setActiveTab("m2");
       }
-      
+      if (phase === "m3") {
+        await workflowService.advanceModule(gameId as string, 'analyzing');
+        setActiveTab("m3");
+      }
+      if (phase === "m4") {
+        setActiveTab("m4");
+      }
       await fetchGameData();
     } catch (err: any) {
       showBanner(err.message || "Phase Initiation Failed", "error", "HARD STALL");
@@ -122,7 +145,9 @@ export default function GameDetailPage() {
 
           <div className="space-y-4">
             <div className="flex items-center gap-3">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-widest py-1 px-3 italic">ELITE SCOUT ANALYTICS ACTIVE</Badge>
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-widest py-1 px-3 italic uppercase">
+                {game?.status || 'SCOUT SESSION PENDING'}
+              </Badge>
               {game?.status === 'analyzing' && <Activity className="h-4 w-4 text-primary animate-pulse" />}
             </div>
             <h1 className="text-5xl font-black tracking-tighter text-white uppercase italic">
@@ -173,34 +198,91 @@ export default function GameDetailPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Module Content */}
           <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-card/40 border-white/5 p-12 min-h-[400px] flex flex-col items-center justify-center text-center space-y-8">
+            <Card className="bg-card/40 border-white/5 p-8 min-h-[500px] flex flex-col items-center justify-center text-center">
               {activeTab === 'm1' && (
-                <>
-                  <HardDrive className="h-16 w-16 text-primary animate-pulse" />
+                <div className="space-y-8 animate-in fade-in zoom-in duration-500">
+                  <HardDrive className="h-16 w-16 text-primary animate-pulse mx-auto" />
                   <div className="space-y-4">
                     <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Payload Synchronization</h3>
-                    <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Verifying 8GB source integrity on R2 cluster. This is a deterministic manual gate.</p>
+                    <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Verifying 8GB R2 payload integrity and secure 3-hour handover tokens.</p>
                   </div>
-                  <Button 
-                    onClick={() => handleInitiatePhase("m2")}
-                    disabled={isProcessing}
-                    className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic h-16 px-12 rounded-2xl shadow-xl shadow-primary/20"
-                  >
-                    {isProcessing ? "Verifying..." : "Lock & Initiate Ignition"}
-                  </Button>
-                </>
+                  <div className="flex flex-col gap-3">
+                    <Button 
+                      onClick={() => handleInitiatePhase("m2")}
+                      disabled={isProcessing}
+                      className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic h-16 px-12 rounded-2xl shadow-xl shadow-primary/20"
+                    >
+                      {isProcessing ? <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> : "Verify & Initiate GPU Swarm"}
+                    </Button>
+                  </div>
+                </div>
               )}
+
               {activeTab === 'm2' && (
-                <>
-                  <Cpu className="h-16 w-16 text-accent animate-spin-slow" />
+                <div className="space-y-8 animate-in fade-in zoom-in duration-500">
+                  <Cpu className="h-16 w-16 text-accent animate-spin-slow mx-auto" />
                   <div className="space-y-4">
                     <h3 className="text-2xl font-black uppercase tracking-tighter text-white">GPU Swarm Ignition</h3>
-                    <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Establishing stateless handshake with A10G cluster. Status: {game?.status || 'Waiting'}</p>
+                    <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Stateless Handshake Established. Cluster A10G warming up.</p>
                   </div>
-                  <Progress value={game?.progress_percentage || 0} className="w-full max-w-md h-2 bg-white/5" />
-                </>
+                  <Button 
+                    onClick={() => handleInitiatePhase("m3")}
+                    disabled={isProcessing}
+                    className="bg-accent hover:bg-accent/90 text-black font-black uppercase tracking-widest italic h-16 px-12 rounded-2xl"
+                  >
+                    Start Real-Time Analysis Stream
+                  </Button>
+                </div>
               )}
-              {/* Other modules would follow the same pattern */}
+
+              {activeTab === 'm3' && (
+                <div className="w-full space-y-8 animate-in fade-in zoom-in duration-500">
+                   <div className="flex items-center justify-between">
+                      <div className="text-left">
+                        <h3 className="text-2xl font-black uppercase tracking-tighter text-white italic">Analysis Stream active</h3>
+                        <p className="text-xs text-muted-foreground font-mono">Stream-Processing 1-Hour Footage Pulse</p>
+                      </div>
+                      <Badge className="bg-primary text-white font-black italic">GPU ACTIVE</Badge>
+                   </div>
+                   <div className="space-y-2">
+                      <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
+                        <span className="text-muted-foreground">Pulse Depth</span>
+                        <span className="text-primary">{game?.progress_percentage || 0}%</span>
+                      </div>
+                      <Progress value={game?.progress_percentage || 0} className="h-2 bg-white/5" />
+                   </div>
+                   <div className="grid grid-cols-2 gap-4">
+                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-left">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Detections</p>
+                        <p className="text-3xl font-black text-white italic">{game?.total_detections || 0}</p>
+                      </div>
+                      <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-left">
+                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Event Density</p>
+                        <p className="text-3xl font-black text-accent italic">HIGH</p>
+                      </div>
+                   </div>
+                   <Button 
+                    onClick={() => handleInitiatePhase("m4")}
+                    className="w-full bg-white text-black font-black uppercase tracking-widest italic h-14 rounded-2xl"
+                  >
+                    Enter Mapping Engine
+                  </Button>
+                </div>
+              )}
+
+              {activeTab === 'm4' && (
+                <div className="w-full animate-in fade-in zoom-in duration-500">
+                  <MappingDashboard 
+                    gameId={gameId as string}
+                    aiMappings={aiMappings}
+                    homeRoster={homeRoster}
+                    awayRoster={awayRoster}
+                    homeColor={game?.home_team_color}
+                    awayColor={game?.away_team_color}
+                    onRefresh={fetchGameData}
+                  />
+                </div>
+              )}
             </Card>
           </div>
 
