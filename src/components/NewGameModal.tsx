@@ -101,7 +101,7 @@ export function NewGameModal() {
         .select('id')
         .single();
 
-      if (gameError || !newGame) throw new Error("Failed to register scout session.");
+      if (gameError || !newGame) throw new Error("Failed to register game.");
 
       // 3. TRIGGER STATELESS IGNITION
       await axios.post('/api/process-game', {
@@ -142,15 +142,15 @@ export function NewGameModal() {
       <DialogTrigger asChild>
         <Button className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-tighter italic h-12 px-6 rounded-none skew-x-[-12deg]">
           <span className="skew-x-[12deg] flex items-center gap-2">
-            <Plus className="h-5 w-5" /> New Scout Session
+            <Plus className="h-5 w-5" /> Add New Game
           </span>
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-hidden rounded-3xl">
         <DialogHeader className="p-8 pb-0">
-          <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic italic flex items-center gap-3">
+          <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic flex items-center gap-3">
             <Cpu className="h-8 w-8 text-primary animate-pulse" />
-            Initiate <span className="text-primary not-italic">AI Swarm</span>
+            Register <span className="text-primary not-italic">New Game</span>
           </DialogTitle>
         </DialogHeader>
 

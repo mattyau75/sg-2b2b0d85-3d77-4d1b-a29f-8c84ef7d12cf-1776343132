@@ -80,9 +80,9 @@ export default function GamesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tighter bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent uppercase">
-              Games Directory
+              Games Archive
             </h1>
-            <p className="text-muted-foreground text-sm font-medium">Manage historical footage and AI scouting reports.</p>
+            <p className="text-muted-foreground text-sm font-medium">Manage historical footage and AI game analysis.</p>
           </div>
           <NewGameModal />
         </div>
