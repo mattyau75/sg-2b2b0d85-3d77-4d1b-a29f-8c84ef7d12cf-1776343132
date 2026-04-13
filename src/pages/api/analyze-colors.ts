@@ -37,6 +37,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error;
 
+    // 🚀 SYNC TO HANDSHAKE BRIDGE
+    await supabase.from("game_analysis").upsert({
+      game_id: gameId.toLowerCase(),
+      status: "calibrating",
+      progress_percentage: 8,
+      status_message: "🎨 COLOR CALIBRATION: Elite jersey colors identified & mapped."
+    }, { onConflict: 'game_id' });
+
     return res.status(200).json({ 
       success: true, 
       colors: detectedColors 

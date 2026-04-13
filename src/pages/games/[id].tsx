@@ -388,16 +388,20 @@ export default function GameDetailPage() {
     
     showBanner("📦 PHASE 2: Verifying Video Payload & ID Stability...", "info", "Payload Check");
 
-    const { error } = await supabase.from("game_analysis").insert({
+    // 🛡️ ATOMIC UPSERT: Prevent unique constraint collision
+    const { error } = await supabase.from("game_analysis").upsert({
       game_id: gameId.toLowerCase(),
       status: "verifying",
       progress_percentage: 10,
       status_message: "🛰️ PHASE 2 COMPLETE: Forensic Payload Validated for GPU Ignition."
-    });
+    }, { onConflict: 'game_id' });
 
     if (!error) {
       setCompletedSteps(prev => [...new Set([...prev, 1])]);
       await fetchGameData(true);
+    } else {
+      console.error("[Phase 2 Error]", error);
+      showBanner(`❌ PHASE 2 FAILED: ${error.message}`, "error", "Payload Stall");
     }
   };
 
