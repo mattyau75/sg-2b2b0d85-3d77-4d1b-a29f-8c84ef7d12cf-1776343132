@@ -23,6 +23,7 @@ import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { NewGameModal } from "@/components/NewGameModal";
 
 export default function GamesPage() {
   const [games, setGames] = useState<any[]>([]);
@@ -74,8 +75,8 @@ export default function GamesPage() {
   });
 
   return (
-    <Layout title="Games Directory | DribbleStats AI Elite">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 animate-in fade-in duration-500">
+    <Layout title="Games Archive | DribbleStats AI">
+      <div className="space-y-10">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
           <div className="space-y-1">
             <h1 className="text-3xl font-black tracking-tighter bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent uppercase">
@@ -83,6 +84,7 @@ export default function GamesPage() {
             </h1>
             <p className="text-muted-foreground text-sm font-medium">Manage historical footage and AI scouting reports.</p>
           </div>
+          <NewGameModal />
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 items-center">
