@@ -184,7 +184,7 @@ export function NewGameModal() {
           </span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-hidden rounded-3xl">
+      <DialogContent className="bg-background border-white/5 max-w-2xl p-0 overflow-visible rounded-3xl">
         <DialogHeader className="p-8 pb-0">
           <DialogTitle className="text-3xl font-black uppercase tracking-tighter italic flex items-center gap-3">
             <Cpu className="h-8 w-8 text-primary animate-pulse" />
@@ -284,7 +284,7 @@ export function NewGameModal() {
                           </FormControl>
                         </PopoverTrigger>
                         <PopoverContent 
-                          className="w-auto p-0 bg-background border-white/10 z-[110]" 
+                          className="w-auto p-0 bg-background border-white/10 z-[130]" 
                           align="start"
                           side="bottom"
                           sideOffset={4}
@@ -292,13 +292,10 @@ export function NewGameModal() {
                           <Calendar
                             mode="single"
                             selected={field.value}
-                            onSelect={(date) => {
-                              field.onChange(date);
-                            }}
+                            onSelect={field.onChange}
                             disabled={(date) =>
                               date > new Date() || date < new Date("1900-01-01")
                             }
-                            initialFocus
                             className="rounded-xl border border-white/10"
                           />
                         </PopoverContent>
