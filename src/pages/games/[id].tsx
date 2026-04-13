@@ -32,6 +32,8 @@ import { WorkerLogs } from "@/components/WorkerLogs";
 import axios from "axios";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check, AlertTriangle } from "lucide-react";
 
 const MODULES = [
   { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: 'Asset Verification', key: 'm1_complete' },
@@ -50,10 +52,12 @@ export default function GameDetailPage() {
   const [activeTab, setActiveTab] = useState("m1");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isVerifying, setIsVerifying] = useState(false);
+  const [isAnalyzingColors, setIsAnalyzingColors] = useState(false);
   const [isRealtimeActive, setIsRealtimeActive] = useState(false);
   const [aiMappings, setAiMappings] = useState<any[]>([]);
   const [homeRoster, setHomeRoster] = useState<any[]>([]);
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
+  const [editData, setEditData] = useState<any>({});
 
   const fetchGameData = useCallback(async () => {
     if (!gameId) return;
@@ -86,6 +90,20 @@ export default function GameDetailPage() {
       setLoading(false);
     }
   }, [gameId]);
+
+  useEffect(() => {
+    if (game) {
+      setEditData({
+        home_team_name: game.home_team?.name || "",
+        away_team_name: game.away_team?.name || "",
+        venue_name: game.venue?.name || "",
+        home_score: game.home_score || 0,
+        away_score: game.away_score || 0,
+        home_team_color: game.home_team_color || "",
+        away_team_color: game.away_team_color || ""
+      });
+    }
+  }, [game]);
 
   useEffect(() => {
     fetchGameData();
@@ -162,6 +180,48 @@ export default function GameDetailPage() {
       showBanner("Verification failed", "error");
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const handleUpdateGameDetails = async () => {
+    if (!gameId) return;
+    try {
+      const { error } = await supabase
+        .from('games')
+        .update({
+          home_score: editData.home_score,
+          away_score: editData.away_score,
+          home_team_color: editData.home_team_color,
+          away_team_color: editData.away_team_color
+        })
+        .eq('id', gameId);
+
+      if (error) throw error;
+      
+      // Update team names if they changed (requires joining team update)
+      // For now, we update the scores and colors which are direct on the games table
+      
+      showBanner("Game parameters calibrated", "success");
+      await fetchGameData();
+    } catch (err: any) {
+      showBanner("Calibration failed", "error");
+    }
+  };
+
+  const handleAnalyzeColors = async () => {
+    if (!gameId || !game?.video_path) return;
+    setIsAnalyzingColors(true);
+    try {
+      const res = await axios.post('/api/analyze-colors', { 
+        gameId, 
+        videoPath: game.video_path 
+      });
+      showBanner("Colors identified from footage", "success");
+      await fetchGameData();
+    } catch (err: any) {
+      showBanner("Color recognition failed", "error");
+    } finally {
+      setIsAnalyzingColors(false);
     }
   };
 
@@ -255,19 +315,155 @@ export default function GameDetailPage() {
               {/* Tactical Progress Guard */}
               <div className="flex-1 flex flex-col items-center justify-center text-center">
                 {activeTab === 'm1' && (
-                  <div className="space-y-8 animate-in fade-in zoom-in duration-500">
-                    <HardDrive className="h-16 w-16 text-primary animate-pulse mx-auto" />
-                    <div className="space-y-4">
-                      <h3 className="text-2xl font-black uppercase tracking-tighter text-white">Asset Verification & Calibration</h3>
-                      <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Video payload secured in R2. Verify team identity and color calibration before ignition.</p>
+                  <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 text-left">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="space-y-1">
+                        <h3 className="text-2xl font-black uppercase tracking-tighter text-white italic">Calibration Hub</h3>
+                        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Environmental & Parameter Tuning</p>
+                      </div>
+                      <Button 
+                        size="sm"
+                        onClick={handleUpdateGameDetails}
+                        className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-xl h-10 px-6"
+                      >
+                        <Save className="mr-2 h-4 w-4" /> Save Parameters
+                      </Button>
                     </div>
-                    <Button 
-                      onClick={() => handleInitiatePhase("m2")}
-                      disabled={isProcessing || game?.status === 'analyzing' || game?.status === 'completed'}
-                      className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic h-16 px-12 rounded-2xl shadow-xl shadow-primary/20"
-                    >
-                      {isProcessing ? <RefreshCw className="mr-2 h-5 w-5 animate-spin" /> : "Ignite AI Analysis"}
-                    </Button>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                      {/* Left: General Meta */}
+                      <div className="space-y-6">
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
+                            <TrophyIcon className="h-3 w-3" /> Identity Mapping
+                          </p>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Home Team</Label>
+                              <Input 
+                                value={editData.home_team_name} 
+                                disabled
+                                className="bg-white/5 border-white/10 rounded-xl h-12 font-bold opacity-60" 
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Away Team</Label>
+                              <Input 
+                                value={editData.away_team_name} 
+                                disabled
+                                className="bg-white/5 border-white/10 rounded-xl h-12 font-bold opacity-60" 
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 pt-2">
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Home Score</Label>
+                              <Input 
+                                type="number"
+                                value={editData.home_score}
+                                onChange={(e) => setEditData({...editData, home_score: parseInt(e.target.value)})}
+                                className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-xl text-center" 
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Away Score</Label>
+                              <Input 
+                                type="number"
+                                value={editData.away_score}
+                                onChange={(e) => setEditData({...editData, away_score: parseInt(e.target.value)})}
+                                className="bg-white/5 border-white/10 rounded-xl h-12 font-mono text-xl text-center" 
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
+                          <p className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
+                            <MapPinIcon className="h-3 w-3" /> Venue Parameters
+                          </p>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Stadium Designation</Label>
+                            <Input 
+                              value={editData.venue_name} 
+                              disabled
+                              className="bg-white/5 border-white/10 rounded-xl h-12 font-bold opacity-60" 
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Color Calibration */}
+                      <div className="space-y-6">
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 border-dashed space-y-6 relative overflow-hidden group">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
+                              <Palette className="h-3 w-3 text-primary" /> Visual Recognition
+                            </p>
+                            <Button 
+                              variant="outline"
+                              size="sm"
+                              disabled={isAnalyzingColors || !game?.video_path}
+                              onClick={handleAnalyzeColors}
+                              className="bg-white/5 border-white/10 text-[9px] font-black uppercase rounded-lg h-8 px-4"
+                            >
+                              {isAnalyzingColors ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
+                              Identify Jersey Colors
+                            </Button>
+                          </div>
+
+                          {!game?.detected_home_color && !game?.detected_away_color ? (
+                            <div className="py-8 text-center space-y-2">
+                              <AlertTriangle className="h-8 w-8 text-amber-500/50 mx-auto" />
+                              <p className="text-[10px] font-mono text-muted-foreground uppercase">Footage Analysis Required</p>
+                            </div>
+                          ) : (
+                            <div className="space-y-6">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-3">
+                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block text-center">Home Mapping</Label>
+                                  <div className="flex justify-center gap-2">
+                                    {[game?.detected_home_color, game?.detected_away_color].filter(Boolean).map((color, i) => (
+                                      <button
+                                        key={i}
+                                        onClick={() => setEditData({...editData, home_team_color: color})}
+                                        className={cn(
+                                          "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center",
+                                          editData.home_team_color === color ? "border-primary scale-110 shadow-lg shadow-primary/20" : "border-white/10 grayscale hover:grayscale-0"
+                                        )}
+                                        style={{ backgroundColor: color as string }}
+                                      >
+                                        {editData.home_team_color === color && <Check className="h-5 w-5 text-white drop-shadow-md" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-3">
+                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block text-center">Away Mapping</Label>
+                                  <div className="flex justify-center gap-2">
+                                    {[game?.detected_home_color, game?.detected_away_color].filter(Boolean).map((color, i) => (
+                                      <button
+                                        key={i}
+                                        onClick={() => setEditData({...editData, away_team_color: color})}
+                                        className={cn(
+                                          "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center",
+                                          editData.away_team_color === color ? "border-accent scale-110 shadow-lg shadow-accent/20" : "border-white/10 grayscale hover:grayscale-0"
+                                        )}
+                                        style={{ backgroundColor: color as string }}
+                                      >
+                                        {editData.away_team_color === color && <Check className="h-5 w-5 text-white drop-shadow-md" />}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                                <p className="text-[9px] font-black text-primary uppercase text-center tracking-widest">Calibration Ready for Ignition</p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
 
