@@ -163,7 +163,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl bg-[#0B0E14] border-white/5 p-0 overflow-hidden shadow-2xl flex flex-col">
+      <DialogContent className="max-w-4xl bg-[#0B0E14] border-white/5 p-0 overflow-hidden shadow-2xl flex flex-col h-[90vh]">
         <div className="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent shrink-0">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
@@ -180,7 +180,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 max-h-[60vh]">
+        <ScrollArea className="flex-1 w-full overflow-y-auto">
           <div className="px-8 py-6 space-y-10">
             {/* Visual Color Calibration */}
             <div className="space-y-4">

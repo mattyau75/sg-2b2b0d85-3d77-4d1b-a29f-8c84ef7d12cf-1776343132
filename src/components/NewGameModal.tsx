@@ -177,8 +177,8 @@ export function NewGameModal({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 px-8 pb-8">
-          <div className="space-y-8">
+        <ScrollArea className="flex-1 w-full overflow-y-auto">
+          <div className="px-8 pb-8 space-y-8">
             {stage === 'details' && (
               <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
