@@ -2,10 +2,11 @@ import axios from "axios";
 
 /**
  * Service for handling R2 storage operations with Parallel Multipart Upload support.
+ * Optimized for high-capacity 8GB+ video payloads.
  */
 export const storageService = {
   /**
-   * Uploads a video file using Parallel Multipart Upload for maximum speed.
+   * Uploads a video file using Parallel Multipart Upload for maximum speed and reliability.
    */
   async uploadVideo(
     file: File, 
@@ -23,14 +24,13 @@ export const storageService = {
       // 1. Initialize Multipart Upload
       const initResponse = await axios.post("/api/storage/multipart?action=create", {
         filename: file.name,
-        contentType: file.type
+        contentType: file.type,
+        key: key
       }, { signal: abortSignal });
       
       const { uploadId } = initResponse.data;
 
       const uploadedParts: { etag: string; partNumber: number }[] = [];
-      const totalUploaded = 0;
-      const activeUploads = 0;
       let nextPartToUpload = 1;
       let hasError = false;
       let lastErrorMessage = "";
@@ -95,8 +95,6 @@ export const storageService = {
       if (abortSignal?.aborted) throw new Error("CANCELLED");
 
       // 3. Complete Multipart Upload
-      console.log("Parallel upload complete. Finalizing reassembly...");
-      
       const completeResponse = await axios.post("/api/storage/multipart?action=complete", {
         uploadId,
         key,
@@ -107,9 +105,7 @@ export const storageService = {
         throw new Error(completeResponse.data?.message || "R2 reassembly rejected.");
       }
 
-      // Ensure key is returned without leading slashes for database consistency
-      const finalKey = key.startsWith('/') ? key.slice(1) : key;
-      return finalKey;
+      return key;
     } catch (error: any) {
       if (axios.isCancel(error) || abortSignal?.aborted) {
         throw new Error("CANCELLED");
