@@ -59,13 +59,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status_message: `📦 PAYLOAD: Video Source [${finalVideoUrl?.substring(0, 30)}...] identified.`
     }, { onConflict: 'game_id' });
 
-    // 3. AUTHORIZATION (5-14%)
-    await supabase.from("game_analysis").insert({
+    // 3. AUTHORIZATION (12%)
+    await supabase.from("game_analysis").upsert({
       game_id: finalGameId,
       status: "authorizing",
       progress_percentage: 12,
-      status_message: "🔐 AUTH: Verifying video payload & system integrity..."
-    });
+      status_message: "🔐 AUTH: Validating GPU Handshake Credentials..."
+    }, { onConflict: 'game_id' });
 
     // 4. TRIGGER GPU IGNITION (HANDOFF)
     await triggerAnalysis({
@@ -73,7 +73,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       videoUrl: finalVideoUrl,
       metadata: req.body.metadata || {},
       supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-      supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+      supabaseKey: process.env.SUPABASE_SERVICE_ROLE_KEY || "" // Use service key for the handoff
     });
 
     return res.status(200).json({ 
