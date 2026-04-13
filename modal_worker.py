@@ -3,36 +3,40 @@ import os
 import time
 from datetime import datetime
 
-# 🛠️ HARD SYSTEM HEARTBEAT: 2026-04-13T06:47:25Z
+# 🛠️ HARD SYSTEM HEARTBEAT: 2026-04-13T07:22:00Z
 app = modal.App("basketball-scout-ai")
 
-# 2. SETUP THE RUNTIME ENVIRONMENT
+# 2. SETUP THE RUNTIME ENVIRONMENT (Pinning version for stability)
 image = (
     modal.Image.debian_slim()
     .pip_install(
-        "supabase",
+        "supabase==2.5.1",
         "requests",
         "numpy"
     )
 )
 
 def log_to_trace(supabase, game_id, progress, message, status="processing"):
-    """ATOMIC UPSERT: Ensures we never crash on ID conflicts and the UI always sees the latest state"""
+    """ATOMIC UPSERT: Uses List-based conflict target and Z-suffix timestamps"""
     try:
+        # Strict ISO format with Z suffix for Supabase compatibility
+        timestamp_z = datetime.utcnow().isoformat() + "Z"
+        
         # 1. Update the Analysis Trace (Realtime Hub)
+        # Using list-based on_conflict for supabase-py v2.5.1
         supabase.table("game_analysis").upsert({
             "game_id": game_id,
             "progress_percentage": progress,
             "status_message": message,
             "status": status,
-            "updated_at": datetime.utcnow().isoformat()
-        }, on_conflict="game_id").execute()
+            "updated_at": timestamp_z
+        }, on_conflict=["game_id"]).execute()
         
         # 2. Sync to Master Games Table
         supabase.table("games").update({
             "progress_percentage": progress,
             "status": status,
-            "updated_at": datetime.utcnow().isoformat()
+            "updated_at": timestamp_z
         }).eq("id", game_id).execute()
         
         print(f"[{progress}%] {message}")
@@ -41,7 +45,7 @@ def log_to_trace(supabase, game_id, progress, message, status="processing"):
 
 @app.function(
     image=image,
-    gpu="A10G",
+    gpu=modal.gpu.A10G(), # Explicit GPU object for spec stability
     timeout=1800,
     secrets=[modal.Secret.from_name("supabase-keys")]
 )
@@ -52,12 +56,15 @@ def process_game_swarm(game_id: str, video_url: str = None):
     game_id = game_id.lower()
     start_time = time.time()
     
-    # 2. SUPABASE SERVICE-ROLE AUTHENTICATION (HIGHEST AUTHORITY)
+    # 2. FORENSIC SECRET AUDIT (Confirm Modal.com secrets are loaded)
     url = os.environ.get("SUPABASE_URL")
     service_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
+    # 🛡️ RUNTIME ENV CHECK (Visible in Modal Logs)
+    print(f"📡 ENV CHECK - URL: {bool(url)}, SERVICE_KEY: {bool(service_key)}")
+    
     if not url or not service_key:
-        error_msg = f"❌ FATAL: Modal.com 'supabase-keys' secret is missing. URL Present: {bool(url)}, SERVICE_KEY Present: {bool(service_key)}"
+        error_msg = "❌ FATAL: Modal.com 'supabase-keys' secret is missing."
         print(error_msg)
         return {"status": "error", "message": error_msg}
 
@@ -65,7 +72,7 @@ def process_game_swarm(game_id: str, video_url: str = None):
     supabase = create_client(url, service_key)
 
     try:
-        # 3. GPU HANDSHAKE (Standardized Log)
+        # 🚀 IMMEDIATE 16% HANDSHAKE
         log_to_trace(supabase, game_id, 16, "✅ GPU HANDSHAKE: Elite Cluster Awakened.")
         
         if not video_url:
@@ -77,7 +84,7 @@ def process_game_swarm(game_id: str, video_url: str = None):
         time.sleep(5)
         log_to_trace(supabase, game_id, 25, "Personnel Discovery Active. Mapping jersey numbers...")
         
-        # Simulate reaching the "Data Generated" milestone (95%)
+        # Finalization simulation
         time.sleep(10)
         log_to_trace(supabase, game_id, 95, "✅ DATA GENERATION COMPLETE: Box scores and shot charts locked.", "completed")
 
