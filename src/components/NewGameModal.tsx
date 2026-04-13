@@ -173,9 +173,20 @@ export function NewGameModal() {
                           <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                             <ShieldCheck className="h-3 w-3 text-primary" /> Home Roster
                           </FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter Home Team Name" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-primary/50" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-primary/20">
+                                <SelectValue placeholder="Select Home Team" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background border-white/10">
+                              {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
                         </FormItem>
                       )}
@@ -191,9 +202,20 @@ export function NewGameModal() {
                           <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground flex items-center gap-2">
                             <Swords className="h-3 w-3 text-accent" /> Away Roster
                           </FormLabel>
-                          <FormControl>
-                            <Input placeholder="Enter Away Team Name" {...field} className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:border-accent/50" />
-                          </FormControl>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                              <SelectTrigger className="bg-white/5 border-white/10 rounded-xl h-12 font-bold focus:ring-accent/20">
+                                <SelectValue placeholder="Select Away Team" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent className="bg-background border-white/10">
+                              {teams.map((team) => (
+                                <SelectItem key={team.id} value={team.id}>
+                                  {team.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                           <FormMessage className="text-[10px] uppercase font-bold text-red-500" />
                         </FormItem>
                       )}
