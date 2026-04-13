@@ -119,7 +119,11 @@ export default function GamesPage() {
             </h1>
             <p className="text-muted-foreground text-sm font-medium">Manage historical footage and AI game analysis.</p>
           </div>
-          <NewGameModal open={isNewGameModalOpen} onOpenChange={setIsNewGameModalOpen} />
+          <NewGameModal 
+            open={isNewGameModalOpen} 
+            onOpenChange={setIsNewGameModalOpen} 
+            onUploadStarted={fetchGames}
+          />
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 items-center">

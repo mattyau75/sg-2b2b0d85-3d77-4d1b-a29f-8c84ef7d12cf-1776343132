@@ -66,10 +66,12 @@ const formSchema = z.object({
 
 export function NewGameModal({ 
   open: externalOpen, 
-  onOpenChange: setExternalOpen 
+  onOpenChange: setExternalOpen,
+  onUploadStarted
 }: { 
   open?: boolean; 
-  onOpenChange?: (open: boolean) => void 
+  onOpenChange?: (open: boolean) => void;
+  onUploadStarted?: () => void;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -142,6 +144,10 @@ export function NewGameModal({
       showBanner("Upload Initiated - Tracking in Directory", "success");
       setIsOpen(false);
       resetState();
+      
+      if (onUploadStarted) {
+        onUploadStarted();
+      }
       
       if (router.pathname !== "/games") {
         router.push("/games");
