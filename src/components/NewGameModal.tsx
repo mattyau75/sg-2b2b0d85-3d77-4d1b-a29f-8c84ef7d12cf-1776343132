@@ -63,8 +63,16 @@ const formSchema = z.object({
   awayScore: z.coerce.number().min(0).default(0),
 });
 
-export function NewGameModal() {
-  const [isOpen, setIsOpen] = useState(false);
+export function NewGameModal({ 
+  open: externalOpen, 
+  onOpenChange: setExternalOpen 
+}: { 
+  open?: boolean; 
+  onOpenChange?: (open: boolean) => void 
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isOpen = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setIsOpen = setExternalOpen !== undefined ? setExternalOpen : setInternalOpen;
   const { startUpload } = useUploads();
   const router = useRouter();
   const [stage, setStage] = useState<'details' | 'upload' | 'igniting'>('details');

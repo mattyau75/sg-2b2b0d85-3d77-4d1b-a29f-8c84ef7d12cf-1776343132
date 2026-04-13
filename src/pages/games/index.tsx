@@ -27,13 +27,26 @@ import { NewGameModal } from "@/components/NewGameModal";
 import { useUploads } from "@/contexts/UploadContext";
 import { Progress } from "@/components/ui/progress";
 import { UploadCloud, Loader2, AlertCircle, XCircle } from "lucide-react";
+import { useRouter } from "next/router";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Loader2, Info } from "lucide-react";
 
 export default function GamesPage() {
   const { activeUploads, cancelUpload } = useUploads();
+  const router = useRouter();
   const [games, setGames] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
+  const [isWaitModalOpen, setIsWaitModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
 
@@ -73,6 +86,24 @@ export default function GamesPage() {
     }
   };
 
+  const handleGameClick = (game: any) => {
+    // 1. Check if upload is currently in progress
+    const isUploading = activeUploads.some(u => u.gameId === game.id);
+    if (isUploading) {
+      setIsWaitModalOpen(true);
+      return;
+    }
+
+    // 2. Check if video has been uploaded
+    if (!game.video_path) {
+      setIsNewGameModalOpen(true);
+      return;
+    }
+
+    // 3. Successful verification -> proceed
+    router.push(`/games/${game.id}`);
+  };
+
   const filteredGames = games.filter(game => {
     const searchStr = `${game.home_team?.name} ${game.away_team?.name} ${game.status}`.toLowerCase();
     return searchStr.includes(searchTerm.toLowerCase());
@@ -88,7 +119,7 @@ export default function GamesPage() {
             </h1>
             <p className="text-muted-foreground text-sm font-medium">Manage historical footage and AI game analysis.</p>
           </div>
-          <NewGameModal />
+          <NewGameModal open={isNewGameModalOpen} onOpenChange={setIsNewGameModalOpen} />
         </div>
 
         <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -166,7 +197,7 @@ export default function GamesPage() {
         ) : filteredGames.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {filteredGames.map((game) => (
-              <Link key={game.id} href={`/games/${game.id}`}>
+              <div key={game.id} onClick={() => handleGameClick(game)}>
                 <Card className="bg-card/40 border-border/40 hover:border-primary/40 transition-all cursor-pointer group hover:shadow-2xl hover:shadow-primary/5 rounded-2xl overflow-hidden flex flex-col h-full backdrop-blur-sm">
                   <div className="h-1.5 bg-muted/20 w-full overflow-hidden shrink-0">
                     <div 
@@ -247,7 +278,7 @@ export default function GamesPage() {
                     </div>
                   </CardContent>
                 </Card>
-              </Link>
+              </div>
             ))}
           </div>
         ) : (
@@ -266,6 +297,29 @@ export default function GamesPage() {
           </Card>
         )}
       </div>
+
+      {/* Wait Modal for In-Progress Uploads */}
+      <AlertDialog open={isWaitModalOpen} onOpenChange={setIsWaitModalOpen}>
+        <AlertDialogContent className="bg-background border-white/5 rounded-3xl p-8">
+          <AlertDialogHeader className="space-y-4">
+            <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto border border-primary/20">
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-black uppercase tracking-tighter text-center">
+              Intelligence Stream Active
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground font-medium text-center">
+              Please wait until the video has finished streaming to the R2 cluster. 
+              Navigating now would break the calibration sequence.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-8">
+            <AlertDialogAction className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest italic rounded-xl w-full">
+              Acknowledged
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="flex items-center justify-between mb-12">
         <div className="space-y-1">
