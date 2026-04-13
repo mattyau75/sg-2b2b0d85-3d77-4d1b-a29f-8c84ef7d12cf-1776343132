@@ -39,7 +39,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; desc: string
 
 export default function GameDetailPage() {
   const router = useRouter();
-  const { id: gameId } = router.query;
+  const { id: rawId } = router.query;
+  const gameId = Array.isArray(rawId) ? rawId[0] : rawId;
   
   const [game, setGame] = useState<any>(null);
   const [loading, setLoading] = useState(true);
