@@ -41,12 +41,18 @@ export const storageService = {
           objectName: filePath,
           contentType: file.type,
           cacheControl: '3600',
-          size: file.size.toString(), // Explicitly pass size in metadata
+          size: file.size.toString(), // CRITICAL: Explicit size handshake
         },
-        chunkSize: 10 * 1024 * 1024, // 10MB chunks for high-speed 1080p footage
+        chunkSize: 10 * 1024 * 1024, // 10MB chunks for stability
         onError: (error) => {
           console.error("[StorageService] TUS Upload failed:", error);
-          reject(error);
+          
+          // Better error reporting for 413
+          if (error.message.includes("413")) {
+            reject(new Error("Supabase Storage Proxy Limit Reached (413). Please increase the limit in Supabase Dashboard -> Storage -> Settings to 10GB."));
+          } else {
+            reject(error);
+          }
         },
         onProgress: (bytesSent, bytesTotal) => {
           const percentage = Math.round((bytesSent / bytesTotal) * 100);

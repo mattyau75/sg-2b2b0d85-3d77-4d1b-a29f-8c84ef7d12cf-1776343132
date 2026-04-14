@@ -129,10 +129,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         setActiveUploads(prev => prev.map(t => 
           t.id === uploadId ? { 
             ...t, 
-            status: "failed", // Corrected to match interface
+            status: "failed",
             progress: 0,
             error: errorMessage.includes("413") 
-              ? "File too large for storage. (Max 500MB)" 
+              ? "Storage limit exceeded. Increase limit in Supabase Dashboard (Storage > Settings)." 
               : errorMessage
           } : t
         ));
