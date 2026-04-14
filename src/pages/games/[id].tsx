@@ -148,7 +148,7 @@ export default function GameDetailPage() {
             <Card className="bg-black border-white/10 overflow-hidden rounded-2xl shadow-2xl">
               <div className="aspect-video bg-muted flex items-center justify-center relative">
                 {videoUrl ? (
-                  <VideoPlayer url={videoUrl} />
+                  <VideoPlayer videoUrl={videoUrl} />
                 ) : (
                   <div className="text-center space-y-4">
                     <Video className="w-12 h-12 text-muted-foreground mx-auto" />

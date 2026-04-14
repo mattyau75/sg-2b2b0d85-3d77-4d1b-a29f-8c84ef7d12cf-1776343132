@@ -1,6 +1,6 @@
 ---
 title: "Redesign Game Detail to Tactical Command Center"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "feature"
 tags: ["ui", "ux", "modular"]
@@ -14,6 +14,6 @@ Convert the tabbed Game Detail page into a modular, stage-based UI. Use popup mo
 ## Checklist:
 - [x] Remove Tab-based navigation from `pages/games/[id].tsx`.
 - [x] Implement Stage-based Module UI with status indicators.
-- [ ] Create `MappingModal` wrapper to move the Mapping Dashboard into a popup.
+- [x] Create `MappingModal` wrapper to move the Mapping Dashboard into a popup.
 - [x] Wire up "Force Deploy" and "Calibration" buttons as modal triggers.
-- [ ] Add real-time AI status ticker to the Command Center.
+- [x] Add real-time AI status ticker to the Command Center.
