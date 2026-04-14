@@ -65,12 +65,17 @@ export const storageService = {
     }
 
     // 4. Complete the upload
+    console.log(`[StorageService] 🏁 Finalizing 8GB assembly in Cloudflare...`);
+    if (onProgress) onProgress(99); 
+
     const { data: completeData } = await axios.post('/api/storage/complete-multipart', {
       uploadId,
       key,
       parts: uploadedParts
     });
 
+    if (onProgress) onProgress(100);
+    console.log(`[StorageService] ✨ Upload Complete! File available at: ${completeData.key}`);
     return completeData.key;
   },
 
