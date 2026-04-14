@@ -38,6 +38,11 @@ export const storageService = {
 
     console.log(`[SupabaseStorage] Starting upload: ${filePath}`);
 
+    // Verify file size before upload (Browser limit check)
+    if (file.size > 500 * 1024 * 1024) { // 500MB limit for now
+      throw new Error("File size exceeds 500MB limit.");
+    }
+
     // Supabase Storage upload with progress
     const { data, error } = await supabase.storage
       .from("videos")
@@ -47,7 +52,10 @@ export const storageService = {
       });
 
     if (error) {
-      console.error("[SupabaseStorage] Upload failed:", error);
+      console.error("[SupabaseStorage] Upload failed details:", error);
+      if (error.message.includes("not found")) {
+        throw new Error("Storage bucket 'videos' not found. Please contact support.");
+      }
       throw new Error(`Upload failed: ${error.message}`);
     }
 
