@@ -157,7 +157,7 @@ export default function GamesPage() {
                       <div className="space-y-1">
                         <p className="text-xs font-bold truncate max-w-[200px]">{upload.fileName}</p>
                         <p className="text-[9px] font-mono text-muted-foreground uppercase tracking-tighter">
-                          {upload.status === 'uploading' ? 'Streaming Video' : upload.status === 'processing' ? 'Processing AI' : 'Finalizing'}
+                          {upload.status === 'uploading' ? (upload.progress < 10 ? 'Preparing Stream...' : 'Streaming Video') : upload.status === 'processing' ? 'Processing AI' : 'Finalizing'}
                         </p>
                       </div>
                       <button 

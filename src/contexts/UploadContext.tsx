@@ -76,13 +76,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
     setActiveUploads(prev => [...prev, {
       id: uploadId,
       fileName: file.name,
-      progress: 0,
+      progress: 5, // Start at 5% to show activity immediately
       status: "uploading",
       gameId: gameData.id,
       metadata: gameMetadata
     }]);
 
-    // Start background process (don't await the whole thing here so we can redirect)
+    // Start background process
     (async () => {
       try {
         const abortController = new AbortController();
