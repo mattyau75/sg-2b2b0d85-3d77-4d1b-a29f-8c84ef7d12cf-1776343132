@@ -85,14 +85,22 @@ export default function GameDetailPage() {
       // Resolve video URL using Supabase Storage
       if (data.video_path) {
         try {
-          // If it's already a full URL, use it directly
+          // 1. Handle Full URLs (e.g. from R2 or external)
           if (data.video_path.startsWith('http')) {
             setVideoUrl(data.video_path);
-          } else {
-            // Get signed URL from Supabase Storage (3-hour expiry)
+          } 
+          // 2. Handle R2 paths (if they start with 'videos/' but aren't in Supabase)
+          else if (process.env.NEXT_PUBLIC_R2_ENDPOINT && !data.video_path.includes('supabase')) {
+            const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
+            const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+            const fullR2Url = `${r2Base}/${bucket}/${data.video_path}`;
+            setVideoUrl(fullR2Url);
+            console.log("[GameDetail] Video resolved via Cloudflare R2:", fullR2Url);
+          }
+          // 3. Fallback to Supabase Storage
+          else {
             const signedUrl = await storageService.getUrl(data.video_path);
             setVideoUrl(signedUrl);
-            console.log("[GameDetail] Video URL resolved via Supabase Storage:", signedUrl);
           }
         } catch (urlErr: any) {
           console.error("[GameDetail] Failed to resolve video URL:", urlErr);
@@ -256,12 +264,15 @@ export default function GameDetailPage() {
   };
 
   const handleAnalyzeColors = async () => {
-    if (!gameId || !game?.video_path) return;
+    if (!gameId || !videoUrl) {
+      showBanner("Video URL not resolved. Cannot extract colors.", "error");
+      return;
+    }
     setIsAnalyzingColors(true);
     try {
       const res = await axios.post('/api/analyze-colors', { 
         gameId, 
-        videoPath: game.video_path 
+        videoPath: videoUrl // Pass the resolved URL instead of raw path
       });
       showBanner("Colors identified from footage", "success");
       await fetchGameData();

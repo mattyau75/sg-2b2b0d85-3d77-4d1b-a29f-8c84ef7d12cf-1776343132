@@ -101,12 +101,20 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   };
 
   const runCalibration = async () => {
-    if (!game?.id || !game?.video_path) return;
+    // If we have a video path, try to resolve it to a URL first
+    let targetPath = game?.video_path;
+    if (targetPath && !targetPath.startsWith('http') && process.env.NEXT_PUBLIC_R2_ENDPOINT) {
+      const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
+      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+      targetPath = `${r2Base}/${bucket}/${targetPath}`;
+    }
+
+    if (!game?.id || !targetPath) return;
     setCalibrating(true);
     try {
       const { data } = await axios.post("/api/analyze-colors", {
         gameId: game.id,
-        videoPath: game.video_path
+        videoPath: targetPath
       });
       if (data.success) {
         setDetectedColors(data.colors);
