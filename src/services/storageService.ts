@@ -7,18 +7,15 @@ import axios from "axios";
  */
 export const storageService = {
   async uploadVideo(file: File, onProgress?: (progress: number) => void): Promise<string> {
-    const isMassive = file.size > 50 * 1024 * 1024; // Lowering threshold to 50MB for testing
-    
-    // Check both NEXT_PUBLIC and standard env vars to ensure visibility
-    const hasR2 = !!process.env.NEXT_PUBLIC_R2_ENDPOINT || !!process.env.R2_ENDPOINT;
-    const useR2 = hasR2 && isMassive;
+    const isMassive = file.size > 100 * 1024 * 1024; // > 100MB
+    const r2Ready = !!(process.env.NEXT_PUBLIC_R2_ENDPOINT || process.env.R2_ENDPOINT);
 
-    if (useR2) {
-      console.log(`[StorageService] Elite Lane Activated: Routing to Cloudflare R2: ${file.name}`);
+    if (r2Ready && isMassive) {
+      console.log(`[StorageService] 🚀 ELITE DIRECT UPLOAD: Routing ${file.name} directly to Cloudflare R2.`);
       return this.uploadToR2(file, onProgress);
     }
 
-    console.log(`[StorageService] Standard Lane: Routing to Supabase S3: ${file.name}`);
+    console.log(`[StorageService] ⚠️ Standard Lane: Routing to Supabase S3 (Only for smaller files).`);
     return this.uploadToSupabase(file, onProgress);
   },
 
