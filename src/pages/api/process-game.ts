@@ -10,53 +10,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { gameId } = req.body;
 
-    // 1. GET GAME METADATA
+    // 1. Get Game Data to resolve video path
     const { data: game, error: gameError } = await supabase
-      .from('games')
-      .select('*')
-      .eq('id', gameId)
+      .from("games")
+      .select("*")
+      .eq("id", gameId)
       .single();
 
     if (gameError || !game) throw new Error("Game not found");
 
-    // 2. GENERATE SUPABASE STORAGE SIGNED URL (24-hour expiry for GPU processing)
-    console.log(`[ProcessGame] Generating Supabase Storage signed URL for: ${game.video_path}`);
-    
-    const { data: urlData, error: urlError } = await supabase.storage
-      .from('videos')
-      .createSignedUrl(game.video_path, 86400); // 24 hours
-
-    if (urlError || !urlData?.signedUrl) {
-      throw new Error(`Failed to generate video access URL: ${urlError?.message}`);
+    // 2. Resolve Video URL (Same logic as UI)
+    let videoUrl = game.video_path;
+    if (videoUrl && !videoUrl.startsWith('http')) {
+      const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
+      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+      videoUrl = `${r2Base}/${bucket}/${videoUrl}`;
     }
 
-    const authorizedVideoUrl = urlData.signedUrl;
-    console.log(`[ProcessGame] Supabase signed URL generated successfully`);
+    console.log(`[Process] Dispatching GPU Worker for Game: ${gameId} with Video: ${videoUrl}`);
 
-    // 3. PREPARE GPU PAYLOAD
-    const metadata = {
-      home_team_id: game.home_team_id,
-      away_team_id: game.away_team_id,
-      home_team_color: game.home_team_color,
-      away_team_color: game.away_team_color,
-      venue_id: game.venue_id,
-      date: game.date
-    };
-
-    // 4. TRIGGER MODAL.COM GPU WORKER
-    const modalUser = process.env.NEXT_PUBLIC_MODAL_USER_NAME || "mattjeffs";
-    const MODAL_ENDPOINT = `https://${modalUser}--basketball-scout-ai-analyze.modal.run`;
-
-    console.log(`[ProcessGame] Triggering GPU analysis for game: ${gameId}`);
-    
-    await axios.post(MODAL_ENDPOINT, {
-      game_id: game.id,
-      video_url: authorizedVideoUrl,
-      metadata: metadata,
-      supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY
-    }, {
-      timeout: 10000
+    // 3. Trigger Modal GPU Worker
+    const modalRes = await axios.post("https://basketball-scout-ai-analyze.modal.run", {
+      game_id: gameId,
+      video_url: videoUrl
     });
 
     return res.status(200).json({ 
