@@ -53,8 +53,9 @@ export const storageService = {
         onUploadProgress: (p) => {
           if (onProgress) {
             const currentChunkProgress = (p.loaded || 0) / (p.total || 1);
-            const overallProgress = Math.round(((i + currentChunkProgress) / totalChunks) * 100);
-            onProgress(Math.min(overallProgress, 99));
+            // Increased precision to 1 decimal place for massive files
+            const overallProgress = Number(((i + currentChunkProgress) / totalChunks * 100).toFixed(1));
+            onProgress(Math.min(overallProgress, 99.9));
           }
         }
       });
