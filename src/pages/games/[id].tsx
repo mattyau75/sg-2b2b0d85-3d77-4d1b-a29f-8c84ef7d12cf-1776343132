@@ -18,7 +18,8 @@ import {
   BarChart3,
   ChevronRight,
   RefreshCw,
-  Video
+  Video,
+  Check
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { storageService } from "@/services/storageService";
@@ -38,6 +39,14 @@ export default function GameDetailPage() {
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Stage Verifications
+  const [stagesVerified, setStagesVerified] = useState({
+    setup: false,
+    analysis: false,
+    mapping: false,
+    finalize: false
+  });
+
   // Mapping Data
   const [aiMappings, setAiMappings] = useState<any[]>([]);
   const [homeRoster, setHomeRoster] = useState<any[]>([]);
@@ -47,8 +56,17 @@ export default function GameDetailPage() {
     if (id) {
       fetchGame();
       fetchMappingData();
+      // Load stage persistence if needed
     }
   }, [id]);
+
+  const toggleStageVerify = (stage: keyof typeof stagesVerified) => {
+    setStagesVerified(prev => ({ ...prev, [stage]: !prev[stage] }));
+    toast({
+      title: stagesVerified[stage] ? "Stage Unverified" : "Stage Verified",
+      description: `Progress updated for the ${stage} module.`,
+    });
+  };
 
   const fetchGame = async () => {
     try {
@@ -160,21 +178,30 @@ export default function GameDetailPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ModuleCard 
-                title="Personnel Calibration"
-                description="Match team rosters and jersey colors for AI tracking."
-                icon={<Settings2 className="w-5 h-5" />}
-                status={game.analysis_status === 'completed' ? 'done' : 'todo'}
-                actionLabel="Configure Teams"
-                onClick={() => setShowTeamsModal(true)}
+                title="01. Setup & Calibration" 
+                status={stagesVerified.setup ? "complete" : "pending"}
+                description="Team selection and jersey color detection."
+                onAction={() => setShowTeamsModal(true)}
+                isVerified={stagesVerified.setup}
+                onVerify={() => toggleStageVerify('setup')}
               />
               <ModuleCard 
-                title="AI Roster Mapping"
-                description="Link AI detected entities to human database records."
-                icon={<Users className="w-5 h-5" />}
-                status="todo"
-                actionLabel="Open Mapping Engine"
-                onClick={() => setShowMappingModal(true)}
-                disabled={!game.analysis_status}
+                title="02. AI GPU Analysis" 
+                status={stagesVerified.analysis ? "complete" : (game?.processing_status === 'analyzing' ? "processing" : "pending")}
+                description="Heavy GPU inference for player tracking."
+                onAction={handleStartAnalysis}
+                disabled={!stagesVerified.setup}
+                isVerified={stagesVerified.analysis}
+                onVerify={() => toggleStageVerify('analysis')}
+              />
+              <ModuleCard 
+                title="03. Personnel Mapping" 
+                status={stagesVerified.mapping ? "complete" : "pending"}
+                description="Map AI entities to roster players."
+                onAction={() => setShowMappingModal(true)}
+                disabled={!stagesVerified.analysis}
+                isVerified={stagesVerified.mapping}
+                onVerify={() => toggleStageVerify('mapping')}
               />
             </div>
           </div>
@@ -277,32 +304,45 @@ export default function GameDetailPage() {
   );
 }
 
-function ModuleCard({ title, description, icon, status, actionLabel, onClick, disabled }: any) {
+function ModuleCard({ title, status, description, onAction, disabled, isVerified, onVerify }: any) {
+  const getStatusColor = () => {
+    if (status === 'complete') return 'bg-green-500/20 text-green-400 border-green-500/30';
+    if (status === 'processing') return 'bg-primary/20 text-primary border-primary/30 animate-pulse';
+    return 'bg-muted/50 text-muted-foreground border-white/5';
+  };
+
   return (
-    <Card className={cn(
-      "bg-secondary/10 border-white/5 transition-all hover:border-primary/30",
-      disabled && "opacity-50 pointer-events-none"
-    )}>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between mb-2">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary">
-            {icon}
-          </div>
-          {status === 'done' ? (
-            <CheckCircle2 className="w-5 h-5 text-green-400" />
-          ) : (
-            <div className="w-5 h-5 rounded-full border-2 border-muted" />
-          )}
-        </div>
-        <CardTitle className="text-lg">{title}</CardTitle>
-        <CardDescription className="text-xs leading-relaxed">{description}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <Button variant="secondary" size="sm" className="w-full gap-2 text-xs" onClick={onClick}>
-          {actionLabel}
-          <ChevronRight className="w-3 h-3" />
+    <Card className={`p-5 transition-all duration-300 border bg-secondary/20 relative ${disabled ? 'opacity-50 grayscale pointer-events-none' : 'hover:border-primary/40'}`}>
+      <div className="flex justify-between items-start mb-3">
+        <h3 className="font-bold text-sm tracking-tight">{title}</h3>
+        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${getStatusColor()}`}>
+          {status}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed mb-4">{description}</p>
+      
+      <div className="flex items-center justify-between gap-3 mt-auto">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="h-8 text-[11px] font-bold border-white/10 hover:bg-white/5"
+          onClick={onAction}
+        >
+          {status === 'complete' ? 'Review' : 'Initiate'}
         </Button>
-      </CardContent>
+
+        <div 
+          className="flex items-center gap-2 cursor-pointer group"
+          onClick={(e) => { e.stopPropagation(); onVerify(); }}
+        >
+          <div className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${isVerified ? 'bg-primary border-primary' : 'border-white/20 group-hover:border-primary/50'}`}>
+            {isVerified && <Check className="w-3 h-3 text-white" />}
+          </div>
+          <span className={`text-[10px] font-bold uppercase transition-colors ${isVerified ? 'text-primary' : 'text-muted-foreground'}`}>
+            Verify Complete
+          </span>
+        </div>
+      </div>
     </Card>
   );
 }
