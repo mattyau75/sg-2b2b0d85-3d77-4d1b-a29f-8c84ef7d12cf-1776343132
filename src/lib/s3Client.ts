@@ -3,10 +3,9 @@ import { S3Client } from "@aws-sdk/client-s3";
 /**
  * ELITE SUPABASE S3 DIRECT CLIENT
  * Bypasses the API Gateway (supabase.co) to avoid 413/500 Proxy limits.
- * Uses the direct S3 Regional Endpoint for maximum throughput.
  */
 const PROJECT_REF = "hoqnqzghpkppewhhxrfv";
-const REGION = "us-east-1"; // Standard AWS region for Supabase Storage
+const REGION = "us-east-1"; 
 
 export const s3Client = new S3Client({
   region: REGION,
@@ -15,5 +14,5 @@ export const s3Client = new S3Client({
     accessKeyId: PROJECT_REF,
     secretAccessKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "", 
   },
-  forcePathStyle: true, // Required for Supabase S3 compatibility
+  forcePathStyle: true,
 });

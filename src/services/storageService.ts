@@ -8,14 +8,15 @@ import axios from "axios";
 export const storageService = {
   async uploadVideo(file: File, onProgress?: (progress: number) => void): Promise<string> {
     const isMassive = file.size > 500 * 1024 * 1024; // > 500MB
-    const useR2 = !!process.env.R2_ENDPOINT && isMassive;
+    const hasR2 = !!process.env.R2_ENDPOINT && !!process.env.R2_ACCESS_KEY_ID;
+    const useR2 = hasR2 && isMassive;
 
     if (useR2) {
-      console.log(`[StorageService] Routing 8GB+ file to Cloudflare R2: ${file.name}`);
+      console.log(`[StorageService] Elite Lane: Routing 8GB+ file to Cloudflare R2: ${file.name}`);
       return this.uploadToR2(file, onProgress);
     }
 
-    console.log(`[StorageService] Routing to standard lane: ${file.name}`);
+    console.log(`[StorageService] Standard Lane: Routing to Supabase S3: ${file.name}`);
     return this.uploadToSupabase(file, onProgress);
   },
 
