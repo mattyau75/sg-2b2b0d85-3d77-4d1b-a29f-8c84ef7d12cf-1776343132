@@ -8,10 +8,11 @@ import axios from "axios";
 export const storageService = {
   async uploadVideo(file: File, onProgress?: (progress: number) => void): Promise<string> {
     const isMassive = file.size > 100 * 1024 * 1024; // > 100MB
-    const r2Ready = !!(process.env.NEXT_PUBLIC_R2_ENDPOINT || process.env.R2_ENDPOINT);
+    // ONLY check for the public endpoint to trigger R2 route in browser
+    const r2Ready = !!process.env.NEXT_PUBLIC_R2_ENDPOINT;
 
     if (r2Ready && isMassive) {
-      console.log(`[StorageService] 🚀 ELITE DIRECT UPLOAD: Routing ${file.name} directly to Cloudflare R2.`);
+      console.log(`[StorageService] 🚀 ELITE DIRECT UPLOAD: Routing ${file.name} to Cloudflare R2.`);
       return this.uploadToR2(file, onProgress);
     }
 
