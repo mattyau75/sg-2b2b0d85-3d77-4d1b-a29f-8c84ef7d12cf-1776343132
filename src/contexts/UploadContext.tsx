@@ -99,12 +99,13 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         console.log(`[UploadContext] Video successfully uploaded to Supabase Storage: ${videoPath}`);
         delete abortControllers.current[uploadId];
 
-        // 3. Update game record with the video path
+        // 3. Update game record with the video path and transition to 'pending' for Modal.com workers
         const { error: updateError } = await supabase
           .from('games')
           .update({ 
             video_path: videoPath, 
-            status: 'pending' 
+            status: 'pending',
+            processing_status: 'ready_for_gpu' // Signal for Modal.com
           })
           .eq('id', gameData.id);
 

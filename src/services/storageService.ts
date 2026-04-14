@@ -41,8 +41,9 @@ export const storageService = {
           objectName: filePath,
           contentType: file.type,
           cacheControl: '3600',
+          size: file.size.toString(), // Explicitly pass size in metadata
         },
-        chunkSize: 6 * 1024 * 1024, // 6MB chunks for optimized memory usage
+        chunkSize: 10 * 1024 * 1024, // 10MB chunks for high-speed 1080p footage
         onError: (error) => {
           console.error("[StorageService] TUS Upload failed:", error);
           reject(error);
