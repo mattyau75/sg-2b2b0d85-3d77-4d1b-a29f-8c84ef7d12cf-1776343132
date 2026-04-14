@@ -91,25 +91,39 @@ export default function GameDetailPage() {
   };
 
   const handleColorSelection = (team: 'home' | 'away', color: string) => {
+    const currentHome = editData.home_team_color;
+    const currentAway = editData.away_team_color;
     const detectedColors = [game?.detected_home_color, game?.detected_away_color].filter(Boolean);
-    if (detectedColors.length < 2) {
-      setEditData({ ...editData, [`${team}_team_color`]: color });
+
+    // If clicking an already selected color for the SAME team, deselect it
+    if (team === 'home' && currentHome === color) {
+      setEditData({ ...editData, home_team_color: "" });
+      return;
+    }
+    if (team === 'away' && currentAway === color) {
+      setEditData({ ...editData, away_team_color: "" });
       return;
     }
 
-    const otherColor = detectedColors.find(c => c !== color);
-    if (team === 'home') {
-      setEditData({ 
-        ...editData, 
-        home_team_color: color, 
-        away_team_color: otherColor || "" 
-      });
+    // Mutual exclusion logic for 2 colors
+    if (detectedColors.length >= 2) {
+      const otherColor = detectedColors.find(c => c !== color);
+      if (team === 'home') {
+        setEditData({ 
+          ...editData, 
+          home_team_color: color, 
+          away_team_color: otherColor || "" 
+        });
+      } else {
+        setEditData({ 
+          ...editData, 
+          away_team_color: color, 
+          home_team_color: otherColor || "" 
+        });
+      }
     } else {
-      setEditData({ 
-        ...editData, 
-        away_team_color: color, 
-        home_team_color: otherColor || "" 
-      });
+      // Single color or manual selection
+      setEditData({ ...editData, [`${team}_team_color`]: color });
     }
   };
 
