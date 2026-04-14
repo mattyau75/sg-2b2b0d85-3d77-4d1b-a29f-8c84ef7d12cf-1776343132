@@ -4,29 +4,23 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { r2Client, BUCKET_NAME } from "@/lib/r2Client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const { path } = req.query;
+  const { path, expiry = 3600 } = req.query;
 
-  if (!path || typeof path !== "string") {
-    return res.status(400).json({ message: "Path is required" });
+  if (!path || typeof path !== 'string') {
+    return res.status(400).json({ error: "Missing video path" });
   }
 
   try {
+    // Generate signed URL for Cloudflare R2
     const command = new GetObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
-      Key: path as string,
+      Key: path,
     });
 
-    // ELITE AUDIT: Ensure 24-hour window for 8GB processing
-    const url = await getSignedUrl(r2Client, command, { 
-      expiresIn: 86400,
-      signableHeaders: new Set(["host"]) // Minimum headers for maximum GPU compatibility
-    });
-
-    console.log(`[SignedURL] Generated persistent URL for ${path}`);
-
+    const url = await getSignedUrl(r2Client, command, { expiresIn: Number(expiry) });
     return res.status(200).json({ url });
   } catch (error: any) {
-    console.error("[SignedUrl] Error generating URL:", error);
-    return res.status(500).json({ message: error.message });
+    console.error("[SignedURL API] Error generating access token:", error);
+    return res.status(500).json({ error: "Secure storage handshake failed" });
   }
 }
