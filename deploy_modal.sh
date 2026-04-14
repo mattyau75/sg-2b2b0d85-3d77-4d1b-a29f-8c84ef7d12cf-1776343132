@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Load env vars from .env.local if they exist
+if [ -f .env.local ]; then
+  export $(grep -v '^#' .env.local | xargs)
+fi
+
 # DribbleStats AI Elite: Direct Modal Deployment Script
 # Use this to bypass GitHub Action limits.
 
