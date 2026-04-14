@@ -2,9 +2,9 @@ import { supabase } from "@/integrations/supabase/client";
 import axios from "axios";
 
 /**
- * ELITE STORAGE SERVICE - S3 MULTIPART EDITION
- * Optimized for 8GB 1080p 60-minute video streams.
- * Bypasses Supabase Proxy limits by using chunked S3 uploads.
+ * HIGH-PERFORMANCE MULTIPART STORAGE SERVICE
+ * Optimized for 8GB 1080p Basketball Game Footage.
+ * Uses S3 Multipart protocol to bypass infrastructure limits.
  */
 export const storageService = {
   async uploadVideo(file: File, onProgress?: (progress: number) => void): Promise<string> {
@@ -12,34 +12,33 @@ export const storageService = {
     const bucketName = 'videos';
 
     try {
-      // 1. Initiate Multipart Upload via our API bridge
-      console.log(`[StorageService] Initializing High-Performance Multipart for: ${file.name}`);
+      // 1. Initialize Multipart Upload via S3 Bridge
+      console.log(`[StorageService] Starting Elite 8GB Bypass for: ${file.name}`);
       const { data: initData } = await axios.post('/api/storage/create-multipart', {
         fileName: file.name,
         contentType: file.type
       });
 
       const { uploadId, key } = initData;
-      const chunkSize = 5 * 1024 * 1024; // 5MB chunks to stay under proxy limits
+      const chunkSize = 10 * 1024 * 1024; // 10MB chunks for optimal balance
       const totalChunks = Math.ceil(file.size / chunkSize);
       const uploadedParts = [];
 
-      // 2. Upload Chunks
+      // 2. Upload Chunks in Sequence
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
         const end = Math.min(start + chunkSize, file.size);
         const chunk = file.slice(start, end);
         const partNumber = i + 1;
 
-        // Get Presigned URL for this specific chunk
+        // Get Presigned URL for this chunk
         const { data: signData } = await axios.post('/api/storage/sign-part', {
           uploadId,
           key,
-          partNumber,
-          bucketName
+          partNumber
         });
 
-        // Upload part directly to S3 endpoint
+        // Direct Upload to S3 Gateway
         const response = await axios.put(signData.url, chunk, {
           headers: { 'Content-Type': file.type },
           onUploadProgress: (p) => {
@@ -51,20 +50,18 @@ export const storageService = {
           }
         });
 
-        // Collect ETag for completion (headers are case-insensitive in axios)
-        // We trim quotes because S3 ETags are often wrapped in them
+        // Collect ETag for Final Reassembly
         const etag = (response.headers.etag || response.headers.ETag)?.replace(/"/g, '');
-        if (!etag) throw new Error(`Failed to get ETag for part ${partNumber}`);
+        if (!etag) throw new Error(`S3 Handshake Failed at Part ${partNumber}`);
         
         uploadedParts.push({ ETag: etag, PartNumber: partNumber });
       }
 
-      // 3. Complete Multipart Upload
+      // 3. Complete and Reassemble 8GB File
       await axios.post('/api/storage/complete-multipart', {
         uploadId,
         key,
-        parts: uploadedParts,
-        bucketName
+        parts: uploadedParts
       });
 
       return key;

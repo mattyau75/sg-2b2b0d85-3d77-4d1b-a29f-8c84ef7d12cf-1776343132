@@ -1,19 +1,19 @@
 import { S3Client } from "@aws-sdk/client-s3";
 
 /**
- * HIGH-PERFORMANCE SUPABASE S3 CLIENT
- * Uses the stable S3-Compatible API bridge for 8GB+ video files.
+ * ELITE SUPABASE S3 DIRECT CLIENT
+ * Bypasses the API Gateway (supabase.co) to avoid 413/500 Proxy limits.
+ * Uses the direct S3 Regional Endpoint for maximum throughput.
  */
-const projectRef = typeof window === 'undefined' 
-  ? process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1].split('.')[0]
-  : ""; // Client-side project ref extraction not needed for server-side S3 client
+const PROJECT_REF = "hoqnqzghpkppewhhxrfv";
+const REGION = "us-east-1"; // Standard AWS region for Supabase Storage
 
 export const s3Client = new S3Client({
-  region: "us-east-1",
-  endpoint: `https://${projectRef}.supabase.co/storage/v1/s3`,
+  region: REGION,
+  endpoint: `https://${PROJECT_REF}.supabase.co/storage/v1/s3`,
   credentials: {
-    accessKeyId: projectRef || "",
+    accessKeyId: PROJECT_REF,
     secretAccessKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "", 
   },
-  forcePathStyle: true,
+  forcePathStyle: true, // Required for Supabase S3 compatibility
 });
