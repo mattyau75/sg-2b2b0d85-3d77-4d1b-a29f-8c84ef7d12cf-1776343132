@@ -119,15 +119,22 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           setActiveUploads(prev => prev.filter(t => t.id !== uploadId));
         }, 5000);
 
-      } catch (error: any) {
-        delete abortControllers.current[uploadId];
-        console.error("[UploadContext] Background process failed:", error);
+      } catch (err: any) {
+        console.error("[UploadContext] Background process failed:", err);
         
-        setActiveUploads(prev => prev.map(u => 
-          u.id === uploadId ? { ...u, status: "failed", error: error.message } : u
+        // Fix for React Error #130: Ensure we don't pass undefined to state
+        const errorMessage = err.message || "Unknown upload error";
+        
+        setActiveUploads(prev => prev.map(t => 
+          t.id === uploadId ? { 
+            ...t, 
+            status: "error", // Explicit string status
+            progress: 0,
+            error: errorMessage.includes("413") 
+              ? "File too large for storage. (Max 500MB)" 
+              : errorMessage
+          } : t
         ));
-        
-        showBanner("Background Analysis Failed", error.message, "error");
       }
     })();
 
