@@ -88,17 +88,17 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         const abortController = new AbortController();
         abortControllers.current[uploadId] = abortController;
 
-        // 2. Perform Multipart Upload
+        // 2. Upload video to Supabase Storage (replaces R2 multipart upload)
         const videoPath = await storageService.uploadVideo(file, (progress) => {
           setActiveUploads(prev => prev.map(t => 
             t.id === uploadId ? { ...t, progress } : t
           ));
         }, abortController.signal);
 
-        console.log(`[UploadContext] Video successfully staged at R2 Key: ${videoPath}`);
+        console.log(`[UploadContext] Video successfully uploaded to Supabase Storage: ${videoPath}`);
         delete abortControllers.current[uploadId];
 
-        // 3. Update status and video reference in one atomic operation
+        // 3. Update game record with the video path
         const { error: updateError } = await supabase
           .from('games')
           .update({ 

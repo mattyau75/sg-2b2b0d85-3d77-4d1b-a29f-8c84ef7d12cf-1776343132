@@ -81,25 +81,21 @@ export default function GameDetailPage() {
       if (error) throw error;
       setGame(data);
       
-      // Resolve video URL with high-performance signed access
+      // Resolve video URL using Supabase Storage
       if (data.video_path) {
         try {
           // If it's already a full URL, use it directly
           if (data.video_path.startsWith('http')) {
             setVideoUrl(data.video_path);
           } else {
-            // Trigger secure handshake with R2/S3 gateway
-            const response = await axios.get(`/api/storage/signed-url?path=${encodeURIComponent(data.video_path)}&expiry=10800`);
-            if (response.data?.url) {
-              setVideoUrl(response.data.url);
-              console.log("[GameDetail] Secure Handshake Success:", response.data.url);
-            } else {
-              throw new Error("Empty URL returned from gateway");
-            }
+            // Get signed URL from Supabase Storage (3-hour expiry)
+            const signedUrl = await storageService.getSignedUrl(data.video_path, 10800);
+            setVideoUrl(signedUrl);
+            console.log("[GameDetail] Video URL resolved via Supabase Storage");
           }
         } catch (urlErr) {
-          console.error("[GameDetail] Secure storage handshake failed:", urlErr);
-          showBanner("Secure video handshake failed. Check storage permissions.", "error");
+          console.error("[GameDetail] Failed to resolve video URL:", urlErr);
+          showBanner("Failed to load video. Check storage permissions.", "error");
         }
       }
 
