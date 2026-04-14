@@ -1,8 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
+import * as tus from "tus-js-client";
 
 /**
  * HIGH-PERFORMANCE SUPABASE STORAGE SERVICE
- * Optimized for large basketball game footage (up to 8GB).
+ * Optimized for large basketball game footage (up to 8GB) using TUS resumable protocol.
  */
 export const storageService = {
   async uploadVideo(
@@ -14,24 +15,64 @@ export const storageService = {
     const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
     const filePath = `${fileName}`;
 
-    console.log(`[SupabaseStorage] Starting upload: ${filePath}`);
+    console.log(`[StorageService] Initializing Resumable TUS Upload for 8GB capacity: ${filePath}`);
 
-    // Supabase Storage upload
-    // Note: Standard upload might time out for 8GB. 
-    // For 8GB, we would ideally use TUS protocol, but we'll start with optimized standard upload.
-    const { data, error } = await supabase.storage
-      .from("videos")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
+    // Get the session to authorize the TUS upload
+    const { data: { session } } = await supabase.auth.getSession();
+    const bearerToken = session?.access_token;
+    
+    // Construct the TUS endpoint for Supabase
+    // Format: https://[PROJECT_REF].supabase.co/storage/v1/upload/resumable
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const uploadUrl = `${supabaseUrl}/storage/v1/upload/resumable`;
+
+    return new Promise((resolve, reject) => {
+      const upload = new tus.Upload(file, {
+        endpoint: uploadUrl,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          authorization: `Bearer ${bearerToken || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'x-upsert': 'false',
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          bucketName: 'videos',
+          objectName: filePath,
+          contentType: file.type,
+          cacheControl: '3600',
+        },
+        chunkSize: 6 * 1024 * 1024, // 6MB chunks for optimized memory usage
+        onError: (error) => {
+          console.error("[StorageService] TUS Upload failed:", error);
+          reject(error);
+        },
+        onProgress: (bytesSent, bytesTotal) => {
+          const percentage = Math.round((bytesSent / bytesTotal) * 100);
+          if (onProgress) onProgress(percentage);
+        },
+        onSuccess: () => {
+          console.log(`[StorageService] TUS Upload completed: ${filePath}`);
+          resolve(filePath);
+        },
       });
 
-    if (error) {
-      console.error("[SupabaseStorage] Upload failed:", error);
-      throw new Error(`Upload failed: ${error.message}`);
-    }
+      // Handle abort signal
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', () => {
+          upload.abort();
+          reject(new Error("Upload aborted by user"));
+        });
+      }
 
-    return data.path;
+      // Check if there's a previous upload to resume
+      upload.findPreviousUploads().then((previousUploads) => {
+        if (previousUploads.length > 0) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      });
+    });
   },
 
   async getSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
