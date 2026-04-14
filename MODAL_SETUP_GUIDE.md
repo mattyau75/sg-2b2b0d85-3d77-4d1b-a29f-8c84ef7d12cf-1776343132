@@ -53,6 +53,16 @@ This guide walks you through setting up automated deployment of Python GPU worke
 4. Select branch: `main`
 5. Click **"Run workflow"** (green button)
 
+## 🚀 Direct Deployment (Bypass GitHub Limits)
+
+If you have hit your GitHub Actions limit, you can deploy directly from the Softgen terminal:
+
+1. Ensure `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` are in your **Settings -> Environment** tab.
+2. Open the Terminal (Settings -> Advanced Mode -> Terminal).
+3. Run: `bash deploy_modal.sh`
+
+This will deploy your `modal_worker.py` directly to the Modal cloud in seconds.
+
 ## Step 4: Verify Deployment
 
 1. **Check GitHub Actions:**
