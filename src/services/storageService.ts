@@ -12,11 +12,11 @@ export const storageService = {
     const bucketName = 'videos';
 
     try {
-      // 1. Initialize Multipart Upload
+      // 1. Initiate Multipart Upload via our API bridge
+      console.log(`[StorageService] Initializing High-Performance Multipart for: ${file.name}`);
       const { data: initData } = await axios.post('/api/storage/create-multipart', {
-        fileName,
-        contentType: file.type,
-        bucketName
+        fileName: file.name,
+        contentType: file.type
       });
 
       const { uploadId, key } = initData;
