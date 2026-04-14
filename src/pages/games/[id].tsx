@@ -90,7 +90,7 @@ export default function GameDetailPage() {
             setVideoUrl(data.video_path);
           } else {
             // Get signed URL from Supabase Storage (3-hour expiry)
-            const signedUrl = await storageService.getSignedUrl(data.video_path, 10800);
+            const signedUrl = await storageService.getUrl(data.video_path);
             setVideoUrl(signedUrl);
             console.log("[GameDetail] Video URL resolved via Supabase Storage:", signedUrl);
           }
