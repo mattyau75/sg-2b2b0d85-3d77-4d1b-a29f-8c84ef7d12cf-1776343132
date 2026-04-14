@@ -4,12 +4,9 @@ import axios from "axios";
 /**
  * ELITE STORAGE SERVICE - S3 MULTIPART EDITION
  * Optimized for 8GB 1080p 60-minute video streams.
+ * Bypasses Supabase Proxy limits by using chunked S3 uploads.
  */
 export const storageService = {
-  /**
-   * High-performance upload for files up to 10GB.
-   * Splits the file into small chunks to bypass Supabase Proxy limits.
-   */
   async uploadVideo(file: File, onProgress?: (progress: number) => void): Promise<string> {
     const fileName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
     const bucketName = 'videos';
@@ -25,41 +22,45 @@ export const storageService = {
       const { uploadId, key } = initData;
       const chunkSize = 5 * 1024 * 1024; // 5MB chunks to stay under proxy limits
       const totalChunks = Math.ceil(file.size / chunkSize);
-      const parts = [];
+      const uploadedParts = [];
 
-      // 2. Upload Chunks in sequence
+      // 2. Upload Chunks
       for (let i = 0; i < totalChunks; i++) {
         const start = i * chunkSize;
         const end = Math.min(start + chunkSize, file.size);
         const chunk = file.slice(start, end);
+        const partNumber = i + 1;
 
         // Get Presigned URL for this specific chunk
         const { data: signData } = await axios.post('/api/storage/sign-part', {
           uploadId,
           key,
-          partNumber: i + 1,
+          partNumber,
           bucketName
         });
 
-        // Upload part directly
-        await axios.put(signData.url, chunk, {
+        // Upload part directly to S3 endpoint
+        const response = await axios.put(signData.url, chunk, {
           headers: { 'Content-Type': file.type },
           onUploadProgress: (p) => {
             if (onProgress) {
-              const overallProgress = Math.round(((i * chunkSize) + (p.loaded || 0)) / file.size * 100);
+              const currentChunkProgress = (p.loaded || 0) / (p.total || 1);
+              const overallProgress = Math.round(((i + currentChunkProgress) / totalChunks) * 100);
               onProgress(Math.min(overallProgress, 99));
             }
           }
         });
 
-        parts.push({ ETag: 'dummy-etag', PartNumber: i + 1 }); // Simplification for demo
+        // Collect ETag for completion
+        const etag = response.headers.etag;
+        uploadedParts.push({ ETag: etag, PartNumber: partNumber });
       }
 
       // 3. Complete Multipart Upload
       await axios.post('/api/storage/complete-multipart', {
         uploadId,
         key,
-        parts,
+        parts: uploadedParts,
         bucketName
       });
 
