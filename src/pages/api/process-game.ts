@@ -30,12 +30,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 2. ATOMIC HANDOVER TO MODAL.COM
     console.log(`📡 Handing off 1-hour footage to GPU: ${gameId}`);
+    
+    // Use the official Modal web endpoint for this specific workspace
+    const modalUser = process.env.NEXT_PUBLIC_MODAL_USER_NAME || "mattjeffs";
+    const MODAL_ENDPOINT = `https://${modalUser}--basketball-scout-ai-analyze.modal.run`;
+
     await axios.post(MODAL_ENDPOINT, {
       game_id: game.id,
-      video_url: authorizedVideoUrl, // PASSING SIGNED URL, NOT RAW PATH
+      video_url: authorizedVideoUrl,
       metadata: metadata,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
-      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY // Only server-side has this
+      supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY
     });
 
     // 3. UPDATE DB STATUS
