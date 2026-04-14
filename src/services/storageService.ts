@@ -51,8 +51,11 @@ export const storageService = {
           }
         });
 
-        // Collect ETag for completion
-        const etag = response.headers.etag;
+        // Collect ETag for completion (headers are case-insensitive in axios)
+        // We trim quotes because S3 ETags are often wrapped in them
+        const etag = (response.headers.etag || response.headers.ETag)?.replace(/"/g, '');
+        if (!etag) throw new Error(`Failed to get ETag for part ${partNumber}`);
+        
         uploadedParts.push({ ETag: etag, PartNumber: partNumber });
       }
 

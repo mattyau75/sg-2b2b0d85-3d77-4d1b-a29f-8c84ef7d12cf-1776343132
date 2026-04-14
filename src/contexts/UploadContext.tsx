@@ -88,15 +88,16 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         const abortController = new AbortController();
         abortControllers.current[uploadId] = abortController;
 
-        // 2. Upload video to Supabase Storage using Resumable TUS
+        // 2. Upload video to Supabase Storage using S3 Multipart Bypass
+        // Removed abortController.signal as the new S3 multipart service uses axios internally
         const videoPath = await storageService.uploadVideo(file, (progress) => {
           console.log(`[UploadProgress] ${file.name}: ${progress}%`);
           setActiveUploads(prev => prev.map(t => 
             t.id === uploadId ? { ...t, progress } : t
           ));
-        }, abortController.signal);
+        });
 
-        console.log(`[UploadContext] Video successfully uploaded to Supabase Storage: ${videoPath}`);
+        console.log(`[UploadContext] Video successfully uploaded via S3 Multipart: ${videoPath}`);
         delete abortControllers.current[uploadId];
 
         // 3. Update game record with the video path and transition to 'pending' for Modal.com workers
