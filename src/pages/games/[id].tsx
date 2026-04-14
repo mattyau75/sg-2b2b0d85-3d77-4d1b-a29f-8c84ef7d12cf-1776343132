@@ -91,11 +91,19 @@ export default function GameDetailPage() {
             // Get signed URL from Supabase Storage (3-hour expiry)
             const signedUrl = await storageService.getSignedUrl(data.video_path, 10800);
             setVideoUrl(signedUrl);
-            console.log("[GameDetail] Video URL resolved via Supabase Storage");
+            console.log("[GameDetail] Video URL resolved via Supabase Storage:", signedUrl);
           }
-        } catch (urlErr) {
+        } catch (urlErr: any) {
           console.error("[GameDetail] Failed to resolve video URL:", urlErr);
-          showBanner("Failed to load video. Check storage permissions.", "error");
+          
+          // Provide specific error messaging
+          if (urlErr.message?.includes('not found') || urlErr.message?.includes('404')) {
+            showBanner("Video file not found. Please re-upload the game footage.", "error");
+          } else if (urlErr.message?.includes('permission') || urlErr.message?.includes('403')) {
+            showBanner("Storage permission denied. Check Supabase Storage RLS policies.", "error");
+          } else {
+            showBanner("Failed to load video. Check storage configuration.", "error");
+          }
         }
       }
 

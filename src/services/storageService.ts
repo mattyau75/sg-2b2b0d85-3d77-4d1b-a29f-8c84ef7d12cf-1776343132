@@ -76,20 +76,34 @@ export const storageService = {
    * @param expiresIn - Expiration time in seconds (default: 3 hours)
    * @returns Signed URL with temporary access
    */
-  async getSignedUrl(path: string, expiresIn: number = 10800): Promise<string> {
-    console.log(`[SupabaseStorage] Generating signed URL for: ${path}`);
+  async getSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
+    try {
+      const { data, error } = await supabase.storage
+        .from("videos")
+        .createSignedUrl(path, expiresIn);
 
-    const { data, error } = await supabase.storage
-      .from("videos")
-      .createSignedUrl(path, expiresIn);
+      if (error) {
+        console.error("[StorageService] Signed URL error:", error);
+        
+        // Provide specific error context
+        if (error.message?.includes('not found') || error.message?.includes('Object not found')) {
+          throw new Error(`Video file not found in storage: ${path}`);
+        } else if (error.message?.includes('permission')) {
+          throw new Error(`Storage permission denied for: ${path}`);
+        } else {
+          throw new Error(`Storage error: ${error.message}`);
+        }
+      }
 
-    if (error) {
-      console.error("[SupabaseStorage] Signed URL generation failed:", error);
-      throw new Error(`Failed to generate signed URL: ${error.message}`);
+      if (!data?.signedUrl) {
+        throw new Error("Failed to generate signed URL");
+      }
+
+      return data.signedUrl;
+    } catch (err: any) {
+      console.error("[StorageService] getSignedUrl failed:", err);
+      throw err;
     }
-
-    console.log(`[SupabaseStorage] Signed URL generated successfully`);
-    return data.signedUrl;
   },
 
   /**
