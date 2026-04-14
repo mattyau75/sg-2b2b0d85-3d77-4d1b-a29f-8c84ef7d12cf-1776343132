@@ -43,7 +43,7 @@ export const storageService = {
           cacheControl: '3600',
           size: file.size.toString(), // CRITICAL: Explicit size handshake
         },
-        chunkSize: 10 * 1024 * 1024, // 10MB chunks for stability
+        chunkSize: 5 * 1024 * 1024, // Reduced to 5MB to bypass potential proxy payload limits
         onError: (error) => {
           console.error("[StorageService] TUS Upload failed:", error);
           
