@@ -1,29 +1,33 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
+import { NextApiRequest, NextApiResponse } from "next";
+import { S3Client, ListBucketsCommand } from "@aws-sdk/client-s3";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Test connection by listing Supabase Storage buckets
-    const { data, error } = await supabase.storage.listBuckets();
-
-    if (error) {
-      throw error;
-    }
-
-    const videosBucketExists = data.some(bucket => bucket.name === 'videos');
-
-    return res.status(200).json({
-      status: "success",
-      message: "Supabase Storage connection successful",
-      buckets: data.map(b => b.name),
-      videosBucketReady: videosBucketExists
+    const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1].split('.')[0];
+    
+    const client = new S3Client({
+      region: "us-east-1",
+      endpoint: `https://${projectRef}.supabase.co/storage/v1/s3`,
+      credentials: {
+        accessKeyId: projectRef || "",
+        secretAccessKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "",
+      },
+      forcePathStyle: true,
     });
-  } catch (error: any) {
-    console.error("Storage connection test failed:", error);
-    return res.status(500).json({
-      status: "error",
-      message: "Failed to connect to Supabase Storage",
-      details: error.message
+
+    const command = new ListBucketsCommand({});
+    const response = await client.send(command);
+
+    return res.status(200).json({ 
+      status: "connected", 
+      buckets: response.Buckets?.map(b => b.Name),
+      projectRef 
+    });
+  } catch (err: any) {
+    return res.status(500).json({ 
+      error: err.message, 
+      code: err.code,
+      details: "S3 Handshake Failed" 
     });
   }
 }
