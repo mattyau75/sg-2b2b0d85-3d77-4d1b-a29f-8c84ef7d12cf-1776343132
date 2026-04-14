@@ -35,6 +35,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check, AlertTriangle } from "lucide-react";
+import { storageService } from "@/services/storageService";
 
 const MODULES = [
   { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: 'Parameter Setup', key: 'm1_complete' },
@@ -59,6 +60,7 @@ export default function GameDetailPage() {
   const [homeRoster, setHomeRoster] = useState<any[]>([]);
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
   const [editData, setEditData] = useState<any>({});
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
 
   // Fetch game data
   const fetchGameData = async () => {
@@ -77,6 +79,19 @@ export default function GameDetailPage() {
 
       if (error) throw error;
       setGame(data);
+      
+      // Resolve video URL if it's a relative path
+      if (data.video_path) {
+        if (data.video_path.startsWith('http')) {
+          setVideoUrl(data.video_path);
+        } else {
+          const { data: urlData } = await supabase.storage
+            .from('videos')
+            .getPublicUrl(data.video_path);
+          setVideoUrl(urlData.publicUrl);
+        }
+      }
+
       setEditData({
         home_score: data.home_score || 0,
         away_score: data.away_score || 0,
