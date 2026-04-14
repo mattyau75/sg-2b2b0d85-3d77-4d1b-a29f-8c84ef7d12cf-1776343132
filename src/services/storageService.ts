@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import * as tus from "tus-js-client";
 
 /**
  * HIGH-PERFORMANCE SUPABASE STORAGE SERVICE
@@ -28,44 +29,70 @@ export const storageService = {
    * @returns The storage path of the uploaded video
    */
   async uploadVideo(
-    file: File,
+    file: File, 
     onProgress?: (progress: number) => void,
-    signal?: AbortSignal
+    abortSignal?: AbortSignal
   ): Promise<string> {
-    const timestamp = Date.now();
-    const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const filePath = `${timestamp}-${sanitizedName}`;
+    const fileExt = file.name.split(".").pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `${fileName}`;
 
-    console.log(`[SupabaseStorage] Starting upload: ${filePath}`);
+    console.log(`[StorageService] Initializing Resumable TUS Upload: ${filePath}`);
 
-    // Verify file size before upload (Browser limit check)
-    if (file.size > 500 * 1024 * 1024) { // 500MB limit for now
-      throw new Error("File size exceeds 500MB limit.");
-    }
+    // Get the session to authorize the TUS upload
+    const { data: { session } } = await supabase.auth.getSession();
+    const bearerToken = session?.access_token;
+    
+    // Construct the TUS endpoint for Supabase
+    const projectId = process.env.NEXT_PUBLIC_SUPABASE_URL?.split('//')[1].split('.')[0];
+    const uploadUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/upload/resumable`;
 
-    // Supabase Storage upload with progress
-    const { data, error } = await supabase.storage
-      .from("videos")
-      .upload(filePath, file, {
-        cacheControl: "3600",
-        upsert: false,
+    return new Promise((resolve, reject) => {
+      const upload = new tus.Upload(file, {
+        endpoint: uploadUrl,
+        retryDelays: [0, 3000, 5000, 10000, 20000],
+        headers: {
+          authorization: `Bearer ${bearerToken || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY}`,
+          'x-upsert': 'false',
+        },
+        uploadDataDuringCreation: true,
+        removeFingerprintOnSuccess: true,
+        metadata: {
+          bucketName: 'videos',
+          objectName: filePath,
+          contentType: file.type,
+          cacheControl: '3600',
+        },
+        chunkSize: 6 * 1024 * 1024, // 6MB chunks for balanced performance
+        onError: (error) => {
+          console.error("[StorageService] TUS Upload failed:", error);
+          reject(error);
+        },
+        onProgress: (bytesSent, bytesTotal) => {
+          const percentage = Math.round((bytesSent / bytesTotal) * 100);
+          if (onProgress) onProgress(percentage);
+        },
+        onSuccess: () => {
+          console.log(`[StorageService] TUS Upload completed: ${filePath}`);
+          resolve(filePath);
+        },
       });
 
-    if (error) {
-      console.error("[SupabaseStorage] Upload failed details:", error);
-      if (error.message.includes("not found")) {
-        throw new Error("Storage bucket 'videos' not found. Please contact support.");
+      // Handle abort signal
+      if (abortSignal) {
+        abortSignal.addEventListener('abort', () => {
+          upload.abort();
+          reject(new Error("Upload aborted by user"));
+        });
       }
-      throw new Error(`Upload failed: ${error.message}`);
-    }
 
-    // Simulate progress (Supabase doesn't provide real-time progress)
-    if (onProgress) {
-      onProgress(100);
-    }
-
-    console.log(`[SupabaseStorage] Upload successful: ${data.path}`);
-    return data.path;
+      upload.findPreviousUploads().then((previousUploads) => {
+        if (previousUploads.length > 0) {
+          upload.resumeFromPreviousUpload(previousUploads[0]);
+        }
+        upload.start();
+      });
+    });
   },
 
   /**

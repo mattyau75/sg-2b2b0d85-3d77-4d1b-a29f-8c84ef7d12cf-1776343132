@@ -88,8 +88,9 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         const abortController = new AbortController();
         abortControllers.current[uploadId] = abortController;
 
-        // 2. Upload video to Supabase Storage (replaces R2 multipart upload)
+        // 2. Upload video to Supabase Storage using Resumable TUS
         const videoPath = await storageService.uploadVideo(file, (progress) => {
+          console.log(`[UploadProgress] ${file.name}: ${progress}%`);
           setActiveUploads(prev => prev.map(t => 
             t.id === uploadId ? { ...t, progress } : t
           ));
