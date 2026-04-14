@@ -1,6 +1,6 @@
 ---
 title: "Bypass GitHub Limits: Direct Modal GPU Deployment"
-status: "todo"
+status: "done"
 priority: "urgent"
 type: "chore"
 tags: ["infrastructure", "gpu", "modal"]
@@ -13,6 +13,6 @@ position: 75
 The user is hitting GitHub Action run limits. We need a way to deploy the `modal_worker.py` directly from the development environment to Modal.
 
 ## Checklist:
-- [ ] Create `deploy_modal.sh` for direct terminal deployment.
-- [ ] Update `MODAL_SETUP_GUIDE.md` with the direct deployment command.
-- [ ] Add `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` validation to the script.
+- [x] Create `deploy_modal.sh` for direct terminal deployment.
+- [x] Update `MODAL_SETUP_GUIDE.md` with the direct deployment command.
+- [x] Add `MODAL_TOKEN_ID` and `MODAL_TOKEN_SECRET` validation to the script.
