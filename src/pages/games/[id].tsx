@@ -21,7 +21,8 @@ import {
   ChevronRight,
   HardDrive,
   Loader2,
-  Info
+  Info,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +35,7 @@ import axios from "axios";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check, AlertTriangle } from "lucide-react";
+import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check } from "lucide-react";
 import { storageService } from "@/services/storageService";
 import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -96,13 +97,14 @@ export default function GameDetailPage() {
         } catch (urlErr: any) {
           console.error("[GameDetail] Failed to resolve video URL:", urlErr);
           
+          // Set videoUrl to null so we show the upload prompt
+          setVideoUrl(null);
+          
           // Provide specific error messaging
-          if (urlErr.message?.includes('not found') || urlErr.message?.includes('404')) {
-            showBanner("Video file not found. Please re-upload the game footage.", "error");
-          } else if (urlErr.message?.includes('permission') || urlErr.message?.includes('403')) {
-            showBanner("Storage permission denied. Check Supabase Storage RLS policies.", "error");
+          if (urlErr.message?.includes('not found') || urlErr.message?.includes('Object not found')) {
+            console.log("[GameDetail] Video file not in storage - user needs to upload");
           } else {
-            showBanner("Failed to load video. Check storage configuration.", "error");
+            showBanner(`Video error: ${urlErr.message}`, "error");
           }
         }
       }
@@ -386,6 +388,39 @@ export default function GameDetailPage() {
                         <Save className="mr-2 h-4 w-4" /> Save Parameters
                       </Button>
                     </div>
+
+                    {/* Video Upload Prompt - Show when video_path exists but file is not in storage */}
+                    {game?.video_path && !videoUrl && (
+                      <div className="p-6 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-4">
+                        <div className="flex items-start gap-4">
+                          <div className="p-3 rounded-xl bg-amber-500/20">
+                            <AlertTriangle className="h-6 w-6 text-amber-500" />
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <h4 className="text-sm font-black uppercase tracking-wide text-white">Video File Missing</h4>
+                            <p className="text-[11px] text-muted-foreground leading-relaxed">
+                              This game references a video file that doesn't exist in Supabase Storage. This typically happens after storage migrations or if the file was deleted.
+                            </p>
+                            <div className="pt-2">
+                              <p className="text-[10px] font-mono text-amber-500/80 bg-black/20 p-2 rounded border border-amber-500/20">
+                                Path: {game.video_path}
+                              </p>
+                            </div>
+                            <div className="pt-3">
+                              <Button
+                                size="sm"
+                                className="bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-widest text-[10px] rounded-xl h-10 px-6"
+                                onClick={() => {
+                                  showBanner("Please use the main Games page to upload the video file for this game.", "info");
+                                }}
+                              >
+                                <HardDrive className="mr-2 h-4 w-4" /> Re-upload Video Required
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                       {/* Left: General Meta */}
