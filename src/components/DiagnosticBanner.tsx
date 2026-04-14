@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Info, AlertCircle, CheckCircle, AlertTriangle } from "lucide-react";
+import { X, Info, AlertCircle, AlertTriangle, CheckCircle, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type BannerSeverity = "info" | "error" | "success" | "warning";
