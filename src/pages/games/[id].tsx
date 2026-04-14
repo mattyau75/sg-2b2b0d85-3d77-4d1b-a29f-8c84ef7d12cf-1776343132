@@ -80,15 +80,20 @@ export default function GameDetailPage() {
       if (error) throw error;
       setGame(data);
       
-      // Resolve video URL if it's a relative path
+      // Resolve video URL with high-performance signed access
       if (data.video_path) {
-        if (data.video_path.startsWith('http')) {
-          setVideoUrl(data.video_path);
-        } else {
-          const { data: urlData } = await supabase.storage
-            .from('videos')
-            .getPublicUrl(data.video_path);
-          setVideoUrl(urlData.publicUrl);
+        try {
+          if (data.video_path.startsWith('http')) {
+            setVideoUrl(data.video_path);
+          } else {
+            // Fetch signed URL from R2/S3 gateway
+            const signedUrl = await storageService.getSignedUrl(data.video_path);
+            setVideoUrl(signedUrl);
+            console.log("[GameDetail] Resolved Secure Video Stream:", signedUrl);
+          }
+        } catch (urlErr) {
+          console.error("[GameDetail] Failed to resolve video path:", urlErr);
+          showBanner("Secure video handshake failed. Check storage permissions.", "error");
         }
       }
 

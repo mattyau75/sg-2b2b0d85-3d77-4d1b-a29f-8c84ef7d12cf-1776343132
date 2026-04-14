@@ -95,14 +95,11 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           ));
         }, abortController.signal);
 
+        console.log(`[UploadContext] Video successfully staged at R2 Key: ${videoPath}`);
         delete abortControllers.current[uploadId];
 
-        // 3. Update status to processing
-        setActiveUploads(prev => prev.map(t => 
-          t.id === uploadId ? { ...t, status: "processing", progress: 100 } : t
-        ));
-
-        await supabase
+        // 3. Update status and video reference in one atomic operation
+        const { error: updateError } = await supabase
           .from('games')
           .update({ 
             video_path: videoPath, 
@@ -110,10 +107,10 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
           })
           .eq('id', gameData.id);
 
-        // REMOVED: Automatic GPU Ignition (Now a manual user action)
-        
+        if (updateError) throw updateError;
+
         setActiveUploads(prev => prev.map(t => 
-          t.id === uploadId ? { ...t, status: "completed" } : t
+          t.id === uploadId ? { ...t, status: "completed", progress: 100 } : t
         ));
 
         // Auto-remove completed task after 5 seconds
