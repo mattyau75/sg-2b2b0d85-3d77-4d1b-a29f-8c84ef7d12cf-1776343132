@@ -1,676 +1,294 @@
-import React, { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/router";
-import { Layout } from "@/components/Layout";
-import { supabase } from "@/integrations/supabase/client";
+import { useEffect, useState } from "react";
+import Layout from "@/components/Layout";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { 
-  CheckCircle2, 
-  Zap, 
-  RefreshCw, 
-  ShieldCheck,
-  Terminal,
-  Wifi,
-  WifiOff,
-  Calendar,
-  MapPin,
-  Trophy,
-  Activity,
-  Cpu,
-  Lock,
-  ChevronRight,
-  HardDrive,
-  Loader2,
-  Info,
-  AlertTriangle
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { VideoPlayer } from "@/components/VideoPlayer";
+import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { MappingDashboard } from "@/components/MappingDashboard";
-import { showBanner } from "@/components/DiagnosticBanner";
-import { workflowService } from "@/services/workflowService";
-import { WorkerLogs } from "@/components/WorkerLogs";
-import axios from "axios";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check } from "lucide-react";
+import { 
+  Settings2, 
+  Users, 
+  Cpu, 
+  PlayCircle, 
+  CheckCircle2, 
+  AlertCircle,
+  Database,
+  BarChart3,
+  ChevronRight,
+  RefreshCw,
+  Video
+} from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import { storageService } from "@/services/storageService";
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-
-const MODULES = [
-  { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: 'Parameter Setup', key: 'm1_complete' },
-  { id: 'm2', label: 'Processing', icon: Cpu, desc: 'AI Initialization', key: 'm2_complete' },
-  { id: 'm3', label: 'Analysis', icon: Zap, desc: 'Game Processing', key: 'm3_complete' },
-  { id: 'm4', label: 'Mapping', icon: Activity, desc: 'Roster Finalization', key: null }
-];
+import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import axios from "axios";
 
 export default function GameDetailPage() {
   const router = useRouter();
-  const { id: rawId } = router.query;
-  const gameId = Array.isArray(rawId) ? rawId[0] : rawId;
+  const { id } = router.query;
+  const { toast } = useToast();
   
   const [game, setGame] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("m1");
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isAnalyzingColors, setIsAnalyzingColors] = useState(false);
-  const [isRealtimeActive, setIsRealtimeActive] = useState(false);
-  const [aiMappings, setAiMappings] = useState<any[]>([]);
-  const [homeRoster, setHomeRoster] = useState<any[]>([]);
-  const [awayRoster, setAwayRoster] = useState<any[]>([]);
-  const [editData, setEditData] = useState<any>({});
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [showTeamsModal, setShowTeamsModal] = useState(false);
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
-  // Fetch game data
-  const fetchGameData = async () => {
-    if (!gameId) return;
+  useEffect(() => {
+    if (id) fetchGame();
+  }, [id]);
+
+  const fetchGame = async () => {
     try {
       const { data, error } = await supabase
-        .from('games')
-        .select(`
-          *,
-          home_team:teams!games_home_team_id_fkey(*),
-          away_team:teams!games_away_team_id_fkey(*),
-          venue:venues(*)
-        `)
-        .eq('id', gameId)
+        .from("games")
+        .select(`*, home_team:home_team_id(name), away_team:away_team_id(name)`)
+        .eq("id", id)
         .single();
 
       if (error) throw error;
       setGame(data);
-      
-      // Resolve video URL using Supabase Storage
+
       if (data.video_path) {
-        try {
-          // 1. Handle Full URLs (e.g. from R2 or external)
-          if (data.video_path.startsWith('http')) {
-            setVideoUrl(data.video_path);
-          } 
-          // 2. Handle R2 paths (if they start with 'videos/' but aren't in Supabase)
-          else if (process.env.NEXT_PUBLIC_R2_ENDPOINT && !data.video_path.includes('supabase')) {
-            const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
-            const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-            const fullR2Url = `${r2Base}/${bucket}/${data.video_path}`;
-            setVideoUrl(fullR2Url);
-            console.log("[GameDetail] Video resolved via Cloudflare R2:", fullR2Url);
-          }
-          // 3. Fallback to Supabase Storage
-          else {
-            const signedUrl = await storageService.getUrl(data.video_path);
-            setVideoUrl(signedUrl);
-          }
-        } catch (urlErr: any) {
-          console.error("[GameDetail] Failed to resolve video URL:", urlErr);
-          
-          // Set videoUrl to null so we show the upload prompt
-          setVideoUrl(null);
-          
-          // Provide specific error messaging
-          if (urlErr.message?.includes('not found') || urlErr.message?.includes('Object not found')) {
-            console.log("[GameDetail] Video file not in storage - user needs to upload");
-          } else {
-            showBanner(`Video error: ${urlErr.message}`, "error");
-          }
+        if (data.video_path.startsWith('http')) {
+          setVideoUrl(data.video_path);
+        } else if (process.env.NEXT_PUBLIC_R2_ENDPOINT) {
+          const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
+          const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+          setVideoUrl(`${r2Base}/${bucket}/${data.video_path}`);
+        } else {
+          const url = await storageService.getUrl(data.video_path);
+          setVideoUrl(url);
         }
       }
-
-      setEditData({
-        home_score: data.home_score || 0,
-        away_score: data.away_score || 0,
-        home_team_color: data.home_team_color || "",
-        away_team_color: data.away_team_color || ""
-      });
-    } catch (err) {
-      console.error("Error fetching game:", err);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleColorSelection = (team: 'home' | 'away', color: string) => {
-    const currentHome = editData.home_team_color;
-    const currentAway = editData.away_team_color;
-    const detectedColors = [game?.detected_home_color, game?.detected_away_color].filter(Boolean);
-
-    // Simplified selection logic - no mutual exclusion complexity
-    const field = team === 'home' ? 'home_team_color' : 'away_team_color';
-    
-    // Toggle behavior: clicking the same color deselects it
-    if (editData[field] === color) {
-      setEditData({ ...editData, [field]: "" });
-    } else {
-      setEditData({ ...editData, [field]: color });
-    }
-  };
-
-  useEffect(() => {
-    if (game) {
-      setEditData({
-        home_team_name: game.home_team?.name || "",
-        away_team_name: game.away_team?.name || "",
-        venue_name: game.venue?.name || "",
-        home_score: game.home_score || 0,
-        away_score: game.away_score || 0,
-        home_team_color: game.home_team_color || "",
-        away_team_color: game.away_team_color || ""
-      });
-    }
-  }, [game]);
-
-  useEffect(() => {
-    fetchGameData();
-    if (!gameId) return;
-
-    const channel = supabase
-      .channel(`tactical_pulse_${gameId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'games', filter: `id=eq.${gameId}` }, (payload) => {
-        setGame(payload.new as any);
-      })
-      .subscribe((status) => {
-        setIsRealtimeActive(status === 'SUBSCRIBED');
-      });
-
-    return () => { supabase.removeChannel(channel); };
-  }, [gameId, fetchGameData]);
-
-  const handleInitiatePhase = async (phase: string) => {
-    if (!gameId) return;
+  const handleStartProcess = async () => {
     setIsProcessing(true);
     try {
-      if (phase === "m2") {
-        showBanner("Initializing AI Processing Hub...", "info", "READY");
-        await axios.post('/api/process-game', { gameId });
-        await workflowService.advanceModule(gameId as string, 'ignited');
-        showBanner("Processing Hub Active. Analysis started.", "success", "PHASE 02 ACTIVE");
-        setActiveTab("m2");
-      }
-      if (phase === "m3") {
-        await workflowService.advanceModule(gameId as string, 'analyzing');
-        setActiveTab("m3");
-      }
-      if (phase === "m4") {
-        setActiveTab("m4");
-      }
-      await fetchGameData();
+      await axios.post('/api/process-game', { gameId: id });
+      toast({ title: "AI Process Started", description: "The scouting worker has been triggered." });
     } catch (err: any) {
-      showBanner(err.message || "Phase Initiation Failed", "error", "HARD STALL");
+      toast({ title: "Process Failed", description: err.message, variant: "destructive" });
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleVerifyModule = async (moduleId: string, isComplete: boolean) => {
-    if (!gameId) return;
-    setIsVerifying(true);
-    const mod = MODULES.find(m => m.id === moduleId);
-    if (!mod || !mod.key) return;
-
-    try {
-      // Use explicit keys to satisfy strict TypeScript definitions from Supabase
-      const updatePayload: any = {};
-      if (mod.key) {
-        updatePayload[mod.key] = isComplete;
-      }
-
-      const { error } = await supabase
-        .from('games')
-        .update(updatePayload)
-        .eq('id', gameId);
-
-      if (error) throw error;
-      await fetchGameData();
-      showBanner(`${mod.label} status updated`, "success");
-      
-      // Auto-advance to next tab if verified
-      if (isComplete) {
-        const nextIdx = MODULES.findIndex(m => m.id === moduleId) + 1;
-        if (nextIdx < MODULES.length) {
-          setActiveTab(MODULES[nextIdx].id);
-        }
-      }
-    } catch (err: any) {
-      showBanner("Verification failed", "error");
-    } finally {
-      setIsVerifying(false);
-    }
-  };
-
-  const handleUpdateGameDetails = async () => {
-    if (!gameId) return;
-    try {
-      const { error } = await supabase
-        .from('games')
-        .update({
-          home_score: editData.home_score,
-          away_score: editData.away_score,
-          home_team_color: editData.home_team_color,
-          away_team_color: editData.away_team_color
-        })
-        .eq('id', gameId);
-
-      if (error) throw error;
-      
-      // Update team names if they changed (requires joining team update)
-      // For now, we update the scores and colors which are direct on the games table
-      
-      showBanner("Game parameters calibrated", "success");
-      await fetchGameData();
-    } catch (err: any) {
-      showBanner("Calibration failed", "error");
-    }
-  };
-
-  const handleAnalyzeColors = async () => {
-    if (!gameId || !videoUrl) {
-      showBanner("Video URL not resolved. Cannot extract colors.", "error");
-      return;
-    }
-    setIsAnalyzingColors(true);
-    try {
-      const res = await axios.post('/api/analyze-colors', { 
-        gameId, 
-        videoPath: videoUrl // Pass the resolved URL instead of raw path
-      });
-      showBanner("Colors identified from footage", "success");
-      await fetchGameData();
-    } catch (err: any) {
-      showBanner("Color recognition failed", "error");
-    } finally {
-      setIsAnalyzingColors(false);
-    }
-  };
-
-  const isModuleLocked = (moduleId: string) => {
-    const idx = MODULES.findIndex(m => m.id === moduleId);
-    if (idx === 0) return false;
-    const prevMod = MODULES[idx - 1];
-    if (!prevMod.key) return false;
-    return !game?.[prevMod.key];
-  };
-
-  if (loading) return <Layout><div className="flex items-center justify-center min-h-[60vh]"><RefreshCw className="h-8 w-8 animate-spin text-primary" /></div></Layout>;
+  if (loading) return <Layout><div className="flex items-center justify-center h-screen"><RefreshCw className="w-8 h-8 animate-spin text-primary" /></div></Layout>;
 
   return (
-    <Layout title={`${game?.home_team?.name || 'Game'} vs ${game?.away_team?.name || 'Game'}`}>
-      <div className="max-w-7xl mx-auto px-4 py-8 space-y-6">
-        
-        {/* Professional Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 rounded-3xl bg-card/50 border border-primary/20 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4">
-             <div className={cn(
-              "flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-black tracking-widest border transition-all",
-              isRealtimeActive ? "bg-accent/10 text-accent border-accent/20" : "bg-amber-500/10 text-amber-500 border-amber-500/20"
-            )}>
-              {isRealtimeActive ? <Wifi className="h-3 w-3" /> : <WifiOff className="h-3 w-3" />}
-              {isRealtimeActive ? "CONNECTED" : "OFFLINE"}
+    <Layout>
+      <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-secondary/20 p-6 rounded-2xl border border-white/5">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-primary border-primary/50 bg-primary/5">Elite Scouting</Badge>
+              <span className="text-muted-foreground">•</span>
+              <span className="text-sm text-muted-foreground">{new Date(game.date).toLocaleDateString()}</span>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-widest py-1 px-3 italic uppercase">
-                {game?.status || 'AWAITING SETUP'}
-              </Badge>
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Badge variant="outline" className="bg-white/5 text-muted-foreground border-white/10 text-[9px] font-mono tracking-tighter py-1 px-2 uppercase cursor-help hover:bg-white/10 transition-colors">
-                      ID: {game?.id?.slice(0, 8)}...
-                    </Badge>
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-black border-white/10 text-[10px] font-mono p-2">
-                    {game?.id}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              {game?.status === 'analyzing' && <Activity className="h-4 w-4 text-primary animate-pulse" />}
-            </div>
-            <h1 className="text-5xl font-black tracking-tighter text-white uppercase italic">
-              {game?.home_team?.name || "Home"} <span className="text-primary not-italic">vs</span> {game?.away_team?.name || "Away"}
+            <h1 className="text-3xl font-bold tracking-tight">
+              {game.home_team?.name} <span className="text-muted-foreground mx-2">vs</span> {game.away_team?.name}
             </h1>
-            <div className="flex items-center gap-6 text-xs text-muted-foreground font-mono font-bold uppercase tracking-widest">
-              <span className="flex items-center gap-2"><Calendar className="h-4 w-4 text-primary" /> {game?.date ? new Date(game.date).toLocaleDateString() : 'TBD'}</span>
-              <span className="flex items-center gap-2"><MapPin className="h-4 w-4 text-accent" /> {game?.venue?.name || 'GENERIC STADIUM'}</span>
-            </div>
           </div>
-
-          <div className="flex flex-col items-end gap-3">
-             <div className="text-right">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.3em] mb-1">Analysis Progress</p>
-                <p className="text-3xl font-black text-primary italic leading-none">{game?.progress_percentage || 0}%</p>
-             </div>
+          
+          <div className="flex items-center gap-3">
+            <Button variant="outline" size="sm" onClick={() => router.back()}>Back to Queue</Button>
+            <Button size="sm" className="gap-2" onClick={handleStartProcess} disabled={isProcessing}>
+              <PlayCircle className={cn("w-4 h-4", isProcessing && "animate-pulse")} />
+              {isProcessing ? "Processing..." : "Run AI Scouting"}
+            </Button>
           </div>
         </div>
 
-        {/* Pipeline Stepper */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {MODULES.map((mod, idx) => {
-            const isActive = activeTab === mod.id;
-            const isCompleted = mod.key ? game?.[mod.key] : false;
-            const isLocked = isModuleLocked(mod.id);
-            
-            return (
-              <button
-                key={mod.id}
-                disabled={isLocked}
-                onClick={() => setActiveTab(mod.id)}
-                className={cn(
-                  "p-6 rounded-2xl border transition-all text-left relative overflow-hidden group",
-                  isActive ? "bg-primary border-primary shadow-lg shadow-primary/20 scale-105 z-10" : 
-                  isCompleted ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" :
-                  isLocked ? "bg-white/5 border-white/5 opacity-50 cursor-not-allowed" :
-                  "bg-card/40 border-white/5 text-muted-foreground hover:border-white/20"
-                )}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <mod.icon className={cn("h-5 w-5", isActive ? "text-white" : isCompleted ? "text-emerald-500" : isLocked ? "text-zinc-700" : "text-zinc-500")} />
-                  {isCompleted && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                  {isLocked && <Lock className="h-3 w-3 text-zinc-600" />}
-                </div>
-                <p className={cn("text-[10px] font-black uppercase tracking-widest mb-1", isActive ? "text-white/70" : "text-muted-foreground")}>Step 0{idx + 1}</p>
-                <p className={cn("text-sm font-black uppercase tracking-tighter italic", isActive ? "text-white" : "text-white")}>{mod.label}</p>
-                <p className={cn("text-[10px] font-mono mt-2", isActive ? "text-white/60" : "text-muted-foreground/50")}>{mod.desc}</p>
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Module Content */}
-          <div className="lg:col-span-2 space-y-6">
-            <Card className="bg-card/40 border-white/5 p-8 min-h-[500px] flex flex-col relative overflow-hidden">
-              {/* Tactical Progress Guard */}
-              <div className="flex-1 flex flex-col items-center justify-center text-center">
-                {activeTab === 'm1' && (
-                  <div className="w-full space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 text-left">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="space-y-1">
-                        <h3 className="text-2xl font-black uppercase tracking-tighter text-white italic">Calibration Hub</h3>
-                        <p className="text-[10px] font-mono text-muted-foreground uppercase tracking-widest">Environmental & Parameter Tuning</p>
-                      </div>
-                      <Button 
-                        size="sm"
-                        onClick={handleUpdateGameDetails}
-                        className="bg-primary hover:bg-primary/90 text-white font-black uppercase tracking-widest text-[10px] rounded-xl h-10 px-6"
-                      >
-                        <Save className="mr-2 h-4 w-4" /> Save Parameters
-                      </Button>
-                    </div>
-
-                    {/* Video Upload Prompt - Show when video_path exists but file is not in storage */}
-                    {game?.video_path && !videoUrl && (
-                      <div className="p-6 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-4">
-                        <div className="flex items-start gap-4">
-                          <div className="p-3 rounded-xl bg-amber-500/20">
-                            <AlertTriangle className="h-6 w-6 text-amber-500" />
-                          </div>
-                          <div className="flex-1 space-y-2">
-                            <h4 className="text-sm font-black uppercase tracking-wide text-white">Video File Missing</h4>
-                            <p className="text-[11px] text-muted-foreground leading-relaxed">
-                              This game references a video file that doesn't exist in Supabase Storage. This typically happens after storage migrations or if the file was deleted.
-                            </p>
-                            <div className="pt-2">
-                              <p className="text-[10px] font-mono text-amber-500/80 bg-black/20 p-2 rounded border border-amber-500/20">
-                                Path: {game.video_path}
-                              </p>
-                            </div>
-                            <div className="pt-3">
-                              <Button
-                                size="sm"
-                                className="bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-widest text-[10px] rounded-xl h-10 px-6"
-                                onClick={() => {
-                                  showBanner("Please use the main Games page to upload the video file for this game.", "info");
-                                }}
-                              >
-                                <HardDrive className="mr-2 h-4 w-4" /> Re-upload Video Required
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                      {/* Left: General Meta */}
-                      <div className="space-y-6">
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
-                          <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2">
-                            <Trophy className="h-3 w-3" /> Identity Calibration
-                          </p>
-                          <div className="grid grid-cols-2 gap-4 pt-2">
-                            <div className="space-y-2">
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Home Final Score</Label>
-                              <Input 
-                                type="number"
-                                value={editData.home_score}
-                                onChange={(e) => setEditData({...editData, home_score: parseInt(e.target.value) || 0})}
-                                className="bg-white/10 border-white/10 rounded-xl h-12 font-mono text-xl text-center focus:border-primary transition-all" 
-                              />
-                            </div>
-                            <div className="space-y-2">
-                              <Label className="text-[10px] font-bold text-muted-foreground uppercase">Away Final Score</Label>
-                              <Input 
-                                type="number"
-                                value={editData.away_score}
-                                onChange={(e) => setEditData({...editData, away_score: parseInt(e.target.value) || 0})}
-                                className="bg-white/10 border-white/10 rounded-xl h-12 font-mono text-xl text-center focus:border-primary transition-all" 
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/5 space-y-4">
-                          <p className="text-[10px] font-black text-accent uppercase tracking-[0.2em] flex items-center gap-2">
-                            <MapPin className="h-3 w-3" /> Venue Designation
-                          </p>
-                          <div className="space-y-2">
-                            <Label className="text-[10px] font-bold text-muted-foreground uppercase">Stadium Name</Label>
-                            <Input 
-                              value={game?.venue?.name || "Generic Field"} 
-                              disabled
-                              className="bg-white/5 border-white/5 rounded-xl h-12 font-bold opacity-40 cursor-not-allowed" 
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Right: Color Calibration */}
-                      <div className="space-y-6">
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-6">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
-                              <Palette className="h-3 w-3 text-primary" /> Jersey Identification
-                            </p>
-                            <Button 
-                              variant="outline"
-                              size="sm"
-                              disabled={isAnalyzingColors || !game?.video_path}
-                              onClick={handleAnalyzeColors}
-                              className="bg-white/5 border-white/10 text-[9px] font-black uppercase rounded-lg h-8 px-4 hover:bg-primary hover:text-white transition-all"
-                            >
-                              {isAnalyzingColors ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
-                              Extract from Video
-                            </Button>
-                          </div>
-
-                          {!game?.detected_home_color && !game?.detected_away_color ? (
-                            <div className="py-8 text-center space-y-2 bg-white/[0.02] rounded-xl border border-white/5">
-                              <AlertTriangle className="h-8 w-8 text-amber-500/50 mx-auto" />
-                              <p className="text-[10px] font-mono text-muted-foreground uppercase">Run Extraction to Identify Jerseys</p>
-                            </div>
-                          ) : (
-                            <div className="space-y-6">
-                              <div className="space-y-4">
-                                {/* Home Jersey Selection */}
-                                <div className="space-y-3">
-                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block italic">
-                                    Home Jersey ({game?.home_team?.name || "Team A"})
-                                  </Label>
-                                  <div className="flex items-center justify-center gap-4">
-                                    {[game?.detected_home_color, game?.detected_away_color].filter(Boolean).map((color, i) => (
-                                      <button
-                                        key={i}
-                                        onClick={() => handleColorSelection('home', color as string)}
-                                        className={cn(
-                                          "relative w-16 h-16 rounded-xl border-2 transition-all duration-200 flex items-center justify-center group hover:scale-105",
-                                          editData.home_team_color === color 
-                                            ? "border-primary scale-110 shadow-[0_0_24px_rgba(255,102,0,0.4)]" 
-                                            : "border-white/20 opacity-60 hover:opacity-100 hover:border-white/40"
-                                        )}
-                                        style={{ backgroundColor: color as string }}
-                                      >
-                                        {editData.home_team_color === color && (
-                                          <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="absolute inset-0 bg-black/20 rounded-xl" />
-                                            <Check className="h-8 w-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] relative z-10 stroke-[3]" />
-                                          </div>
-                                        )}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                {/* Away Jersey Selection */}
-                                <div className="space-y-3">
-                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block italic">
-                                    Away Jersey ({game?.away_team?.name || "Team B"})
-                                  </Label>
-                                  <div className="flex items-center justify-center gap-4">
-                                    {[game?.detected_home_color, game?.detected_away_color].filter(Boolean).map((color, i) => (
-                                      <button
-                                        key={i}
-                                        onClick={() => handleColorSelection('away', color as string)}
-                                        className={cn(
-                                          "relative w-16 h-16 rounded-xl border-2 transition-all duration-200 flex items-center justify-center group hover:scale-105",
-                                          editData.away_team_color === color 
-                                            ? "border-accent scale-110 shadow-[0_0_24px_rgba(0,255,255,0.4)]" 
-                                            : "border-white/20 opacity-60 hover:opacity-100 hover:border-white/40"
-                                        )}
-                                        style={{ backgroundColor: color as string }}
-                                      >
-                                        {editData.away_team_color === color && (
-                                          <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="absolute inset-0 bg-black/20 rounded-xl" />
-                                            <Check className="h-8 w-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] relative z-10 stroke-[3]" />
-                                          </div>
-                                        )}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3">
-                                <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
-                                <p className="text-[9px] font-bold text-muted-foreground leading-relaxed">
-                                  <span className="text-primary font-black uppercase">Selection Guide:</span> Click a color to assign it to a team. Click again to deselect. Each team can only have one jersey color.
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'm2' && (
-                  <div className="space-y-8 animate-in fade-in zoom-in duration-500">
-                    <Cpu className="h-16 w-16 text-accent animate-spin-slow mx-auto" />
-                    <div className="space-y-4">
-                      <h3 className="text-2xl font-black uppercase tracking-tighter text-white">GPU Swarm Ignition</h3>
-                      <p className="text-sm text-muted-foreground font-mono max-w-md mx-auto">Stateless Handshake Established. Cluster A10G warming up.</p>
-                    </div>
-                    <Button 
-                      onClick={() => handleInitiatePhase("m3")}
-                      disabled={isProcessing}
-                      className="bg-accent hover:bg-accent/90 text-black font-black uppercase tracking-widest italic h-16 px-12 rounded-2xl"
-                    >
-                      Start Real-Time Analysis Stream
-                    </Button>
-                  </div>
-                )}
-
-                {activeTab === 'm3' && (
-                  <div className="w-full space-y-8 animate-in fade-in zoom-in duration-500">
-                     <div className="flex items-center justify-between">
-                        <div className="text-left">
-                          <h3 className="text-2xl font-black uppercase tracking-tighter text-white italic">Analysis Stream active</h3>
-                          <p className="text-xs text-muted-foreground font-mono">Stream-Processing 1-Hour Footage Pulse</p>
-                        </div>
-                        <Badge className="bg-primary text-white font-black italic">GPU ACTIVE</Badge>
-                     </div>
-                     <div className="space-y-2">
-                        <div className="flex justify-between text-[10px] font-black uppercase tracking-widest">
-                          <span className="text-muted-foreground">Pulse Depth</span>
-                          <span className="text-primary">{game?.progress_percentage || 0}%</span>
-                        </div>
-                        <Progress value={game?.progress_percentage || 0} className="h-2 bg-white/5" />
-                     </div>
-                     <div className="grid grid-cols-2 gap-4">
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-left">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Detections</p>
-                          <p className="text-3xl font-black text-white italic">{game?.total_detections || 0}</p>
-                        </div>
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/5 text-left">
-                          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest mb-2">Event Density</p>
-                          <p className="text-3xl font-black text-accent italic">HIGH</p>
-                        </div>
-                     </div>
-                     <Button 
-                      onClick={() => handleInitiatePhase("m4")}
-                      className="w-full bg-white text-black font-black uppercase tracking-widest italic h-14 rounded-2xl"
-                    >
-                      Enter Mapping Engine
-                    </Button>
-                  </div>
-                )}
-
-                {activeTab === 'm4' && (
-                  <div className="w-full animate-in fade-in zoom-in duration-500">
-                    <MappingDashboard 
-                      gameId={gameId as string}
-                      aiMappings={aiMappings}
-                      homeRoster={homeRoster}
-                      awayRoster={awayRoster}
-                      homeColor={game?.home_team_color}
-                      awayColor={game?.away_team_color}
-                      onRefresh={fetchGameData}
-                    />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Main Stage: Video Player */}
+          <div className="lg:col-span-8 space-y-6">
+            <Card className="bg-black border-white/10 overflow-hidden rounded-2xl shadow-2xl">
+              <div className="aspect-video bg-muted flex items-center justify-center relative">
+                {videoUrl ? (
+                  <VideoPlayer url={videoUrl} />
+                ) : (
+                  <div className="text-center space-y-4">
+                    <Video className="w-12 h-12 text-muted-foreground mx-auto" />
+                    <p className="text-muted-foreground">Video stream pending...</p>
                   </div>
                 )}
               </div>
-
-              {/* Verification Footer */}
-              {activeTab !== 'm4' && (
-                <div className="mt-8 pt-8 border-t border-white/5 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <Checkbox 
-                      id={`verify-${activeTab}`}
-                      checked={game?.[MODULES.find(m => m.id === activeTab)?.key || '']}
-                      onCheckedChange={(checked) => handleVerifyModule(activeTab, checked as boolean)}
-                      disabled={isVerifying}
-                      className="h-6 w-6 border-white/20 data-[state=checked]:bg-emerald-500 data-[state=checked]:border-emerald-500"
-                    />
-                    <Label htmlFor={`verify-${activeTab}`} className="text-xs font-black uppercase tracking-widest text-muted-foreground cursor-pointer hover:text-white transition-colors">
-                      Verify Module 0{MODULES.findIndex(m => m.id === activeTab) + 1} as Complete
-                    </Label>
-                  </div>
-                  {isVerifying && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
-                </div>
-              )}
             </Card>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ModuleCard 
+                title="Personnel Calibration"
+                description="Match team rosters and jersey colors for AI tracking."
+                icon={<Settings2 className="w-5 h-5" />}
+                status={game.analysis_status === 'completed' ? 'done' : 'todo'}
+                actionLabel="Configure Teams"
+                onClick={() => setShowTeamsModal(true)}
+              />
+              <ModuleCard 
+                title="AI Roster Mapping"
+                description="Link AI detected entities to human database records."
+                icon={<Users className="w-5 h-5" />}
+                status="todo"
+                actionLabel="Open Mapping Engine"
+                onClick={() => setShowMappingModal(true)}
+                disabled={!game.analysis_status}
+              />
+            </div>
           </div>
 
-          {/* Persistent Technical Trace Sidebar */}
-          <div className="lg:col-span-1 h-[600px]">
-            <WorkerLogs gameId={gameId as string} />
+          {/* Sidebar: Tactical Modules */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="bg-secondary/10 border-white/5">
+              <CardHeader>
+                <CardTitle className="text-sm font-medium flex items-center gap-2 uppercase tracking-widest text-muted-foreground">
+                  <BarChart3 className="w-4 h-4" />
+                  Scouting Lifecycle
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <StageItem 
+                  step="01" 
+                  title="Video Ingest" 
+                  status="completed" 
+                  description="8GB Cloudflare R2 Upload verified."
+                />
+                <StageItem 
+                  step="02" 
+                  title="AI Inference" 
+                  status={game.analysis_status === 'processing' ? 'active' : game.analysis_status === 'completed' ? 'completed' : 'pending'} 
+                  description="GPU Object Tracking & Player Detection."
+                />
+                <StageItem 
+                  step="03" 
+                  title="Mapping" 
+                  status="pending" 
+                  description="AI-to-Human entity verification."
+                />
+                <StageItem 
+                  step="04" 
+                  title="Tactical Boxscore" 
+                  status="pending" 
+                  description="Generating elite analytics dashboard."
+                />
+              </CardContent>
+            </Card>
+
+            <Card className="bg-primary/5 border-primary/20">
+              <CardHeader>
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-primary" />
+                  System Health
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Modal GPU Status</span>
+                  <span className="flex items-center gap-1.5 text-green-400">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    Online
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </div>
+
+      {/* MODALS */}
+      <EditGameTeamsModal 
+        isOpen={showTeamsModal} 
+        onOpenChange={setShowTeamsModal} 
+        gameId={id as string} 
+        onSuccess={fetchGame}
+      />
+
+      {/* Mapping Engine Popup */}
+      {showMappingModal && (
+        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-4 md:p-10">
+          <Card className="w-full h-full flex flex-col border-primary/20 overflow-hidden shadow-2xl">
+            <CardHeader className="flex flex-row items-center justify-between bg-secondary/20 border-b border-white/5 p-4">
+              <div>
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Database className="w-5 h-5 text-primary" />
+                  Elite Mapping Engine
+                </CardTitle>
+                <CardDescription>AI-to-Human Identity Resolution</CardDescription>
+              </div>
+              <Button variant="ghost" size="icon" onClick={() => setShowMappingModal(false)}>
+                <AlertCircle className="w-5 h-5 rotate-45" />
+              </Button>
+            </CardHeader>
+            <CardContent className="flex-1 overflow-auto p-0">
+              <MappingDashboard gameId={id as string} />
+            </CardContent>
+          </Card>
+        </div>
+      )}
     </Layout>
+  );
+}
+
+function ModuleCard({ title, description, icon, status, actionLabel, onClick, disabled }: any) {
+  return (
+    <Card className={cn(
+      "bg-secondary/10 border-white/5 transition-all hover:border-primary/30",
+      disabled && "opacity-50 pointer-events-none"
+    )}>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between mb-2">
+          <div className="p-2 bg-primary/10 rounded-lg text-primary">
+            {icon}
+          </div>
+          {status === 'done' ? (
+            <CheckCircle2 className="w-5 h-5 text-green-400" />
+          ) : (
+            <div className="w-5 h-5 rounded-full border-2 border-muted" />
+          )}
+        </div>
+        <CardTitle className="text-lg">{title}</CardTitle>
+        <CardDescription className="text-xs leading-relaxed">{description}</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Button variant="secondary" size="sm" className="w-full gap-2 text-xs" onClick={onClick}>
+          {actionLabel}
+          <ChevronRight className="w-3 h-3" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function StageItem({ step, title, status, description }: any) {
+  const isActive = status === 'active';
+  const isCompleted = status === 'completed';
+
+  return (
+    <div className="relative pl-8 border-l border-white/10 space-y-1">
+      <div className={cn(
+        "absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 flex items-center justify-center",
+        isCompleted ? "bg-green-500 border-green-500" : 
+        isActive ? "bg-primary border-primary animate-pulse" : 
+        "bg-secondary border-muted"
+      )}>
+        {isCompleted && <CheckCircle2 className="w-3 h-3 text-white" />}
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-[10px] font-mono text-muted-foreground">{step}</span>
+        <h4 className={cn("text-sm font-semibold", isActive && "text-primary")}>{title}</h4>
+      </div>
+      <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
+    </div>
   );
 }
