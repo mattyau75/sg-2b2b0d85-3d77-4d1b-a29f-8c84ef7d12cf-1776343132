@@ -36,6 +36,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Palette, MapPin as MapPinIcon, Trophy as TrophyIcon, Calendar as CalendarIcon, Save, Search, Check, AlertTriangle } from "lucide-react";
 import { storageService } from "@/services/storageService";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const MODULES = [
   { id: 'm1', label: 'Calibration', icon: ShieldCheck, desc: 'Parameter Setup', key: 'm1_complete' },
@@ -312,9 +313,18 @@ export default function GameDetailPage() {
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-widest py-1 px-3 italic uppercase">
                 {game?.status || 'AWAITING SETUP'}
               </Badge>
-              <Badge variant="outline" className="bg-white/5 text-muted-foreground border-white/10 text-[9px] font-mono tracking-tighter py-1 px-2 uppercase">
-                ID: {game?.id?.slice(0, 8)}...
-              </Badge>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge variant="outline" className="bg-white/5 text-muted-foreground border-white/10 text-[9px] font-mono tracking-tighter py-1 px-2 uppercase cursor-help hover:bg-white/10 transition-colors">
+                      ID: {game?.id?.slice(0, 8)}...
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-black border-white/10 text-[10px] font-mono p-2">
+                    {game?.id}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
               {game?.status === 'analyzing' && <Activity className="h-4 w-4 text-primary animate-pulse" />}
             </div>
             <h1 className="text-5xl font-black tracking-tighter text-white uppercase italic">
