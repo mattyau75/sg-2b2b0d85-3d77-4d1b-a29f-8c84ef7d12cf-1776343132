@@ -84,16 +84,21 @@ export default function GameDetailPage() {
       // Resolve video URL with high-performance signed access
       if (data.video_path) {
         try {
+          // If it's already a full URL, use it directly
           if (data.video_path.startsWith('http')) {
             setVideoUrl(data.video_path);
           } else {
-            // Fetch signed URL from R2/S3 gateway
-            const signedUrl = await storageService.getSignedUrl(data.video_path);
-            setVideoUrl(signedUrl);
-            console.log("[GameDetail] Resolved Secure Video Stream:", signedUrl);
+            // Trigger secure handshake with R2/S3 gateway
+            const response = await axios.get(`/api/storage/signed-url?path=${encodeURIComponent(data.video_path)}&expiry=10800`);
+            if (response.data?.url) {
+              setVideoUrl(response.data.url);
+              console.log("[GameDetail] Secure Handshake Success:", response.data.url);
+            } else {
+              throw new Error("Empty URL returned from gateway");
+            }
           }
         } catch (urlErr) {
-          console.error("[GameDetail] Failed to resolve video path:", urlErr);
+          console.error("[GameDetail] Secure storage handshake failed:", urlErr);
           showBanner("Secure video handshake failed. Check storage permissions.", "error");
         }
       }
