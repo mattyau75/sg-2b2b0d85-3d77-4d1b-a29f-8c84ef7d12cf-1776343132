@@ -15,7 +15,8 @@ import {
   Plus,
   RefreshCw,
   LayoutDashboard,
-  Zap
+  Zap,
+  Rocket
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -24,6 +25,7 @@ import { DiagnosticBanner, showBanner } from "@/components/DiagnosticBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; progress: number }> = {
   'pending': { label: 'Queued', color: 'bg-zinc-500/20 text-zinc-400 border-zinc-500/50', progress: 10 },
@@ -117,9 +119,25 @@ export default function Dashboard() {
     router.push(`/games/${gameId}`);
   };
 
+  const handleForceDeploy = async () => {
+    try {
+      const res = await axios.post('/api/deploy-modal-direct');
+      toast({
+        title: "Deployment Triggered",
+        description: res.data.message,
+      });
+    } catch (err) {
+      toast({
+        title: "Deployment Failed",
+        description: "Check server logs for details.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <Layout title="Dashboard | DribbleStats AI Elite">
-      <div className="space-y-8">
+      <div className="space-y-8 pb-20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-1">
             <h1 className="text-3xl font-bold tracking-tight bg-gradient-to-r from-white to-white/60 bg-clip-text text-transparent">
@@ -264,6 +282,23 @@ export default function Dashboard() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        {/* EMERGENCY DEPLOY BUTTON */}
+        <div className="mt-12 p-6 border border-primary/20 bg-primary/5 rounded-xl flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-bold flex items-center gap-2">
+              <Cpu className="w-5 h-5 text-primary" />
+              GPU Worker Recovery
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              Bypass GitHub run limits and deploy the AI scouting worker directly to Modal.
+            </p>
+          </div>
+          <Button onClick={handleForceDeploy} variant="outline" className="gap-2 border-primary/50 hover:bg-primary/10">
+            <Rocket className="w-4 h-4" />
+            Force Deploy to Modal
+          </Button>
         </div>
       </div>
     </Layout>
