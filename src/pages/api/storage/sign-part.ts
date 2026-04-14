@@ -20,7 +20,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // Sign the URL for a 1-hour window
-    const url = await getSignedUrl(client, command, { expiresIn: 3600 });
+    // We use a simplified signing approach to ensure maximum compatibility with browser-based PUT requests
+    const url = await getSignedUrl(client, command, { 
+      expiresIn: 3600,
+      signableHeaders: new Set(['host', 'content-type']) 
+    });
     return res.status(200).json({ url });
   } catch (err: any) {
     console.error("[StorageSignPart] Handshake Failed:", err);
