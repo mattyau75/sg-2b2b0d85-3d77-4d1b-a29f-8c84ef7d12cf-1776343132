@@ -133,6 +133,18 @@ export default function GameDetailPage() {
     }
   };
 
+  const handleStartAnalysis = async () => {
+    if (!stagesVerified.setup) {
+      toast({ 
+        title: "Setup Required", 
+        description: "Please verify Step 01 (Setup & Calibration) before starting GPU analysis.",
+        variant: "destructive"
+      });
+      return;
+    }
+    handleStartProcess();
+  };
+
   if (loading) return <Layout><div className="flex items-center justify-center h-screen"><RefreshCw className="w-8 h-8 animate-spin text-primary" /></div></Layout>;
 
   return (
