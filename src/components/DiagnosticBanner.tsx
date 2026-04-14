@@ -25,7 +25,7 @@ export function DiagnosticBanner({ title, message, severity, onClose, className 
   return (
     <div
       className={cn(
-        "flex items-start justify-between p-4 rounded-lg border shadow-lg animate-in fade-in slide-in-from-top-4 duration-300",
+        "flex items-start justify-between p-4 rounded-lg border shadow-lg animate-in fade-in slide-in-from-top-4 duration-300 relative",
         severity === "info" && "bg-secondary border-muted text-foreground",
         severity === "error" && "bg-destructive/10 border-destructive/20 text-destructive",
         severity === "success" && "bg-accent/10 border-accent/20 text-accent",
@@ -33,19 +33,24 @@ export function DiagnosticBanner({ title, message, severity, onClose, className 
         className
       )}
     >
-      <div className="flex gap-3">
+      <div className="flex gap-3 flex-1 min-w-0">
         <Icon className="w-5 h-5 shrink-0 mt-0.5" />
-        <div className="space-y-1">
+        <div className="space-y-1 flex-1 min-w-0">
           {title && <h5 className="text-sm font-bold uppercase tracking-tight">{title}</h5>}
           <p className="text-sm leading-relaxed">{message}</p>
         </div>
       </div>
       {onClose && (
         <button
-          onClick={onClose}
-          className="p-1 hover:bg-foreground/10 rounded-full transition-colors shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="p-2 hover:bg-foreground/10 rounded-full transition-colors shrink-0 ml-2 relative z-10 group"
+          aria-label="Close notification"
+          type="button"
         >
-          <X className="w-4 h-4" />
+          <X className="w-4 h-4 group-hover:scale-110 transition-transform" />
         </button>
       )}
     </div>
@@ -75,13 +80,14 @@ export function GlobalBannerContainer() {
   if (banners.length === 0) return null;
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl flex flex-col gap-2 px-4">
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-2xl flex flex-col gap-2 px-4 pointer-events-none">
       {banners.map((banner) => (
-        <DiagnosticBanner
-          key={banner.id}
-          {...banner}
-          onClose={() => removeBanner(banner.id)}
-        />
+        <div key={banner.id} className="pointer-events-auto">
+          <DiagnosticBanner
+            {...banner}
+            onClose={() => removeBanner(banner.id)}
+          />
+        </div>
       ))}
     </div>
   );
