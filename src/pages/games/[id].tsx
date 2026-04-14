@@ -117,35 +117,14 @@ export default function GameDetailPage() {
     const currentAway = editData.away_team_color;
     const detectedColors = [game?.detected_home_color, game?.detected_away_color].filter(Boolean);
 
-    // If clicking an already selected color for the SAME team, deselect it
-    if (team === 'home' && currentHome === color) {
-      setEditData({ ...editData, home_team_color: "" });
-      return;
-    }
-    if (team === 'away' && currentAway === color) {
-      setEditData({ ...editData, away_team_color: "" });
-      return;
-    }
-
-    // Mutual exclusion logic for 2 colors
-    if (detectedColors.length >= 2) {
-      const otherColor = detectedColors.find(c => c !== color);
-      if (team === 'home') {
-        setEditData({ 
-          ...editData, 
-          home_team_color: color, 
-          away_team_color: otherColor || "" 
-        });
-      } else {
-        setEditData({ 
-          ...editData, 
-          away_team_color: color, 
-          home_team_color: otherColor || "" 
-        });
-      }
+    // Simplified selection logic - no mutual exclusion complexity
+    const field = team === 'home' ? 'home_team_color' : 'away_team_color';
+    
+    // Toggle behavior: clicking the same color deselects it
+    if (editData[field] === color) {
+      setEditData({ ...editData, [field]: "" });
     } else {
-      // Single color or manual selection
-      setEditData({ ...editData, [`${team}_team_color`]: color });
+      setEditData({ ...editData, [field]: color });
     }
   };
 
@@ -446,7 +425,7 @@ export default function GameDetailPage() {
 
                       {/* Right: Color Calibration */}
                       <div className="space-y-6">
-                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 border-dashed space-y-6 relative overflow-hidden group">
+                        <div className="p-6 rounded-2xl bg-white/5 border border-white/10 space-y-6">
                           <div className="flex items-center justify-between">
                             <p className="text-[10px] font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
                               <Palette className="h-3 w-3 text-primary" /> Jersey Identification
@@ -459,7 +438,7 @@ export default function GameDetailPage() {
                               className="bg-white/5 border-white/10 text-[9px] font-black uppercase rounded-lg h-8 px-4 hover:bg-primary hover:text-white transition-all"
                             >
                               {isAnalyzingColors ? <RefreshCw className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3 mr-1" />}
-                              Extract Colors from Video
+                              Extract from Video
                             </Button>
                           </div>
 
@@ -470,48 +449,70 @@ export default function GameDetailPage() {
                             </div>
                           ) : (
                             <div className="space-y-6">
-                              <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-4">
+                                {/* Home Jersey Selection */}
                                 <div className="space-y-3">
-                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block text-center italic">Home Jersey</Label>
-                                  <div className="flex justify-center gap-3">
+                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block italic">
+                                    Home Jersey ({game?.home_team?.name || "Team A"})
+                                  </Label>
+                                  <div className="flex items-center justify-center gap-4">
                                     {[game?.detected_home_color, game?.detected_away_color].filter(Boolean).map((color, i) => (
                                       <button
                                         key={i}
                                         onClick={() => handleColorSelection('home', color as string)}
                                         className={cn(
-                                          "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center relative group",
-                                          editData.home_team_color === color ? "border-primary scale-110 shadow-[0_0_20px_rgba(255,102,0,0.3)]" : "border-white/10 opacity-40 hover:opacity-100"
+                                          "relative w-16 h-16 rounded-xl border-2 transition-all duration-200 flex items-center justify-center group hover:scale-105",
+                                          editData.home_team_color === color 
+                                            ? "border-primary scale-110 shadow-[0_0_24px_rgba(255,102,0,0.4)]" 
+                                            : "border-white/20 opacity-60 hover:opacity-100 hover:border-white/40"
                                         )}
                                         style={{ backgroundColor: color as string }}
                                       >
-                                        {editData.home_team_color === color && <Check className="h-5 w-5 text-white drop-shadow-md z-10" />}
+                                        {editData.home_team_color === color && (
+                                          <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="absolute inset-0 bg-black/20 rounded-xl" />
+                                            <Check className="h-8 w-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] relative z-10 stroke-[3]" />
+                                          </div>
+                                        )}
                                       </button>
                                     ))}
                                   </div>
                                 </div>
+
+                                {/* Away Jersey Selection */}
                                 <div className="space-y-3">
-                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block text-center italic">Away Jersey</Label>
-                                  <div className="flex justify-center gap-3">
+                                  <Label className="text-[10px] font-black uppercase text-muted-foreground block italic">
+                                    Away Jersey ({game?.away_team?.name || "Team B"})
+                                  </Label>
+                                  <div className="flex items-center justify-center gap-4">
                                     {[game?.detected_home_color, game?.detected_away_color].filter(Boolean).map((color, i) => (
                                       <button
                                         key={i}
                                         onClick={() => handleColorSelection('away', color as string)}
                                         className={cn(
-                                          "w-12 h-12 rounded-full border-2 transition-all flex items-center justify-center relative group",
-                                          editData.away_team_color === color ? "border-accent scale-110 shadow-[0_0_20px_rgba(0,255,255,0.3)]" : "border-white/10 opacity-40 hover:opacity-100"
+                                          "relative w-16 h-16 rounded-xl border-2 transition-all duration-200 flex items-center justify-center group hover:scale-105",
+                                          editData.away_team_color === color 
+                                            ? "border-accent scale-110 shadow-[0_0_24px_rgba(0,255,255,0.4)]" 
+                                            : "border-white/20 opacity-60 hover:opacity-100 hover:border-white/40"
                                         )}
                                         style={{ backgroundColor: color as string }}
                                       >
-                                        {editData.away_team_color === color && <Check className="h-5 w-5 text-white drop-shadow-md z-10" />}
+                                        {editData.away_team_color === color && (
+                                          <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="absolute inset-0 bg-black/20 rounded-xl" />
+                                            <Check className="h-8 w-8 text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] relative z-10 stroke-[3]" />
+                                          </div>
+                                        )}
                                       </button>
                                     ))}
                                   </div>
                                 </div>
                               </div>
-                              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-center gap-3">
-                                <Info className="h-4 w-4 text-primary shrink-0" />
+
+                              <div className="p-4 rounded-xl bg-primary/5 border border-primary/20 flex items-start gap-3">
+                                <Info className="h-4 w-4 text-primary shrink-0 mt-0.5" />
                                 <p className="text-[9px] font-bold text-muted-foreground leading-relaxed">
-                                  <span className="text-primary font-black uppercase">Mutual Assignment Active:</span> Selecting a color for one team automatically assigns the alternate to the opponent.
+                                  <span className="text-primary font-black uppercase">Selection Guide:</span> Click a color to assign it to a team. Click again to deselect. Each team can only have one jersey color.
                                 </p>
                               </div>
                             </div>
