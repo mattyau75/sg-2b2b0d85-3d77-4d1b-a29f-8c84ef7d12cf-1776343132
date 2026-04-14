@@ -19,10 +19,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       UploadId: uploadId,
     });
 
+    // Sign the URL for a 1-hour window
     const url = await getSignedUrl(client, command, { expiresIn: 3600 });
     return res.status(200).json({ url });
   } catch (err: any) {
-    console.error("[StorageSignPart] Failed:", err);
+    console.error("[StorageSignPart] Handshake Failed:", err);
     return res.status(500).json({ error: err.message });
   }
 }
