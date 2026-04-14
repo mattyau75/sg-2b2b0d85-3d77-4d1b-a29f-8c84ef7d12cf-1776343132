@@ -49,7 +49,6 @@ export const storageService = {
       // 3. Upload chunk directly to Cloudflare
       console.log(`[StorageService] Uploading Part #${partNumber} directly to storage...`);
       const response = await axios.put(signData.url, chunk, {
-        headers: { 'Content-Type': file.type },
         onUploadProgress: (p) => {
           if (onProgress) {
             const currentChunkProgress = (p.loaded || 0) / (p.total || 1);

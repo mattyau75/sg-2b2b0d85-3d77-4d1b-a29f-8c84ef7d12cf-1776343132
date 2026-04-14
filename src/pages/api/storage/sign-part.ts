@@ -17,13 +17,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       Key: key,
       PartNumber: partNumber,
       UploadId: uploadId,
+      // Disable checksums to avoid CORS preflight complications with extra headers
+      ChecksumAlgorithm: undefined
     });
 
     // Sign the URL for a 1-hour window
-    // We use a simplified signing approach to ensure maximum compatibility with browser-based PUT requests
+    // Only sign 'host' to give the browser maximum flexibility with other headers
     const url = await getSignedUrl(client, command, { 
       expiresIn: 3600,
-      signableHeaders: new Set(['host', 'content-type']) 
+      signableHeaders: new Set(['host']) 
     });
     return res.status(200).json({ url });
   } catch (err: any) {
