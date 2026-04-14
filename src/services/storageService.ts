@@ -111,6 +111,7 @@ export const storageService = {
   },
 
   async getSignedUrl(path: string): Promise<string> {
+    console.log(`[StorageService] Initiating handshake for: ${path}`);
     // Generate a 3-hour expiry URL for heavy-payload GPU processing
     const { data } = await axios.get(`/api/storage/signed-url?path=${encodeURIComponent(path)}&expiry=10800`);
     return data.url;

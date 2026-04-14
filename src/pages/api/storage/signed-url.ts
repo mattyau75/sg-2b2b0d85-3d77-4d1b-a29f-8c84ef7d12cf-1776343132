@@ -11,10 +11,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Sanitize path: remove leading slashes and common prefixes if they are already in the bucket root
-    const sanitizedPath = path.replace(/^\/+/, "");
+    // Exact path resolution - R2 keys are literal.
+    // Only strip leading slash if present, otherwise use exactly as stored in DB.
+    const sanitizedPath = path.startsWith('/') ? path.substring(1) : path;
     
-    console.log(`[SignedURL API] Generating handshake for key: ${sanitizedPath}`);
+    console.log(`[SignedURL API] Finalizing handshake for literal key: "${sanitizedPath}"`);
 
     const command = new GetObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
