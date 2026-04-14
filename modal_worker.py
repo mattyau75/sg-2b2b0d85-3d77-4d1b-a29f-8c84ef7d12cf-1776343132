@@ -1,3 +1,5 @@
+# DribbleStats AI Elite: GPU Worker
+# Last Infrastructure Heartbeat: 2026-04-14 17:15:02 UTC
 import modal
 import os
 import time
