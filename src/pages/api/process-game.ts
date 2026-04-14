@@ -13,23 +13,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // 1. VERIFY VIDEO SOURCE & GENERATE 3-HOUR TOKEN
     const { data: game, error: gameError } = await supabase
       .from('games')
-      .select('video_path, id')
+      .select('*')
       .eq('id', gameId)
       .single();
 
-    if (gameError || !game?.video_path) {
-      return res.status(404).json({ success: false, message: "❌ R2 SOURCE MISSING: Cannot ignite GPU without video." });
-    }
+    if (gameError || !game) throw new Error("Game not found");
 
-    const { data: signedUrl } = await supabase.storage
-      .from('game-videos')
-      .createSignedUrl(game.video_path, 10800); // 3-Hour High-Capacity Window
+    // CRITICAL: Generate an authorized download URL for the GPU worker
+    // The GPU worker exists outside our auth context, so it NEEDS a signed URL.
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.headers.host;
+    const signedUrlRes = await fetch(`${protocol}://${host}/api/storage/signed-url?path=${encodeURIComponent(game.video_path)}&expiry=86400`);
+    const { url: authorizedVideoUrl } = await signedUrlRes.json();
+
+    if (!authorizedVideoUrl) throw new Error("Could not generate authorized GPU download link");
 
     // 2. ATOMIC HANDOVER TO MODAL.COM
     console.log(`📡 Handing off 1-hour footage to GPU: ${gameId}`);
     await axios.post(MODAL_ENDPOINT, {
       game_id: game.id,
-      video_url: signedUrl?.signedUrl,
+      video_url: authorizedVideoUrl, // PASSING SIGNED URL, NOT RAW PATH
       metadata: metadata,
       supabase_url: process.env.NEXT_PUBLIC_SUPABASE_URL,
       supabase_key: process.env.SUPABASE_SERVICE_ROLE_KEY // Only server-side has this

@@ -11,24 +11,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // Exact path resolution - R2 keys are literal.
-    // Only strip leading slash if present, otherwise use exactly as stored in DB.
-    const sanitizedPath = path.startsWith('/') ? path.substring(1) : path;
+    // 1. Precise Key Resolution
+    // Cloudflare R2 keys are literal. We strip leading slashes to prevent // double-slash errors.
+    const key = path.startsWith("/") ? path.substring(1) : path;
     
-    console.log(`[SignedURL API] Finalizing handshake for literal key: "${sanitizedPath}"`);
+    console.log(`[R2 Handshake] Generating signed access for key: "${key}"`);
 
+    // 2. Pre-sign the request
     const command = new GetObjectCommand({
       Bucket: process.env.R2_BUCKET_NAME,
-      Key: sanitizedPath,
+      Key: key,
     });
 
     const url = await getSignedUrl(r2Client, command, { expiresIn: Number(expiry) });
+    
+    // 3. Success Handshake
     return res.status(200).json({ url });
   } catch (error: any) {
-    console.error("[SignedURL API] Secure Handshake Failure:", error);
+    console.error("[R2 Handshake] FAILURE:", error.message);
     return res.status(500).json({ 
       error: "Secure storage handshake failed",
-      details: error.message 
+      details: error.message,
+      code: error.code || "UNKNOWN_S3_ERROR"
     });
   }
 }
