@@ -292,6 +292,9 @@ export default function GameDetailPage() {
               <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-[10px] font-black tracking-widest py-1 px-3 italic uppercase">
                 {game?.status || 'AWAITING SETUP'}
               </Badge>
+              <Badge variant="outline" className="bg-white/5 text-muted-foreground border-white/10 text-[9px] font-mono tracking-tighter py-1 px-2 uppercase">
+                ID: {game?.id?.slice(0, 8)}...
+              </Badge>
               {game?.status === 'analyzing' && <Activity className="h-4 w-4 text-primary animate-pulse" />}
             </div>
             <h1 className="text-5xl font-black tracking-tighter text-white uppercase italic">
