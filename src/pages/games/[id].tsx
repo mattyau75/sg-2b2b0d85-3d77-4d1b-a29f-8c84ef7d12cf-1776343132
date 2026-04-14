@@ -1,6 +1,6 @@
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
-import Layout from "@/components/Layout";
+import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -28,7 +28,7 @@ import axios from "axios";
 
 export default function GameDetailPage() {
   const router = useRouter();
-  const { id } = router.query;
+  const id = router.query.id as string;
   const { toast } = useToast();
   
   const [game, setGame] = useState<any>(null);
@@ -38,8 +38,16 @@ export default function GameDetailPage() {
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Mapping Data
+  const [aiMappings, setAiMappings] = useState<any[]>([]);
+  const [homeRoster, setHomeRoster] = useState<any[]>([]);
+  const [awayRoster, setAwayRoster] = useState<any[]>([]);
+
   useEffect(() => {
-    if (id) fetchGame();
+    if (id) {
+      fetchGame();
+      fetchMappingData();
+    }
   }, [id]);
 
   const fetchGame = async () => {
@@ -69,6 +77,29 @@ export default function GameDetailPage() {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMappingData = async () => {
+    if (!id) return;
+    try {
+      // Fetch AI Mappings
+      const { data: mappings } = await supabase
+        .from('ai_player_mappings')
+        .select('*, players(*)')
+        .eq('game_id', id);
+      
+      setAiMappings(mappings || []);
+
+      // Fetch Rosters
+      if (game?.home_team_id && game?.away_team_id) {
+        const { data: home } = await supabase.from('players').select('*').eq('team_id', game.home_team_id);
+        const { data: away } = await supabase.from('players').select('*').eq('team_id', game.away_team_id);
+        setHomeRoster(home || []);
+        setAwayRoster(away || []);
+      }
+    } catch (err) {
+      console.error("Mapping data fetch failed:", err);
     }
   };
 
@@ -208,10 +239,10 @@ export default function GameDetailPage() {
 
       {/* MODALS */}
       <EditGameTeamsModal 
+        game={game}
         isOpen={showTeamsModal} 
-        onOpenChange={setShowTeamsModal} 
-        gameId={id as string} 
-        onSuccess={fetchGame}
+        onClose={() => setShowTeamsModal(false)}
+        onUpdated={fetchGame}
       />
 
       {/* Mapping Engine Popup */}
@@ -231,7 +262,13 @@ export default function GameDetailPage() {
               </Button>
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">
-              <MappingDashboard gameId={id as string} />
+              <MappingDashboard 
+                gameId={id} 
+                aiMappings={aiMappings}
+                homeRoster={homeRoster}
+                awayRoster={awayRoster}
+                onRefresh={fetchMappingData}
+              />
             </CardContent>
           </Card>
         </div>
