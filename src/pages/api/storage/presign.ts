@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { r2Client } from "@/lib/r2Client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 
 /**
  * DUAL-PURPOSE PRESIGN API:
@@ -14,11 +14,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // 🛡️ AUTH CHECK: Verify active scout session using the dedicated Pages Router helper
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res }
-    );
+    // This is the correct method for Next.js API routes to access cookies and verify the JWT
+    const supabase = createPagesServerClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
