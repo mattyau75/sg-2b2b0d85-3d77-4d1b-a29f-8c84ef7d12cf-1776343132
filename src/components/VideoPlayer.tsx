@@ -14,7 +14,6 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
         className="w-full h-full object-contain"
         preload="auto"
         playsInline
-        crossOrigin="anonymous"
       >
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
