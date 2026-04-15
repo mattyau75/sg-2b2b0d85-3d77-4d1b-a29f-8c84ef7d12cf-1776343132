@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from "next";
 import { r2Client } from "@/lib/r2Client";
-import { GetObjectCommand, CreateMultipartUploadCommand } from "@aws-sdk/client-s3";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 /**
@@ -12,41 +12,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    const { fileName, contentType, isUpload } = req.body;
-    const bucket = process.env.R2_BUCKET_NAME || 'videos';
+    const { fileName } = req.body;
+    if (!fileName) return res.status(400).json({ error: "Missing fileName" });
+
+    const bucketName = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || "videos";
     
-    // Ensure we have a clean key (no bucket prefix)
-    const key = fileName.startsWith(`${bucket}/`) 
-      ? fileName.replace(`${bucket}/`, '') 
-      : fileName;
-
-    // FLOW A: Secure Streaming (GET)
-    if (!isUpload) {
-      console.log(`[StoragePresign] Generating GET signature for: ${key}`);
-      const command = new GetObjectCommand({
-        Bucket: bucket,
-        Key: key,
-      });
-
-      // Valid for 1 hour (3600 seconds)
-      const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
-      return res.status(200).json({ url });
-    }
-
-    // FLOW B: Multipart Upload (Existing logic)
-    console.log(`[StoragePresign] Initializing Multipart Upload for: ${key}`);
-    const uploadKey = `videos/${Date.now()}-${key}`;
-    const command = new CreateMultipartUploadCommand({
-      Bucket: bucket,
-      Key: uploadKey,
-      ContentType: contentType,
+    // Create an authorized command for the specific file
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: fileName,
     });
 
-    const { UploadId, Key } = await r2Client.send(command);
-    return res.status(200).json({ uploadId: UploadId, key: Key });
+    // Generate a URL that expires in 1 hour (3600 seconds)
+    // This URL includes the security signature required by Cloudflare
+    const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
 
+    return res.status(200).json({ url });
   } catch (err: any) {
-    console.error("[StoragePresign] Error:", err);
+    console.error("[StoragePresign] Critical Handshake Error:", err);
     return res.status(500).json({ error: err.message });
   }
 }

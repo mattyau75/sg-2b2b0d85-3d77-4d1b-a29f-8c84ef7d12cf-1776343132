@@ -142,16 +142,33 @@ export default function GameDetailPage() {
         finalize: data.finalize_verified || false
       });
 
+      // 🎥 TOTAL INTEGRATION: Resolve video via our secure backend bridge
       if (data.video_path) {
-        if (data.video_path.startsWith('http')) {
-          setVideoUrl(data.video_path);
-        } else {
-          // Resolve Secure Presigned URL for private R2 storage
-          resolveVideoUrl(data.video_path);
+        try {
+          const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+          const cleanPath = data.video_path.startsWith(`${bucket}/`) 
+            ? data.video_path.replace(`${bucket}/`, '') 
+            : data.video_path;
+
+          const response = await fetch('/api/storage/presign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName: cleanPath })
+          });
+
+          const result = await response.json();
+          if (result.url) {
+            setVideoUrl(result.url);
+          } else {
+            console.error("[GameDetail] R2 Bridge Error:", result.error);
+          }
+        } catch (resErr) {
+          console.error("[GameDetail] Video resolution failed:", resErr);
         }
       }
     } catch (error: any) {
       console.error("Fetch failed:", error);
+      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
