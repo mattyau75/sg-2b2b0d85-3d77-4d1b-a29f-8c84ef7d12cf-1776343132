@@ -44,15 +44,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     
     // Create an authorized command for the specific file
     const command = new GetObjectCommand({
-      Bucket: bucketName,
+      Bucket: process.env.R2_BUCKET_NAME,
       Key: fileName,
+      ResponseContentType: "video/mp4", // Force secure content type
     });
 
-    // Generate a URL that expires in 1 hour (3600 seconds)
-    // This URL includes the security signature required by Cloudflare
-    const url = await getSignedUrl(r2Client, command, { expiresIn: 3600 });
+    // 🕒 2026 BEST PRACTICE: 60-second high-speed expiration for elite security
+    const signedUrl = await getSignedUrl(r2Client, command, { expiresIn: 60 });
 
-    return res.status(200).json({ url });
+    return res.status(200).json({ url: signedUrl });
   } catch (err: any) {
     console.error("[StoragePresign] Critical Handshake Error:", err);
     return res.status(500).json({ error: err.message });

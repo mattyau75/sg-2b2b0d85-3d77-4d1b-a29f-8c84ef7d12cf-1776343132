@@ -35,10 +35,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     console.log(`[Process] Dispatching GPU Worker for Game: ${gameId} with Video: ${videoUrl}`);
 
-    // 3. Trigger Modal GPU Worker
-    const modalRes = await axios.post("https://basketball-scout-ai-analyze.modal.run", {
-      game_id: gameId,
-      video_url: videoUrl
+    // 🛡️ SECURITY: Sanitize the payload to prevent injection into the GPU worker
+    const sanitizedPayload = {
+      gameId: String(gameId).replace(/[^a-zA-Z0-9-]/g, ""),
+      videoUrl: String(videoUrl), // Ensure string type
+      config: typeof config === 'object' ? config : {}
+    };
+
+    const response = await fetch(`${process.env.MODAL_USER_URL}/process`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${process.env.MODAL_AUTH_TOKEN}`,
+        "X-Request-Source": "DribbleStats-Elite-2026"
+      },
+      body: JSON.stringify(sanitizedPayload),
     });
 
     return res.status(200).json({ 
