@@ -14,7 +14,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // 🛡️ AUTH CHECK: Verify active scout session using the dedicated Next.js helper
-    const supabase = createServerClient({ req, res });
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
