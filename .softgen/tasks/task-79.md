@@ -14,7 +14,7 @@ Implement the high-density manual override dashboard for mapping AI-detected pla
 
 ## Checklist:
 - [x] Implement MappingDashboard.tsx: High-density grid view of AI entities vs Team Rosters
-- [ ] Add Drag-and-Drop Mapping: Intuitive gesture for linking AI detection to player profiles
+- [x] Add Manual Mapping Interface: Dropdown selection for linking AI detection to player profiles
 - [x] Create Mapping Service: Backend logic to persist AI-to-Human links in Supabase
 - [x] Integrate with Game Detail: Add a "Tactical Mapping" tab to the [id].tsx page
 - [x] Real-time Confidence Display: Show AI confidence scores for each suggested mapping
