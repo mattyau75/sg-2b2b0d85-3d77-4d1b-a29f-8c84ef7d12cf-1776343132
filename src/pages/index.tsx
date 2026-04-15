@@ -16,7 +16,8 @@ import {
   RefreshCw,
   LayoutDashboard,
   Zap,
-  Rocket
+  Rocket,
+  LogOut
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
@@ -135,6 +136,11 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
   return (
     <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8 pb-20">
@@ -153,6 +159,14 @@ export default function Dashboard() {
               onClick={fetchDashboardData}
             >
               <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon" 
+              className="bg-muted/10 border-white/5 hover:text-destructive transition-colors"
+              onClick={handleLogout}
+            >
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
