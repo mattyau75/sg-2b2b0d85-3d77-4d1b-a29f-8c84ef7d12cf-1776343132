@@ -122,7 +122,6 @@ export default function GamesPage() {
           <NewGameModal 
             open={isNewGameModalOpen} 
             onOpenChange={setIsNewGameModalOpen} 
-            onUploadStarted={fetchGames}
           />
         </div>
 

@@ -73,7 +73,7 @@ export default function GameDetail() {
       const { data, error } = await supabase
         .from("games")
         .select(`*, home_team:home_team_id(name), away_team:away_team_id(name)`)
-        .eq("id", id)
+        .eq("id", id as string)
         .single();
 
       if (error) throw error;
@@ -125,7 +125,7 @@ export default function GameDetail() {
       const { data: mappings } = await supabase
         .from('ai_player_mappings')
         .select('*, players(*)')
-        .eq('game_id', id);
+        .eq('game_id', id as string);
       
       setAiMappings(mappings || []);
 
@@ -191,7 +191,7 @@ export default function GameDetail() {
       const { error } = await supabase
         .from("games")
         .update(updateData)
-        .eq("id", id);
+        .eq("id", id as string);
 
       if (error) throw error;
 
@@ -421,7 +421,7 @@ export default function GameDetail() {
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">
               <MappingDashboard 
-                gameId={id} 
+                gameId={id as string} 
                 aiMappings={aiMappings}
                 homeRoster={homeRoster}
                 awayRoster={awayRoster}
