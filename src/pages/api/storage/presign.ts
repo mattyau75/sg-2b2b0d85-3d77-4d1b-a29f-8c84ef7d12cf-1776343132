@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { r2Client } from "@/lib/r2Client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 
 /**
  * DUAL-PURPOSE PRESIGN API:
@@ -13,16 +13,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ AUTH CHECK: Verify active scout session using the standard Pages Router helper
-    const supabase = createPagesServerClient({ req, res });
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    // 🛡️ AUTH CHECK: Verify active scout session using the dedicated Next.js helper
+    const supabase = createServerClient({ req, res });
+    const { data: { session } } = await supabase.auth.getSession();
 
-    if (authError || !session) {
-      console.error("[Presign Bridge] ❌ Unauthorized access blocked.");
-      return res.status(401).json({ 
-        error: "Unauthorized access blocked. Tactical ID required.",
-        details: authError?.message || "Session not detected. Please ensure you are logged in on this domain."
-      });
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized access blocked. Tactical ID required." });
     }
 
     const { fileName } = req.body;
