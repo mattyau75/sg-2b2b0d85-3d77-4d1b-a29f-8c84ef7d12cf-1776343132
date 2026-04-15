@@ -1,8 +1,12 @@
 import React from "react";
 import { SEO } from "@/components/SEO";
 import Link from "next/link";
-import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film, Fingerprint, Plus } from "lucide-react";
+import { Trophy, Users, LayoutDashboard, BarChart3, Settings, Activity, History, PlayCircle, Menu, Bell, HelpCircle, ListOrdered, TrendingUp, Film, Fingerprint, Plus, LogOut, User } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
+import { supabase } from "@/integrations/supabase/client";
+import { useRouter } from "next/router";
+import { profileService } from "@/services/profileService";
+import { Button } from "@/components/ui/button";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -11,6 +15,29 @@ interface LayoutProps {
 }
 
 export function Layout({ children, title, description }: LayoutProps) {
+  const router = useRouter();
+  const [profile, setProfile] = React.useState<any>(null);
+
+  React.useEffect(() => {
+    loadProfile();
+  }, []);
+
+  const loadProfile = async () => {
+    try {
+      const data = await profileService.getProfile();
+      setProfile(data);
+    } catch (error) {
+      console.error("Layout profile load error:", error);
+    }
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const scoutName = profile?.full_name?.split(" ")[0] || "Elite";
+
   return (
     <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary/30 selection:text-primary">
       <SEO title={title} description={description} />
@@ -28,6 +55,7 @@ export function Layout({ children, title, description }: LayoutProps) {
           <nav className="flex-1 space-y-2">
             {[
               { icon: LayoutDashboard, label: "Dashboard", href: "/" },
+              { icon: User, label: "My Profile", href: "/profile" },
               { icon: Users, label: "Roster", href: "/roster" },
               { icon: History, label: "Games", href: "/games" },
               { icon: Activity, label: "Processing Queue", href: "/analysis-queue" },
@@ -67,12 +95,26 @@ export function Layout({ children, title, description }: LayoutProps) {
             <div className="h-2 w-2 rounded-full bg-accent animate-pulse" />
             <span className="text-sm font-mono text-muted-foreground uppercase tracking-widest">Live Analysis Active</span>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right hidden sm:block">
-              <p className="text-xs text-muted-foreground font-medium uppercase tracking-tighter">APP BRIDGING STATUS</p>
-              <p className="text-xs text-accent font-mono">A100-CONNECTED</p>
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-3 bg-muted/20 px-4 py-1.5 rounded-full border border-white/5">
+              <div className="text-right hidden sm:block">
+                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">Authorized Scout</p>
+                <p className="text-xs text-white font-black uppercase italic tracking-wider">Welcome, {scoutName}</p>
+              </div>
+              <div className="h-8 w-8 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center overflow-hidden">
+                <User className="h-4 w-4 text-primary" />
+              </div>
             </div>
-            <div className="h-10 w-10 rounded-full bg-muted border border-border overflow-hidden" />
+            
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={handleLogout}
+              className="h-10 w-10 rounded-xl hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-all"
+              title="Tactical Logout"
+            >
+              <LogOut className="h-5 w-5" />
+            </Button>
           </div>
         </header>
 

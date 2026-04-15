@@ -13,7 +13,7 @@ position: 78
 Create a dedicated space for scouts to manage their profile details and tactical settings. Include a personalized welcome experience in the main navigation.
 
 ## Checklist:
-- [ ] Create profile.tsx: Profile management page with editable fields (first name, last name, email)
-- [ ] Update Layout.tsx: Add "Welcome, [Name]" badge and a tactical logout button to the header
-- [ ] Create profileService.ts: Service to handle profile updates in Supabase
-- [ ] Implement profile guard: Ensure users are redirected to login if they try to access the profile while logged out
+- [x] Create profile.tsx: Profile management page with editable fields (first name, last name, email)
+- [x] Update Layout.tsx: Add "Welcome, [Name]" badge and a tactical logout button to the header
+- [x] Create profileService.ts: Service to handle profile updates in Supabase
+- [x] Implement profile guard: Ensure users are redirected to login if they try to access the profile while logged out
