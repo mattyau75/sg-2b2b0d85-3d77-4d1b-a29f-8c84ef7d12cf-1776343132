@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { r2Client } from "@/lib/r2Client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 
 /**
  * DUAL-PURPOSE PRESIGN API:
@@ -13,8 +13,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ AUTH CHECK: Verify active scout session using the dedicated Next.js helper
-    const supabase = createPagesServerClient({ req, res });
+    // 🛡️ AUTH CHECK: Verify active scout session
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
