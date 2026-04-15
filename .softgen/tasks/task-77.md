@@ -17,4 +17,4 @@ Transition the platform from a public-access tool to a secure, role-based scouti
 - [x] Implement AuthGuard.tsx: Component to protect routes like /games, /roster, and /analytics
 - [x] Update _app.tsx: Integrate Supabase Auth listener to manage global session state
 - [x] Update index.tsx: Transform root into a professional landing page that redirects authenticated scouts to the Dashboard
-- [ ] Secure R2 Bridge: Ensure presigned URLs are only generated for active authorized sessions
+- [x] Secure R2 Bridge: Ensure presigned URLs are only generated for active authorized sessions
