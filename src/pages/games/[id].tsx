@@ -58,12 +58,63 @@ export default function GameDetailPage() {
     }
   }, [id]);
 
-  const toggleStageVerify = (stage: keyof typeof stagesVerified) => {
-    setStagesVerified(prev => ({ ...prev, [stage]: !prev[stage] }));
-    toast({
-      title: stagesVerified[stage] ? "Stage Unverified" : "Stage Verified",
-      description: `Progress updated for the ${stage} module.`,
-    });
+  const toggleStageVerify = async (stage: keyof typeof stagesVerified) => {
+    const isCurrentlyVerified = stagesVerified[stage];
+    
+    // 🛡️ DEPENDENCY CHECK: Block unverification if NEXT stage is already verified or active
+    if (isCurrentlyVerified) {
+      const stageOrder: (keyof typeof stagesVerified)[] = ['setup', 'analysis', 'mapping', 'finalize'];
+      const currentIndex = stageOrder.indexOf(stage);
+      const nextStage = stageOrder[currentIndex + 1];
+      
+      if (nextStage && stagesVerified[nextStage]) {
+        toast({
+          title: "Action Blocked",
+          description: `Cannot unverify ${stage} because the next module (${nextStage}) is already verified.`,
+          variant: "destructive"
+        });
+        return;
+      }
+
+      // Also block if AI is currently analyzing for Step 02
+      if (stage === 'setup' && game?.processing_status === 'analyzing') {
+        toast({
+          title: "Action Blocked",
+          description: "Cannot unverify setup while AI analysis is actively running.",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    const newValue = !isCurrentlyVerified;
+    
+    try {
+      // 1. Update UI immediately (Optimistic)
+      setStagesVerified(prev => ({ ...prev, [stage]: newValue }));
+
+      // 2. Persist to Database
+      const dbField = `${stage}_verified`;
+      const { error } = await supabase
+        .from("games")
+        .update({ [dbField]: newValue })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      toast({
+        title: newValue ? "Stage Verified" : "Stage Unverified",
+        description: `Progress permanently saved for ${stage} module.`,
+      });
+    } catch (err: any) {
+      // Rollback on error
+      setStagesVerified(prev => ({ ...prev, [stage]: isCurrentlyVerified }));
+      toast({
+        title: "Persistence Failed",
+        description: err.message,
+        variant: "destructive"
+      });
+    }
   };
 
   const fetchGame = async () => {
@@ -76,6 +127,14 @@ export default function GameDetailPage() {
 
       if (error) throw error;
       setGame(data);
+
+      // Load persisted stage verification states
+      setStagesVerified({
+        setup: data.setup_verified || false,
+        analysis: data.analysis_verified || false,
+        mapping: data.mapping_verified || false,
+        finalize: data.finalize_verified || false
+      });
 
       if (data.video_path) {
         // 1. Resolve Video URL (Same logic as UI)

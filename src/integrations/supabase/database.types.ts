@@ -168,6 +168,7 @@ export type Database = {
       }
       games: {
         Row: {
+          analysis_verified: boolean | null
           away_score: number | null
           away_team_color: string | null
           away_team_id: string | null
@@ -176,6 +177,7 @@ export type Database = {
           date: string | null
           detected_away_color: string | null
           detected_home_color: string | null
+          finalize_verified: boolean | null
           home_score: number | null
           home_team_color: string | null
           home_team_id: string | null
@@ -187,9 +189,11 @@ export type Database = {
           m1_complete: boolean | null
           m2_complete: boolean | null
           m3_complete: boolean | null
+          mapping_verified: boolean | null
           processing_metadata: Json | null
           processing_status: string | null
           progress_percentage: number | null
+          setup_verified: boolean | null
           status: string | null
           status_message: string | null
           updated_at: string | null
@@ -199,6 +203,7 @@ export type Database = {
           youtube_url: string | null
         }
         Insert: {
+          analysis_verified?: boolean | null
           away_score?: number | null
           away_team_color?: string | null
           away_team_id?: string | null
@@ -207,6 +212,7 @@ export type Database = {
           date?: string | null
           detected_away_color?: string | null
           detected_home_color?: string | null
+          finalize_verified?: boolean | null
           home_score?: number | null
           home_team_color?: string | null
           home_team_id?: string | null
@@ -218,9 +224,11 @@ export type Database = {
           m1_complete?: boolean | null
           m2_complete?: boolean | null
           m3_complete?: boolean | null
+          mapping_verified?: boolean | null
           processing_metadata?: Json | null
           processing_status?: string | null
           progress_percentage?: number | null
+          setup_verified?: boolean | null
           status?: string | null
           status_message?: string | null
           updated_at?: string | null
@@ -230,6 +238,7 @@ export type Database = {
           youtube_url?: string | null
         }
         Update: {
+          analysis_verified?: boolean | null
           away_score?: number | null
           away_team_color?: string | null
           away_team_id?: string | null
@@ -238,6 +247,7 @@ export type Database = {
           date?: string | null
           detected_away_color?: string | null
           detected_home_color?: string | null
+          finalize_verified?: boolean | null
           home_score?: number | null
           home_team_color?: string | null
           home_team_id?: string | null
@@ -249,9 +259,11 @@ export type Database = {
           m1_complete?: boolean | null
           m2_complete?: boolean | null
           m3_complete?: boolean | null
+          mapping_verified?: boolean | null
           processing_metadata?: Json | null
           processing_status?: string | null
           progress_percentage?: number | null
+          setup_verified?: boolean | null
           status?: string | null
           status_message?: string | null
           updated_at?: string | null
