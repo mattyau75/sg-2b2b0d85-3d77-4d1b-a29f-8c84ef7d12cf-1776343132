@@ -1,6 +1,6 @@
 ---
 title: "Elite Code Optimization & Security Hardening"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "chore"
 tags: ["optimization", "security", "refactor"]
@@ -16,5 +16,5 @@ Senior DevOps audit focusing on removing dead code, implementing robust error ha
 - [x] Audit NewGameModal.tsx: Remove unused imports/state, sanitize inputs, and modularize form logic
 - [x] Clean EditGameTeamsModal.tsx: Eliminate redundant color calibration logic and unused variables
 - [x] Refactor Game Detail ([id].tsx): Optimize video resolution hooks and remove legacy state
-- [ ] Storage Service Audit: Implement robust null-checks for chunked R2 uploads
-- [ ] Global Search: Remove all console.log statements and replace with forensic debug logger
+- [x] Storage Service Audit: Implement robust null-checks for chunked R2 uploads
+- [x] Global Search: Remove all console.log statements and replace with forensic debug logger
