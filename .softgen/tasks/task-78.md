@@ -1,6 +1,6 @@
 ---
 title: "Scout Profile & Tactical Identity"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "feature"
 tags: ["profile", "auth", "ui"]
