@@ -93,11 +93,16 @@ export default function GameDetailPage() {
       // 1. Update UI immediately (Optimistic)
       setStagesVerified(prev => ({ ...prev, [stage]: newValue }));
 
-      // 2. Persist to Database
-      const dbField = `${stage}_verified`;
+      // 2. Persist to Database with explicit keys to satisfy TypeScript
+      const updateData: any = {};
+      if (stage === 'setup') updateData.setup_verified = newValue;
+      if (stage === 'analysis') updateData.analysis_verified = newValue;
+      if (stage === 'mapping') updateData.mapping_verified = newValue;
+      if (stage === 'finalize') updateData.finalize_verified = newValue;
+
       const { error } = await supabase
         .from("games")
-        .update({ [dbField]: newValue })
+        .update(updateData)
         .eq("id", id);
 
       if (error) throw error;
