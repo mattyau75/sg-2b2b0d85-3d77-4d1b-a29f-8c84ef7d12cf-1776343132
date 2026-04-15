@@ -118,6 +118,9 @@ export const storageService = {
         console.error("[StorageService] Presign API Error:", errorData);
         throw new Error(errorData.error || "Failed to get streaming link");
       }
+
+      const { url } = await response.json();
+      return url;
     } catch (error) {
       console.error("[StorageService] Presign API Error:", error);
       throw new Error("Failed to get streaming link");
