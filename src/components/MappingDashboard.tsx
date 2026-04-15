@@ -137,7 +137,7 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
                         <div className="flex items-center gap-3">
                           <div className="relative h-12 w-10 bg-muted rounded border border-white/5 overflow-hidden flex-shrink-0">
                             {track.snapshot_url ? (
-                              <img src={track.snapshot_url} className="h-full w-full object-cover" />
+                              <img src={track.snapshot_url} className="h-full w-full object-cover" alt="AI Detection" />
                             ) : (
                               <div className="h-full w-full flex items-center justify-center">
                                 <ImageIcon className="h-4 w-4 text-muted-foreground/20" />

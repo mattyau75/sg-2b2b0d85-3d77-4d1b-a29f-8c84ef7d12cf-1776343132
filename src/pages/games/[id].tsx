@@ -118,6 +118,33 @@ export default function GameDetailPage() {
     }
   };
 
+  const fetchMappingData = async () => {
+    if (!id) return;
+    try {
+      const { data: mappings } = await supabase
+        .from('ai_player_mappings')
+        .select('*, players(*)')
+        .eq('game_id', id);
+      
+      setAiMappings(mappings || []);
+
+      if (game?.home_team_id && game?.away_team_id) {
+        const { data: home } = await supabase.from('players').select('*').eq('team_id', game.home_team_id);
+        const { data: away } = await supabase.from('players').select('*').eq('team_id', game.away_team_id);
+        setHomeRoster(home || []);
+        setAwayRoster(away || []);
+      }
+    } catch (err) {
+      console.error("Mapping data fetch failed:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (showMappingModal) {
+      fetchMappingData();
+    }
+  }, [showMappingModal]);
+
   const toggleStageVerify = async (stage: keyof typeof stagesVerified) => {
     const isCurrentlyVerified = stagesVerified[stage];
     
@@ -213,27 +240,6 @@ export default function GameDetailPage() {
       setVideoUrl(`${r2Base}/${bucket}/${path}`);
     } finally {
       setIsPresigning(false);
-    }
-  };
-
-  const fetchMappingData = async () => {
-    if (!id) return;
-    try {
-      const { data: mappings } = await supabase
-        .from('ai_player_mappings')
-        .select('*, players(*)')
-        .eq('game_id', id);
-      
-      setAiMappings(mappings || []);
-
-      if (game?.home_team_id && game?.away_team_id) {
-        const { data: home } = await supabase.from('players').select('*').eq('team_id', game.home_team_id);
-        const { data: away } = await supabase.from('players').select('*').eq('team_id', game.away_team_id);
-        setHomeRoster(home || []);
-        setAwayRoster(away || []);
-      }
-    } catch (err) {
-      console.error("Mapping data fetch failed:", err);
     }
   };
 
@@ -418,6 +424,8 @@ export default function GameDetailPage() {
                 aiMappings={aiMappings}
                 homeRoster={homeRoster}
                 awayRoster={awayRoster}
+                homeColor={game?.home_team_color}
+                awayColor={game?.away_team_color}
                 onRefresh={fetchMappingData}
               />
             </CardContent>
