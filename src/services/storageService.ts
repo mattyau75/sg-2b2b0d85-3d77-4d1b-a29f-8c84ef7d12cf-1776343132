@@ -27,6 +27,10 @@ export const storageService = {
       contentType: file.type
     });
 
+    if (!initData?.uploadId || !initData?.key) {
+      throw new Error("[StorageService] Failed to initialize R2 handshake.");
+    }
+
     const { uploadId, key } = initData;
     const chunkSize = 10 * 1024 * 1024; // 10MB chunks
     const totalChunks = Math.ceil(file.size / chunkSize);
@@ -45,6 +49,10 @@ export const storageService = {
         partNumber,
         key
       });
+
+      if (!signData?.url) {
+        throw new Error(`[StorageService] Failed to sign payload part #${partNumber}`);
+      }
 
       // 3. Upload chunk directly to Cloudflare
       console.log(`[StorageService] Uploading Part #${partNumber} directly to storage...`);

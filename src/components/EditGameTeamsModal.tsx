@@ -30,7 +30,6 @@ import {
   Camera
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { venueService } from "@/services/venueService";
 import axios from "axios";
 
 interface EditGameTeamsModalProps {
@@ -41,7 +40,6 @@ interface EditGameTeamsModalProps {
 }
 
 export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGameTeamsModalProps) {
-  const [mounted, setMounted] = useState(false);
   const [teams, setTeams] = useState<any[]>([]);
   const [venues, setVenues] = useState<any[]>([]);
   const [homeTeamId, setHomeTeamId] = useState("");
@@ -56,15 +54,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
   const [isAddingVenue, setIsAddingVenue] = useState(false);
   const [cameraType, setCameraType] = useState<"panning" | "fixed">("panning");
   
-  const [loading, setLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [calibrating, setCalibrating] = useState(false);
   const [detectedColors, setDetectedColors] = useState<string[]>([]);
   
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   useEffect(() => {
     if (game && isOpen) {
       setHomeTeamId(game.home_team_id || "");
@@ -83,33 +76,27 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
         runCalibration();
       }
       
-      loadData();
+      loadTacticalData();
     }
   }, [game, isOpen]);
 
-  const loadData = async () => {
+  const loadTacticalData = async () => {
     try {
-      const [teamsData, venuesData] = await Promise.all([
+      const [{ data: teamsData }, { data: venuesData }] = await Promise.all([
         supabase.from('teams').select('*').order('name'),
-        venueService.getVenues()
+        supabase.from('venues').select('*').order('name')
       ]);
-      setTeams(teamsData.data || []);
-      setVenues(venuesData);
+      setTeams(teamsData || []);
+      setVenues(venuesData || []);
     } catch (error) {
-      console.error("Load failed:", error);
+      console.error("[EditGame] Load failed:", error);
     }
   };
 
   const runCalibration = async () => {
-    // If we have a video path, try to resolve it to a URL first
-    let targetPath = game?.video_path;
-    if (targetPath && !targetPath.startsWith('http') && process.env.NEXT_PUBLIC_R2_ENDPOINT) {
-      const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
-      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-      targetPath = `${r2Base}/${bucket}/${targetPath}`;
-    }
-
+    const targetPath = game?.video_path;
     if (!game?.id || !targetPath) return;
+    
     setCalibrating(true);
     try {
       const { data } = await axios.post("/api/analyze-colors", {
@@ -120,21 +107,25 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
         setDetectedColors(data.colors);
       }
     } catch (error) {
-      console.error("Calibration error:", error);
+      console.error("[Calibration] Pulse error:", error);
     } finally {
       setCalibrating(false);
     }
   };
 
   const handleAddVenue = async () => {
-    if (!newVenueName.trim()) return;
+    const sanitizedName = newVenueName.trim();
+    if (!sanitizedName) return;
     try {
-      const venue = await venueService.createVenue(newVenueName.trim());
-      setVenues([...venues, venue]);
-      setVenueId(venue.id);
-      setNewVenueName("");
-      setIsAddingVenue(false);
-    } catch (error: any) {
+      const { data, error } = await supabase.from('venues').insert({ name: sanitizedName }).select().single();
+      if (!error && data) {
+        setVenues(prev => [...prev, data]);
+        setVenueId(data.id);
+        setNewVenueName("");
+        setIsAddingVenue(false);
+      }
+    } catch (error) {
+      console.error("[EditGame] Venue registration error");
     }
   };
 
@@ -142,7 +133,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
     if (!game?.id) return;
     setIsSaving(true);
     try {
-      const { error: gameError } = await supabase
+      const { error } = await supabase
         .from("games")
         .update({
           home_team_id: homeTeamId,
@@ -157,13 +148,12 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
         })
         .eq("id", game.id);
 
-      if (gameError) throw gameError;
-
-      showBanner("Game parameters updated", "success");
+      if (error) throw error;
+      showBanner("Tactical parameters synced", "success");
       onUpdated();
       onClose();
     } catch (error: any) {
-      showBanner(error.message || "Failed to update game", "error");
+      showBanner("Sync failed", "error");
     } finally {
       setIsSaving(false);
     }
@@ -171,26 +161,25 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl bg-[#0B0E14] border-white/5 p-0 overflow-hidden shadow-2xl flex flex-col h-[90vh]">
+      <DialogContent className="max-w-4xl bg-background border-white/5 p-0 overflow-hidden shadow-2xl flex flex-col h-[90vh] text-white">
         <div className="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent shrink-0">
           <DialogHeader>
             <div className="flex items-center gap-3 mb-2">
               <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
                 <Sparkles className="h-4 w-4 text-primary" />
               </div>
-              <DialogTitle className="text-2xl font-black tracking-tight text-white uppercase italic">
-                Step 2: Game Parameter Calibration
+              <DialogTitle className="text-2xl font-black tracking-tight uppercase italic">
+                Parameter Calibration
               </DialogTitle>
             </div>
             <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em]">
-              AI Roster Mapping Engine • Environmental Setup
+              AI Roster Mapping Engine • Environmental Tuning
             </DialogDescription>
           </DialogHeader>
         </div>
 
-        <ScrollArea className="flex-1 w-full overflow-y-auto">
+        <ScrollArea className="flex-1 w-full">
           <div className="px-8 py-6 space-y-10">
-            {/* Visual Color Calibration */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
@@ -199,9 +188,9 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                 {calibrating && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-muted/10 p-6 rounded-2xl border border-white/5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white/5 p-6 rounded-2xl border border-white/5">
                 <div className="space-y-4">
-                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">Detected Options</Label>
+                  <Label className="text-[10px] font-bold text-muted-foreground uppercase">AI Detected Palette</Label>
                   <div className="flex gap-3 flex-wrap">
                     {detectedColors.map((color) => (
                       <button
@@ -219,15 +208,12 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                         </div>
                       </button>
                     ))}
-                    {detectedColors.length === 0 && !calibrating && (
-                      <p className="text-xs text-muted-foreground italic">No colors detected. <button onClick={runCalibration} className="text-primary hover:underline">Retry?</button></p>
-                    )}
                   </div>
                 </div>
                 
                 <div className="space-y-4 border-l border-white/5 pl-6">
                   <div className="flex items-center justify-between">
-                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Active Assignments</Label>
+                    <Label className="text-[10px] font-bold text-muted-foreground uppercase">Manual Override</Label>
                     <Button variant="ghost" size="icon" onClick={() => { const h = homeColor; setHomeColor(awayColor); setAwayColor(h); }} className="h-6 w-6">
                       <ArrowLeftRight className="h-3 w-3" />
                     </Button>
@@ -235,13 +221,13 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   <div className="flex gap-4">
                     <div className="flex-1 space-y-2">
                       <div className="h-10 rounded-lg border border-white/10 shadow-inner overflow-hidden flex" style={{ backgroundColor: homeColor || 'transparent' }}>
-                        {!homeColor && <div className="m-auto text-[9px] font-mono text-muted-foreground">HOME</div>}
+                        {!homeColor && <div className="m-auto text-[9px] font-mono text-muted-foreground uppercase">Home</div>}
                       </div>
                       {homeColor && <button onClick={() => setHomeColor("")} className="text-[8px] font-bold text-destructive uppercase hover:underline">Clear</button>}
                     </div>
                     <div className="flex-1 space-y-2">
                       <div className="h-10 rounded-lg border border-white/10 shadow-inner overflow-hidden flex" style={{ backgroundColor: awayColor || 'transparent' }}>
-                        {!awayColor && <div className="m-auto text-[9px] font-mono text-muted-foreground">AWAY</div>}
+                        {!awayColor && <div className="m-auto text-[9px] font-mono text-muted-foreground uppercase">Away</div>}
                       </div>
                       {awayColor && <button onClick={() => setAwayColor("")} className="text-[8px] font-bold text-destructive uppercase hover:underline">Clear</button>}
                     </div>
@@ -251,7 +237,6 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Team Selection */}
               <div className="space-y-6">
                 <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                   <Trophy className="h-3.5 w-3.5" /> Personnel Setup
@@ -261,10 +246,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Home Team</Label>
                     <Select value={homeTeamId} onValueChange={setHomeTeamId}>
-                      <SelectTrigger className="bg-muted/20 border-border h-11">
+                      <SelectTrigger className="bg-white/5 border-white/10 h-11 text-white">
                         <SelectValue placeholder="Select Home..." />
                       </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
+                      <SelectContent className="bg-background border-white/10 text-white">
                         {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -273,10 +258,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Away Team</Label>
                     <Select value={awayTeamId} onValueChange={setAwayTeamId}>
-                      <SelectTrigger className="bg-muted/20 border-border h-11">
+                      <SelectTrigger className="bg-white/5 border-white/10 h-11 text-white">
                         <SelectValue placeholder="Select Away..." />
                       </SelectTrigger>
-                      <SelectContent className="bg-card border-border">
+                      <SelectContent className="bg-background border-white/10 text-white">
                         {teams.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
@@ -284,7 +269,6 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                 </div>
               </div>
 
-              {/* Venue & Date */}
               <div className="space-y-6">
                 <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                   <MapPin className="h-3.5 w-3.5" /> Location & Time
@@ -296,14 +280,14 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                     {!isAddingVenue ? (
                       <div className="flex gap-2">
                         <Select value={venueId} onValueChange={setVenueId}>
-                          <SelectTrigger className="bg-muted/20 border-border h-11 flex-1">
+                          <SelectTrigger className="bg-white/5 border-white/10 h-11 flex-1 text-white">
                             <SelectValue placeholder="Search Venues..." />
                           </SelectTrigger>
-                          <SelectContent className="bg-card border-border">
+                          <SelectContent className="bg-background border-white/10 text-white">
                             {venues.map((v) => <SelectItem key={v.id} value={v.id}>{v.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
-                        <Button variant="outline" size="icon" onClick={() => setIsAddingVenue(true)} className="h-11 w-11 shrink-0 bg-muted/20">
+                        <Button variant="outline" size="icon" onClick={() => setIsAddingVenue(true)} className="h-11 w-11 shrink-0 bg-white/5 border-white/10">
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
@@ -313,10 +297,10 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                           value={newVenueName} 
                           onChange={(e) => setNewVenueName(e.target.value)} 
                           placeholder="Venue Name..." 
-                          className="bg-muted/20 border-border h-11"
+                          className="bg-white/5 border-white/10 h-11 text-white"
                           autoFocus
                         />
-                        <Button size="icon" onClick={handleAddVenue} className="h-11 w-11 shrink-0">
+                        <Button size="icon" onClick={handleAddVenue} className="h-11 w-11 shrink-0 bg-primary">
                           <Check className="h-4 w-4" />
                         </Button>
                         <Button variant="ghost" size="icon" onClick={() => setIsAddingVenue(false)} className="h-11 w-11 shrink-0">
@@ -328,37 +312,32 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
                   <div className="space-y-2">
                     <Label className="text-[10px] font-bold text-muted-foreground uppercase">Game Date</Label>
-                    {mounted ? (
-                      <Popover modal={true}>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" className="w-full justify-start text-left font-normal bg-muted/20 border-border h-11 text-sm">
-                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                            {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0 bg-popover border-border z-[200]">
-                          <Calendar mode="single" selected={gameDate} onSelect={setGameDate} initialFocus />
-                        </PopoverContent>
-                      </Popover>
-                    ) : (
-                      <div className="h-11 w-full bg-muted/20 border border-border rounded-md animate-pulse" />
-                    )}
+                    <Popover modal={true}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" className="w-full justify-start text-left font-normal bg-white/5 border-white/10 h-11 text-sm text-white hover:bg-white/10">
+                          <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                          {gameDate ? format(gameDate, "PPP") : <span>Pick a date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0 bg-background border-white/10 z-[200]">
+                        <Calendar mode="single" selected={gameDate} onSelect={setGameDate} initialFocus />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Camera Configuration */}
             <div className="space-y-4">
               <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
                 <Camera className="h-3.5 w-3.5" /> Discovery Optimization
               </Label>
-              <div className="bg-muted/10 p-6 rounded-2xl border border-white/5 space-y-4">
+              <div className="bg-white/5 p-6 rounded-2xl border border-white/5 space-y-4">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <h4 className="text-sm font-bold text-white">Camera Recording Type</h4>
+                    <h4 className="text-sm font-bold">Camera Orientation</h4>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">
-                      Calibrates motion compensation for the AI track engines
+                      Calibrates motion compensation for the tracking swarm
                     </p>
                   </div>
                   <div className="flex bg-black/40 p-1 rounded-xl border border-white/5 self-start">
@@ -366,9 +345,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                       onClick={() => setCameraType("panning")}
                       className={cn(
                         "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                        cameraType === "panning" 
-                          ? "bg-primary text-white shadow-lg" 
-                          : "text-muted-foreground hover:text-white"
+                        cameraType === "panning" ? "bg-primary text-white" : "text-muted-foreground hover:text-white"
                       )}
                     >
                       Panning
@@ -377,9 +354,7 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                       onClick={() => setCameraType("fixed")}
                       className={cn(
                         "px-6 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all",
-                        cameraType === "fixed" 
-                          ? "bg-primary text-white shadow-lg" 
-                          : "text-muted-foreground hover:text-white"
+                        cameraType === "fixed" ? "bg-primary text-white" : "text-muted-foreground hover:text-white"
                       )}
                     >
                       Fixed
@@ -388,52 +363,17 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
                 </div>
               </div>
             </div>
-
-            {/* Manual Scoreboard */}
-            <div className="space-y-4">
-              <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
-                <Trophy className="h-3.5 w-3.5" /> Manual Scoreboard (Ground Truth)
-              </Label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-primary/5 p-8 rounded-3xl border border-primary/10">
-                <div className="flex flex-col items-center gap-4">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">HOME FINAL</Label>
-                  <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => setHomeScore(Math.max(0, homeScore - 1))} className="h-10 w-10 rounded-full">-</Button>
-                    <Input 
-                      type="number" 
-                      value={homeScore} 
-                      onChange={(e) => setHomeScore(parseInt(e.target.value) || 0)}
-                      className="w-24 text-4xl font-black text-center bg-transparent border-none focus-visible:ring-0"
-                    />
-                    <Button variant="outline" size="icon" onClick={() => setHomeScore(homeScore + 1)} className="h-10 w-10 rounded-full">+</Button>
-                  </div>
-                </div>
-                <div className="flex flex-col items-center gap-4 md:border-l border-white/5">
-                  <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">AWAY FINAL</Label>
-                  <div className="flex items-center gap-4">
-                    <Button variant="outline" size="icon" onClick={() => setAwayScore(Math.max(0, awayScore - 1))} className="h-10 w-10 rounded-full">-</Button>
-                    <Input 
-                      type="number" 
-                      value={awayScore} 
-                      onChange={(e) => setAwayScore(parseInt(e.target.value) || 0)}
-                      className="w-24 text-4xl font-black text-center bg-transparent border-none focus-visible:ring-0"
-                    />
-                    <Button variant="outline" size="icon" onClick={() => setAwayScore(awayScore + 1)} className="h-10 w-10 rounded-full">+</Button>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </ScrollArea>
 
-        <DialogFooter className="px-8 py-8 border-t border-border bg-muted/5 shrink-0">
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground font-bold">DISCARD</Button>
+        <DialogFooter className="px-8 py-8 border-t border-white/5 bg-white/[0.02] shrink-0">
+          <Button variant="ghost" onClick={onClose} className="text-muted-foreground font-bold hover:text-white">DISCARD</Button>
           <Button 
             onClick={handleSave} 
             disabled={isSaving || !homeTeamId || !awayTeamId} 
             className="bg-primary hover:bg-primary/90 min-w-[240px] h-14 rounded-xl font-black text-xs tracking-widest uppercase shadow-xl shadow-primary/20"
           >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "SAVE PARAMETERS"}
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "SYNC PARAMETERS"}
           </Button>
         </DialogFooter>
       </DialogContent>
