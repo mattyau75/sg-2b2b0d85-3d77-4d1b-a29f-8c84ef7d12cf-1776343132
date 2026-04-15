@@ -152,6 +152,8 @@ export default function GameDetailPage() {
       }
     } catch (error: any) {
       console.error("Fetch failed:", error);
+    } finally {
+      setLoading(false);
     }
   };
 
