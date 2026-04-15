@@ -16,7 +16,6 @@ import {
   AlertCircle,
   Database,
   BarChart3,
-  ChevronRight,
   RefreshCw,
   Video,
   Check
@@ -56,7 +55,6 @@ export default function GameDetailPage() {
     if (id) {
       fetchGame();
       fetchMappingData();
-      // Load stage persistence if needed
     }
   }, [id]);
 
@@ -80,25 +78,21 @@ export default function GameDetailPage() {
       setGame(data);
 
       if (data.video_path) {
+        // 1. Resolve Video URL (Same logic as UI)
         if (data.video_path.startsWith('http')) {
           setVideoUrl(data.video_path);
         } else if (process.env.NEXT_PUBLIC_R2_ENDPOINT) {
           const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
           const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-          // 2. Handle R2 paths
-          else if (process.env.NEXT_PUBLIC_R2_ENDPOINT && !data.video_path.includes('supabase')) {
-            const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
-            const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+          
+          // Strip bucket name from start of path if it's already present to prevent doubling
+          const cleanPath = data.video_path.startsWith(`${bucket}/`) 
+            ? data.video_path.replace(`${bucket}/`, '') 
+            : data.video_path;
             
-            // Fix: Strip bucket name from start of path if it's already present to prevent doubling
-            const cleanPath = data.video_path.startsWith(`${bucket}/`) 
-              ? data.video_path.replace(`${bucket}/`, '') 
-              : data.video_path;
-              
-            const fullR2Url = `${r2Base}/${bucket}/${cleanPath}`;
-            setVideoUrl(fullR2Url);
-            console.log("[GameDetail] Video resolved via Cloudflare R2:", fullR2Url);
-          }
+          const fullR2Url = `${r2Base}/${bucket}/${cleanPath}`;
+          setVideoUrl(fullR2Url);
+          console.log("[GameDetail] Video resolved via Cloudflare R2:", fullR2Url);
         } else {
           const url = await storageService.getUrl(data.video_path);
           setVideoUrl(url);
@@ -114,7 +108,6 @@ export default function GameDetailPage() {
   const fetchMappingData = async () => {
     if (!id) return;
     try {
-      // Fetch AI Mappings
       const { data: mappings } = await supabase
         .from('ai_player_mappings')
         .select('*, players(*)')
@@ -122,7 +115,6 @@ export default function GameDetailPage() {
       
       setAiMappings(mappings || []);
 
-      // Fetch Rosters
       if (game?.home_team_id && game?.away_team_id) {
         const { data: home } = await supabase.from('players').select('*').eq('team_id', game.home_team_id);
         const { data: away } = await supabase.from('players').select('*').eq('team_id', game.away_team_id);
@@ -169,10 +161,10 @@ export default function GameDetailPage() {
             <div className="flex items-center gap-2">
               <Badge variant="outline" className="text-primary border-primary/50 bg-primary/5">Elite Scouting</Badge>
               <span className="text-muted-foreground">•</span>
-              <span className="text-sm text-muted-foreground">{new Date(game.date).toLocaleDateString()}</span>
+              <span className="text-sm text-muted-foreground">{game.date ? new Date(game.date).toLocaleDateString() : 'No date'}</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight">
-              {game.home_team?.name} <span className="text-muted-foreground mx-2">vs</span> {game.away_team?.name}
+              {game.home_team?.name || 'Home Team'} <span className="text-muted-foreground mx-2">vs</span> {game.away_team?.name || 'Away Team'}
             </h1>
           </div>
           
@@ -186,7 +178,6 @@ export default function GameDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Main Stage: Video Player */}
           <div className="lg:col-span-8 space-y-6">
             <Card className="bg-black border-white/10 overflow-hidden rounded-2xl shadow-2xl">
               <div className="aspect-video bg-muted flex items-center justify-center relative">
@@ -231,7 +222,6 @@ export default function GameDetailPage() {
             </div>
           </div>
 
-          {/* Sidebar: Tactical Modules */}
           <div className="lg:col-span-4 space-y-6">
             <Card className="bg-secondary/10 border-white/5">
               <CardHeader>
@@ -256,13 +246,13 @@ export default function GameDetailPage() {
                 <StageItem 
                   step="03" 
                   title="Mapping" 
-                  status="pending" 
+                  status={stagesVerified.mapping ? 'completed' : 'pending'} 
                   description="AI-to-Human entity verification."
                 />
                 <StageItem 
                   step="04" 
                   title="Tactical Boxscore" 
-                  status="pending" 
+                  status={stagesVerified.finalize ? 'completed' : 'pending'} 
                   description="Generating elite analytics dashboard."
                 />
               </CardContent>
@@ -289,7 +279,6 @@ export default function GameDetailPage() {
         </div>
       </div>
 
-      {/* MODALS */}
       <EditGameTeamsModal 
         game={game}
         isOpen={showTeamsModal} 
@@ -297,7 +286,6 @@ export default function GameDetailPage() {
         onUpdated={fetchGame}
       />
 
-      {/* Mapping Engine Popup */}
       {showMappingModal && (
         <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-4 md:p-10">
           <Card className="w-full h-full flex flex-col border-primary/20 overflow-hidden shadow-2xl">
