@@ -100,5 +100,27 @@ export const storageService = {
     }
     const { data } = supabase.storage.from("videos").getPublicUrl(filePath);
     return data.publicUrl;
+  },
+
+  async getPresignedUrl(fileName: string): Promise<string> {
+    try {
+      console.log(`[StorageService] Requesting presigned URL for: ${fileName}`);
+      const response = await fetch("/api/storage/presign", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ fileName }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("[StorageService] Presign API Error:", errorData);
+        throw new Error(errorData.error || "Failed to get streaming link");
+      }
+    } catch (error) {
+      console.error("[StorageService] Presign API Error:", error);
+      throw new Error("Failed to get streaming link");
+    }
   }
 };

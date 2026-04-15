@@ -13,6 +13,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
+    console.log("[Presign Bridge] Initializing Auth Handshake...");
+    
     // 🛡️ AUTH CHECK: Verify active scout session using the dedicated Next.js helper
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -20,7 +22,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       {
         cookies: {
           get(name: string) {
-            return req.cookies[name];
+            const cookie = req.cookies[name];
+            console.log(`[Presign Auth] Cookie fetch: ${name} = ${cookie ? "FOUND" : "MISSING"}`);
+            return cookie;
           },
           set(name: string, value: string, options: any) {
             res.setHeader("Set-Cookie", `${name}=${value}; Path=/; HttpOnly`);
@@ -31,11 +35,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       }
     );
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
 
-    if (!session) {
-      return res.status(401).json({ error: "Unauthorized access blocked. Tactical ID required." });
+    if (authError || !session) {
+      console.error("[Presign Bridge] ❌ Unauthorized: ", authError?.message || "No active session found in cookies.");
+      return res.status(401).json({ 
+        error: "Unauthorized access blocked. Tactical ID required.",
+        details: authError?.message || "Session not detected in request context."
+      });
     }
+
+    console.log(`[Presign Bridge] ✅ Authorized: Scout ${session.user.id}`);
 
     const { fileName } = req.body;
     if (!fileName) return res.status(400).json({ error: "Missing fileName" });

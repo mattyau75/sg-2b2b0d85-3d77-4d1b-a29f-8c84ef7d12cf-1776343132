@@ -21,6 +21,7 @@ import {
   Check
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { AuthGuard } from "@/components/AuthGuard";
 import { storageService } from "@/services/storageService";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -54,10 +55,68 @@ export default function GameDetailPage() {
 
   useEffect(() => {
     if (id) {
-      fetchGame();
-      fetchMappingData();
+      loadGameData();
     }
   }, [id]);
+
+  const loadGameData = async () => {
+    try {
+      setLoading(true);
+      
+      // 🛡️ Pre-flight Auth Check
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.warn("[GameDetail] No active session. Video stream will be blocked.");
+      }
+
+      const { data, error } = await supabase
+        .from("games")
+        .select(`*, home_team:home_team_id(name), away_team:away_team_id(name)`)
+        .eq("id", id)
+        .single();
+
+      if (error) throw error;
+      setGame(data);
+
+      // Load persisted stage verification states
+      setStagesVerified({
+        setup: data.setup_verified || false,
+        analysis: data.analysis_verified || false,
+        mapping: data.mapping_verified || false,
+        finalize: data.finalize_verified || false
+      });
+
+      // 🎥 TOTAL INTEGRATION: Resolve video via our secure backend bridge
+      if (data.video_path) {
+        try {
+          const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+          const cleanPath = data.video_path.startsWith(`${bucket}/`) 
+            ? data.video_path.replace(`${bucket}/`, '') 
+            : data.video_path;
+
+          const response = await fetch('/api/storage/presign', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ fileName: cleanPath })
+          });
+
+          const result = await response.json();
+          if (result.url) {
+            setVideoUrl(result.url);
+          } else {
+            console.error("[GameDetail] R2 Bridge Error:", result.error);
+          }
+        } catch (resErr) {
+          console.error("[GameDetail] Video resolution failed:", resErr);
+        }
+      }
+    } catch (error: any) {
+      console.error("Fetch failed:", error);
+      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleStageVerify = async (stage: keyof typeof stagesVerified) => {
     const isCurrentlyVerified = stagesVerified[stage];
@@ -120,57 +179,6 @@ export default function GameDetailPage() {
         description: err.message,
         variant: "destructive"
       });
-    }
-  };
-
-  const fetchGame = async () => {
-    try {
-      const { data, error } = await supabase
-        .from("games")
-        .select(`*, home_team:home_team_id(name), away_team:away_team_id(name)`)
-        .eq("id", id)
-        .single();
-
-      if (error) throw error;
-      setGame(data);
-
-      // Load persisted stage verification states
-      setStagesVerified({
-        setup: data.setup_verified || false,
-        analysis: data.analysis_verified || false,
-        mapping: data.mapping_verified || false,
-        finalize: data.finalize_verified || false
-      });
-
-      // 🎥 TOTAL INTEGRATION: Resolve video via our secure backend bridge
-      if (data.video_path) {
-        try {
-          const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-          const cleanPath = data.video_path.startsWith(`${bucket}/`) 
-            ? data.video_path.replace(`${bucket}/`, '') 
-            : data.video_path;
-
-          const response = await fetch('/api/storage/presign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: cleanPath })
-          });
-
-          const result = await response.json();
-          if (result.url) {
-            setVideoUrl(result.url);
-          } else {
-            console.error("[GameDetail] R2 Bridge Error:", result.error);
-          }
-        } catch (resErr) {
-          console.error("[GameDetail] Video resolution failed:", resErr);
-        }
-      }
-    } catch (error: any) {
-      console.error("Fetch failed:", error);
-      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -386,7 +394,7 @@ export default function GameDetailPage() {
         game={game}
         isOpen={showTeamsModal} 
         onClose={() => setShowTeamsModal(false)}
-        onUpdated={fetchGame}
+        onUpdated={loadGameData}
       />
 
       {showMappingModal && (
