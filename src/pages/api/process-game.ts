@@ -24,7 +24,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (videoUrl && !videoUrl.startsWith('http')) {
       const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
       const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-      videoUrl = `${r2Base}/${bucket}/${videoUrl}`;
+      
+      // Fix: Strip bucket name from start of path if it's already present
+      const cleanPath = videoUrl.startsWith(`${bucket}/`) 
+        ? videoUrl.replace(`${bucket}/`, '') 
+        : videoUrl;
+        
+      videoUrl = `${r2Base}/${bucket}/${cleanPath}`;
     }
 
     console.log(`[Process] Dispatching GPU Worker for Game: ${gameId} with Video: ${videoUrl}`);

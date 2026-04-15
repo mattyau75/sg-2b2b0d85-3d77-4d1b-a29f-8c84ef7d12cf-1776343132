@@ -85,7 +85,20 @@ export default function GameDetailPage() {
         } else if (process.env.NEXT_PUBLIC_R2_ENDPOINT) {
           const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
           const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-          setVideoUrl(`${r2Base}/${bucket}/${data.video_path}`);
+          // 2. Handle R2 paths
+          else if (process.env.NEXT_PUBLIC_R2_ENDPOINT && !data.video_path.includes('supabase')) {
+            const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
+            const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+            
+            // Fix: Strip bucket name from start of path if it's already present to prevent doubling
+            const cleanPath = data.video_path.startsWith(`${bucket}/`) 
+              ? data.video_path.replace(`${bucket}/`, '') 
+              : data.video_path;
+              
+            const fullR2Url = `${r2Base}/${bucket}/${cleanPath}`;
+            setVideoUrl(fullR2Url);
+            console.log("[GameDetail] Video resolved via Cloudflare R2:", fullR2Url);
+          }
         } else {
           const url = await storageService.getUrl(data.video_path);
           setVideoUrl(url);
