@@ -17,7 +17,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res }
+      {
+        cookies: {
+          get(name: string) {
+            return req.cookies[name];
+          },
+          set(name: string, value: string, options: any) {
+            res.setHeader("Set-Cookie", `${name}=${value}; Path=/; HttpOnly`);
+          },
+          remove(name: string, options: any) {
+            res.setHeader("Set-Cookie", `${name}=; Path=/; HttpOnly; Max-Age=0`);
+          },
+        },
+      }
     );
     const { data: { session } } = await supabase.auth.getSession();
 
