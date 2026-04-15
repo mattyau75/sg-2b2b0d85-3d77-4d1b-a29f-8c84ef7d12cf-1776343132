@@ -4,8 +4,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
+  DialogDescription,
   DialogFooter,
-  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -27,7 +27,8 @@ import {
   Plus,
   Check,
   X,
-  Camera
+  Camera,
+  Settings
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import axios from "axios";
@@ -161,25 +162,23 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl bg-background border-white/5 p-0 overflow-hidden shadow-2xl flex flex-col h-[90vh] text-white">
-        <div className="px-8 pt-8 pb-6 border-b border-white/5 bg-gradient-to-b from-white/[0.02] to-transparent shrink-0">
-          <DialogHeader>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-8 w-8 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Sparkles className="h-4 w-4 text-primary" />
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden border-primary/20 bg-background/95 backdrop-blur-xl">
+        <ScrollArea className="h-full max-h-[90vh]">
+          <div className="p-6 md:p-10">
+            <DialogHeader className="mb-8">
+              <div className="flex items-center gap-4 mb-2">
+                <div className="h-12 w-12 rounded-2xl bg-accent/10 flex items-center justify-center border border-accent/20 shadow-inner">
+                  <Settings className="h-6 w-6 text-accent animate-pulse" />
+                </div>
+                <div>
+                  <DialogTitle className="text-3xl font-black uppercase italic tracking-tighter text-white">Tactical Recalibration</DialogTitle>
+                  <DialogDescription className="text-muted-foreground font-mono text-xs uppercase tracking-widest mt-1">
+                    Adjust team parameters and sensor mapping for active game state.
+                  </DialogDescription>
+                </div>
               </div>
-              <DialogTitle className="text-2xl font-black tracking-tight uppercase italic">
-                Parameter Calibration
-              </DialogTitle>
-            </div>
-            <DialogDescription className="text-muted-foreground font-mono text-[10px] uppercase tracking-[0.2em]">
-              AI Roster Mapping Engine • Environmental Tuning
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+            </DialogHeader>
 
-        <ScrollArea className="flex-1 w-full">
-          <div className="px-8 py-6 space-y-10">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-black uppercase tracking-widest text-primary flex items-center gap-2">
@@ -365,17 +364,6 @@ export function EditGameTeamsModal({ game, isOpen, onClose, onUpdated }: EditGam
             </div>
           </div>
         </ScrollArea>
-
-        <DialogFooter className="px-8 py-8 border-t border-white/5 bg-white/[0.02] shrink-0">
-          <Button variant="ghost" onClick={onClose} className="text-muted-foreground font-bold hover:text-white">DISCARD</Button>
-          <Button 
-            onClick={handleSave} 
-            disabled={isSaving || !homeTeamId || !awayTeamId} 
-            className="bg-primary hover:bg-primary/90 min-w-[240px] h-14 rounded-xl font-black text-xs tracking-widest uppercase shadow-xl shadow-primary/20"
-          >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "SYNC PARAMETERS"}
-          </Button>
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
