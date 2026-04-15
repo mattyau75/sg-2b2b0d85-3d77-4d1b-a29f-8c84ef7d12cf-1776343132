@@ -11,8 +11,9 @@ export function VideoPlayer({ videoUrl }: VideoPlayerProps) {
       <video 
         controls 
         className="w-full h-full object-contain"
-        preload="auto"
+        preload="metadata"
         playsInline
+        autoPlay={false}
       >
         <source src={videoUrl} type="video/mp4" />
         Your browser does not support the video tag.
