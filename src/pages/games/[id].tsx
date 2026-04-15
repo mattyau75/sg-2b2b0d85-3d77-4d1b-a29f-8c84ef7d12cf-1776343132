@@ -33,6 +33,7 @@ export default function GameDetailPage() {
   
   const [game, setGame] = useState<any>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isPresigning, setIsPresigning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showTeamsModal, setShowTeamsModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
@@ -142,30 +143,49 @@ export default function GameDetailPage() {
       });
 
       if (data.video_path) {
-        // 1. Resolve Video URL (Same logic as UI)
         if (data.video_path.startsWith('http')) {
           setVideoUrl(data.video_path);
-        } else if (process.env.NEXT_PUBLIC_R2_ENDPOINT) {
-          const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT.replace(/\/$/, '');
-          const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-          
-          // Strip bucket name from start of path if it's already present to prevent doubling
-          const cleanPath = data.video_path.startsWith(`${bucket}/`) 
-            ? data.video_path.replace(`${bucket}/`, '') 
-            : data.video_path;
-            
-          const fullR2Url = `${r2Base}/${bucket}/${cleanPath}`;
-          setVideoUrl(fullR2Url);
-          console.log("[GameDetail] Video resolved via Cloudflare R2:", fullR2Url);
         } else {
-          const url = await storageService.getUrl(data.video_path);
-          setVideoUrl(url);
+          // Resolve Secure Presigned URL for private R2 storage
+          resolveVideoUrl(data.video_path);
         }
       }
-    } catch (err: any) {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } catch (error: any) {
+      console.error("Fetch failed:", error);
+    }
+  };
+
+  const resolveVideoUrl = async (path: string) => {
+    setIsPresigning(true);
+    try {
+      // 1. Clean the path (remove bucket prefix if present)
+      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+      const cleanPath = path.startsWith(`${bucket}/`) 
+        ? path.replace(`${bucket}/`, '') 
+        : path;
+
+      // 2. Request an authorized Presigned URL from our API
+      const response = await fetch('/api/storage/presign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileName: cleanPath })
+      });
+
+      const result = await response.json();
+      if (result.url) {
+        setVideoUrl(result.url);
+        console.log("[GameDetail] Secure Presigned URL resolved.");
+      } else {
+        throw new Error(result.error || "Failed to presign");
+      }
+    } catch (err) {
+      console.error("[GameDetail] URL resolution error:", err);
+      // Fallback to construction if presign fails (for public buckets)
+      const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
+      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+      setVideoUrl(`${r2Base}/${bucket}/${path}`);
     } finally {
-      setLoading(false);
+      setIsPresigning(false);
     }
   };
 
