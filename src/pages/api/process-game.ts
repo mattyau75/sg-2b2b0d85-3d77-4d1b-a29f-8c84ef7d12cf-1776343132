@@ -39,7 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const sanitizedPayload = {
       gameId: String(gameId).replace(/[^a-zA-Z0-9-]/g, ""),
       videoUrl: String(videoUrl), // Ensure string type
-      config: typeof config === 'object' ? config : {}
+      config: typeof req.body.config === 'object' ? req.body.config : {}
     };
 
     const response = await fetch(`${process.env.MODAL_USER_URL}/process`, {
