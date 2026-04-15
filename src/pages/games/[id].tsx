@@ -21,15 +21,16 @@ import {
   Check
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { AuthGuard } from "@/components/AuthGuard";
 import { storageService } from "@/services/storageService";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 
-export default function GameDetailPage() {
+export default function GameDetail() {
   const router = useRouter();
-  const id = router.query.id as string;
+  const { id } = router.query;
   const { toast } = useToast();
   
   const [game, setGame] = useState<any>(null);

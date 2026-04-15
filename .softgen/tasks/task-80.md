@@ -15,6 +15,6 @@ Senior DevOps audit focusing on removing dead code, implementing robust error ha
 ## Checklist:
 - [x] Audit NewGameModal.tsx: Remove unused imports/state, sanitize inputs, and modularize form logic
 - [x] Clean EditGameTeamsModal.tsx: Eliminate redundant color calibration logic and unused variables
-- [ ] Refactor Game Detail ([id].tsx): Optimize video resolution hooks and remove legacy state
+- [x] Refactor Game Detail ([id].tsx): Optimize video resolution hooks and remove legacy state
 - [ ] Storage Service Audit: Implement robust null-checks for chunked R2 uploads
 - [ ] Global Search: Remove all console.log statements and replace with forensic debug logger
