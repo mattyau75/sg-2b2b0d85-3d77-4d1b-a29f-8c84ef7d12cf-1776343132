@@ -1,6 +1,6 @@
 ---
 title: "Elite Roster Mapping Interface"
-status: "in_progress"
+status: "done"
 priority: "urgent"
 type: "feature"
 tags: ["mapping", "ai", "ux"]
