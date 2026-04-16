@@ -23,7 +23,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { showBanner } from "@/components/DiagnosticBanner";
 import { AuthGuard } from "@/components/AuthGuard";
-import { storageService } from "@/services/storageService";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import axios from "axios";
@@ -36,7 +35,6 @@ export default function GameDetail() {
   
   const [game, setGame] = useState<any>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
-  const [isPresigning, setIsPresigning] = useState(false);
   const [loading, setLoading] = useState(true);
   const [showTeamsModal, setShowTeamsModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
@@ -64,12 +62,6 @@ export default function GameDetail() {
   const loadGameData = async () => {
     try {
       setLoading(true);
-      
-      // 🛡️ Pre-flight Auth Check
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.warn("[GameDetail] No active session. Video stream will be blocked.");
-      }
 
       const { data, error } = await supabase
         .from("games")
@@ -88,40 +80,37 @@ export default function GameDetail() {
         finalize: data.finalize_verified || false
       });
 
-      // 🎥 TOTAL INTEGRATION: Resolve video via our secure backend bridge
+      // 🎥 SIMPLIFIED PUBLIC R2 VIDEO URL - NO AUTH COMPLEXITY
       if (data.video_path) {
-        try {
-          const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-          const cleanPath = data.video_path.startsWith(`${bucket}/`) 
-            ? data.video_path.replace(`${bucket}/`, '') 
-            : data.video_path;
+        const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
+        const r2PublicDomain = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN;
+        const r2Endpoint = process.env.NEXT_PUBLIC_R2_ENDPOINT;
+        
+        // Clean the path (remove bucket prefix if present)
+        const cleanPath = data.video_path.startsWith(`${bucket}/`) 
+          ? data.video_path.replace(`${bucket}/`, '') 
+          : data.video_path;
 
-          logger.info(`[GameDetail] 🛡️ Initiating Secure Video Handshake for: ${cleanPath}`);
-
-          const response = await fetch('/api/storage/presign', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: cleanPath }),
-            // 🛡️ CRITICAL: Explicitly include cookies for custom domain session verification
-            credentials: 'include' 
+        // Construct public URL
+        let publicUrl;
+        if (r2PublicDomain) {
+          // Custom domain (e.g., videos.dribblestats.com.au)
+          publicUrl = `https://${r2PublicDomain}/${cleanPath}`;
+        } else if (r2Endpoint) {
+          // R2.dev public URL
+          publicUrl = `${r2Endpoint.replace(/\/$/, '')}/${bucket}/${cleanPath}`;
+        } else {
+          logger.error("[GameDetail] No R2 public URL configured");
+          toast({ 
+            title: "Video Configuration Error", 
+            description: "R2 public domain not configured. Check environment variables.",
+            variant: "destructive"
           });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            logger.error(`[GameDetail] Video Handshake Rejected: ${response.status}`, errorText);
-            throw new Error(`HTTP ${response.status}`);
-          }
-
-          const result = await response.json();
-          if (result.url) {
-            setVideoUrl(result.url);
-            logger.info("[GameDetail] ✅ Video playback link unlocked.");
-          } else {
-            logger.error("[GameDetail] R2 Bridge Error:", result.error);
-          }
-        } catch (resErr) {
-          logger.error("[GameDetail] Video resolution failed:", resErr);
+          return;
         }
+
+        logger.info(`[GameDetail] 🎥 Direct R2 Public URL: ${publicUrl}`);
+        setVideoUrl(publicUrl);
       }
     } catch (error: any) {
       console.error("Fetch failed:", error);
@@ -219,40 +208,6 @@ export default function GameDetail() {
         description: err.message,
         variant: "destructive"
       });
-    }
-  };
-
-  const resolveVideoUrl = async (path: string) => {
-    setIsPresigning(true);
-    try {
-      // 1. Clean the path (remove bucket prefix if present)
-      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-      const cleanPath = path.startsWith(`${bucket}/`) 
-        ? path.replace(`${bucket}/`, '') 
-        : path;
-
-      // 2. Request an authorized Presigned URL from our API
-      const response = await fetch('/api/storage/presign', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileName: cleanPath })
-      });
-
-      const result = await response.json();
-      if (result.url) {
-        setVideoUrl(result.url);
-        console.log("[GameDetail] Secure Presigned URL resolved.");
-      } else {
-        throw new Error(result.error || "Failed to presign");
-      }
-    } catch (err) {
-      console.error("[GameDetail] URL resolution error:", err);
-      // Fallback to construction if presign fails (for public buckets)
-      const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
-      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-      setVideoUrl(`${r2Base}/${bucket}/${path}`);
-    } finally {
-      setIsPresigning(false);
     }
   };
 
