@@ -82,23 +82,20 @@ export default function GameDetail() {
 
       // 🎥 SIMPLIFIED PUBLIC R2 VIDEO URL - NO AUTH COMPLEXITY
       if (data.video_path) {
-        const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
         const r2PublicDomain = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN;
         const r2Endpoint = process.env.NEXT_PUBLIC_R2_ENDPOINT;
         
-        // Clean the path (remove bucket prefix if present)
-        const cleanPath = data.video_path.startsWith(`${bucket}/`) 
-          ? data.video_path.replace(`${bucket}/`, '') 
-          : data.video_path;
+        // Use the video_path as-is - it already contains the full path structure (e.g., "videos/filename.mp4")
+        const videoPath = data.video_path;
 
         // Construct public URL
         let publicUrl;
         if (r2PublicDomain) {
           // Custom domain (e.g., videos.dribblestats.com.au)
-          publicUrl = `https://${r2PublicDomain}/${cleanPath}`;
+          publicUrl = `https://${r2PublicDomain}/${videoPath}`;
         } else if (r2Endpoint) {
-          // R2.dev public URL - endpoint already points to bucket root
-          publicUrl = `${r2Endpoint.replace(/\/$/, '')}/${cleanPath}`;
+          // R2.dev public URL - Use full path including folder structure
+          publicUrl = `${r2Endpoint.replace(/\/$/, '')}/${videoPath}`;
         } else {
           logger.error("[GameDetail] No R2 public URL configured");
           toast({ 
