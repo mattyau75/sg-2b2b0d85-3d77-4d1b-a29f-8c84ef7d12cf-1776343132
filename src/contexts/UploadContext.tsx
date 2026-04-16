@@ -3,6 +3,7 @@ import { storageService } from "@/services/storageService";
 import { modalService } from "@/services/modalService";
 import { supabase } from "@/integrations/supabase/client";
 import { showBanner } from "@/components/DiagnosticBanner";
+import { logger } from "@/lib/logger";
 import axios from "axios";
 import { useRouter } from "next/router";
 
@@ -89,15 +90,14 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         abortControllers.current[uploadId] = abortController;
 
         // 2. Upload video to Supabase Storage using S3 Multipart Bypass
-        // Removed abortController.signal as the new S3 multipart service uses axios internally
         const videoPath = await storageService.uploadVideo(file, (progress) => {
-          console.log(`[UploadProgress] ${file.name}: ${progress}%`);
+          logger.debug(`[UploadProgress] ${file.name}: ${progress}%`);
           setActiveUploads(prev => prev.map(t => 
             t.id === uploadId ? { ...t, progress } : t
           ));
         });
 
-        console.log(`[UploadContext] Video successfully uploaded via S3 Multipart: ${videoPath}`);
+        logger.info(`[UploadContext] Video successfully uploaded: ${videoPath}`);
         delete abortControllers.current[uploadId];
 
         // 3. Update game record with the video path and transition to 'pending' for Modal.com workers
@@ -122,7 +122,7 @@ export function UploadProvider({ children }: { children: React.ReactNode }) {
         }, 5000);
 
       } catch (err: any) {
-        console.error("[UploadContext] Background process failed:", err);
+        logger.error("[UploadContext] Background process failed", err);
         
         // Fix for React Error #130: Ensure we don't pass undefined to state
         const errorMessage = err.message || "Unknown upload error";

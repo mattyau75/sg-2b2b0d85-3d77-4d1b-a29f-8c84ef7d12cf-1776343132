@@ -1,22 +1,21 @@
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 import axios from "axios";
 
 /**
  * ELITE STORAGE SERVICE: CLOUDFLARE R2 + SUPABASE HYBRID
- * Automatically routes 8GB+ files to R2 to bypass Supabase proxy limits.
  */
 export const storageService = {
   async uploadVideo(file: File, onProgress?: (progress: number) => void): Promise<string> {
     const isMassive = file.size > 100 * 1024 * 1024; // > 100MB
-    // ONLY check for the public endpoint to trigger R2 route in browser
     const r2Ready = !!process.env.NEXT_PUBLIC_R2_ENDPOINT;
 
     if (r2Ready && isMassive) {
-      console.log(`[StorageService] 🚀 ELITE DIRECT UPLOAD: Routing ${file.name} to Cloudflare R2.`);
+      logger.info(`[StorageService] 🚀 ELITE DIRECT UPLOAD: Routing ${file.name} to Cloudflare R2.`);
       return this.uploadToR2(file, onProgress);
     }
 
-    console.log(`[StorageService] ⚠️ Standard Lane: Routing to Supabase S3 (Only for smaller files).`);
+    logger.warn(`[StorageService] ⚠️ Standard Lane: Routing ${file.name} to Supabase S3.`);
     return this.uploadToSupabase(file, onProgress);
   },
 
@@ -43,7 +42,7 @@ export const storageService = {
       const partNumber = i + 1;
 
       // 2. Sign the part for direct R2 upload
-      console.log(`[StorageService] Requesting signature for Part #${partNumber} of ${totalChunks}...`);
+      logger.debug(`[StorageService] Requesting signature for Part #${partNumber} of ${totalChunks}...`);
       const { data: signData } = await axios.post('/api/storage/sign-part', {
         uploadId,
         partNumber,
@@ -55,7 +54,7 @@ export const storageService = {
       }
 
       // 3. Upload chunk directly to Cloudflare
-      console.log(`[StorageService] Uploading Part #${partNumber} directly to storage...`);
+      logger.debug(`[StorageService] Uploading Part #${partNumber} directly to storage...`);
       const response = await axios.put(signData.url, chunk, {
         onUploadProgress: (p) => {
           if (onProgress) {
@@ -67,13 +66,13 @@ export const storageService = {
         }
       });
 
-      console.log(`[StorageService] ✅ Part #${partNumber} uploaded successfully.`);
+      logger.info(`[StorageService] ✅ Part #${partNumber} uploaded successfully.`);
       const etag = response.headers.etag?.replace(/"/g, '');
       uploadedParts.push({ ETag: etag, PartNumber: partNumber });
     }
 
     // 4. Complete the upload
-    console.log(`[StorageService] 🏁 Finalizing 8GB assembly in Cloudflare...`);
+    logger.info(`[StorageService] 🏁 Finalizing 8GB assembly in Cloudflare...`);
     if (onProgress) onProgress(99); 
 
     const { data: completeData } = await axios.post('/api/storage/complete-multipart', {
@@ -112,7 +111,7 @@ export const storageService = {
 
   async getPresignedUrl(fileName: string): Promise<string> {
     try {
-      console.log(`[StorageService] Requesting presigned URL for: ${fileName}`);
+      logger.debug(`[StorageService] Requesting presigned URL for: ${fileName}`);
       const response = await fetch("/api/storage/presign", {
         method: "POST",
         headers: {
@@ -124,14 +123,14 @@ export const storageService = {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("[StorageService] Presign API Error:", errorData);
+        logger.error("[StorageService] Presign API Error", errorData);
         throw new Error(errorData.error || "Failed to get streaming link");
       }
 
       const { url } = await response.json();
       return url;
     } catch (error) {
-      console.error("[StorageService] Presign API Error:", error);
+      logger.error("[StorageService] Presign API Error", error);
       throw new Error("Failed to get streaming link");
     }
   }

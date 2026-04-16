@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { DiagnosticBanner, showBanner } from "@/components/DiagnosticBanner";
 import { supabase } from "@/integrations/supabase/client";
+import { logger } from "@/lib/logger";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
 import axios from "axios";
@@ -91,7 +92,7 @@ export default function Dashboard() {
         totalClips: count || 0
       }));
     } catch (err) {
-      console.error("Dashboard fetch error:", err);
+      logger.error("Dashboard fetch error", err);
     } finally {
       setLoading(false);
     }
