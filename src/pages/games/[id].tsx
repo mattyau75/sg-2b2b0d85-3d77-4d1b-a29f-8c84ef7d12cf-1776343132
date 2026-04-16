@@ -97,8 +97,8 @@ export default function GameDetail() {
           // Custom domain (e.g., videos.dribblestats.com.au)
           publicUrl = `https://${r2PublicDomain}/${cleanPath}`;
         } else if (r2Endpoint) {
-          // R2.dev public URL
-          publicUrl = `${r2Endpoint.replace(/\/$/, '')}/${bucket}/${cleanPath}`;
+          // R2.dev public URL - endpoint already points to bucket root
+          publicUrl = `${r2Endpoint.replace(/\/$/, '')}/${cleanPath}`;
         } else {
           logger.error("[GameDetail] No R2 public URL configured");
           toast({ 
