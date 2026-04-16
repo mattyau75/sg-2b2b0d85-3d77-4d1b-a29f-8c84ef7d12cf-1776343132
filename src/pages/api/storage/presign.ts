@@ -1,18 +1,18 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { r2Client } from "@/lib/r2Client";
+import { r2Client } from "@/lib/r2";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient, type CookieOptions } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
 
 /**
- * ELITE VIDEO BRIDGE: SECURE STREAMING HANDSHAKE
+ * ELITE VIDEO BRIDGE: SECURE PRODUCTION HANDSHAKE
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 signature
+    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 + Next.js 15 requirements
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -28,6 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } as any
     );
+    
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
