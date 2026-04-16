@@ -13,8 +13,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE (Corrected Signature)
-    const supabase = createServerClient({ req, res });
+    // 🛡️ SECURITY HANDSHAKE: Aligned with v0.15.0 signature
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -46,7 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     });
 
-    // Get manual mappings if any - cast JSON metadata for type safety
+    // Get manual mappings if any
     const metadata = game.processing_metadata as any;
     const manualMappings = metadata?.manual_mappings || {};
 
@@ -60,8 +64,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // 3. Update play-by-play player_ids based on jersey numbers and manual mappings
     const { data: players } = await supabase.from('players').select('*');
-    const playersMap = players?.reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {}) || {};
-
+    
     const initialEvents = events || [];
     const eventsToUpdate = initialEvents.map(event => {
       const mappingKey = `${event.team_id}-${event.jersey_number}`;
@@ -133,6 +136,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ success: true, homeScore, awayScore });
   } catch (error: any) {
+    logger.error("[SyncGameStats] Sync failed", error);
     return res.status(500).json({ message: error.message });
   }
 }
