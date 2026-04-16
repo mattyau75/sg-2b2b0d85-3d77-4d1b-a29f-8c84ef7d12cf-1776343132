@@ -1,17 +1,14 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/ssr";
 import { logger } from "@/lib/logger";
+import { serialize, parse } from "cookie";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const timestamp = new Date().toISOString();
-  
-  // DIAGNOSTIC CHECKPOINT 1: Request received
-  logger.info(`[ProcessGame] ✅ CHECKPOINT 1: Request received at ${timestamp}`);
-  
+  // Enhanced logging context
   const logContext = {
     method: req.method,
     url: req.url,
-    timestamp,
+    timestamp: new Date().toISOString(),
     headers: {
       contentType: req.headers["content-type"],
       userAgent: req.headers["user-agent"],
@@ -19,40 +16,43 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     body: req.body,
   };
 
-  logger.info("[ProcessGame] Request context", logContext);
+  logger.info("[ProcessGame] ✅ CHECKPOINT 1: API Request received", logContext);
 
   if (req.method !== "POST") {
     logger.error("[ProcessGame] ❌ CHECKPOINT 1 FAILED: Invalid method", { method: req.method });
     return res.status(405).json({ 
       error: "Method not allowed",
-      checkpoint: "METHOD_CHECK",
       details: { allowed: "POST", received: req.method }
     });
   }
 
   try {
-    // DIAGNOSTIC CHECKPOINT 2: Creating Supabase client
-    logger.info("[ProcessGame] ✅ CHECKPOINT 2: Creating Supabase client");
-    
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    logger.info("[ProcessGame] Environment check", {
-      hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseKey: !!supabaseKey,
-      supabaseUrlPrefix: supabaseUrl?.substring(0, 20)
-    });
+    logger.info("[ProcessGame] ✅ CHECKPOINT 2: Method validation passed");
 
-    if (!supabaseUrl || !supabaseKey) {
-      logger.error("[ProcessGame] ❌ CHECKPOINT 2 FAILED: Missing Supabase credentials");
-      return res.status(500).json({
-        error: "Server configuration error",
-        checkpoint: "SUPABASE_CONFIG",
-        details: { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey }
-      });
-    }
+    // Create Supabase client with proper cookie handling for Next.js API routes
+    logger.info("[ProcessGame] ✅ CHECKPOINT 3: Creating Supabase server client");
+    
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return Object.keys(req.cookies).map((name) => ({
+              name,
+              value: req.cookies[name] || '',
+            }));
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              res.setHeader('Set-Cookie', serialize(name, value, options));
+            });
+          },
+        },
+      }
+    );
 
-    const supabase = createServerClient(supabaseUrl, supabaseKey, { req, res } as any);
+    logger.info("[ProcessGame] ✅ CHECKPOINT 4: Supabase client created successfully");
 
     // DIAGNOSTIC CHECKPOINT 3: Checking auth session
     logger.info("[ProcessGame] ✅ CHECKPOINT 3: Checking auth session");
@@ -277,7 +277,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       debug: {
         videoUrl,
         modalEndpoint,
-        timestamp
+        timestamp: logContext.timestamp
       }
     });
 
