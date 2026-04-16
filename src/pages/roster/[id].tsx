@@ -16,7 +16,8 @@ import {
   ExternalLink
 } from "lucide-react";
 import Link from "next/link";
-import { rosterService } from "@/services/rosterService";
+import { logger } from "@/lib/logger";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -70,20 +71,35 @@ export default function TeamRoster() {
 
   useEffect(() => {
     if (!id) return;
-    const fetchData = async () => {
+    
+    const fetchTeamData = async () => {
       setLoading(true);
       try {
-        const teamData = await rosterService.getTeam(id as string);
+        const { data: teamData, error: teamError } = await supabase
+          .from("teams")
+          .select("*")
+          .eq("id", id)
+          .single();
+
+        if (teamError) throw teamError;
         setTeam(teamData);
-        const playersData = await rosterService.getPlayers(id as string);
-        setPlayers(playersData || []);
-      } catch (error) {
-        console.error("Error fetching roster:", error);
+
+        const { data: rosterData, error: rosterError } = await supabase
+          .from("players")
+          .select("*")
+          .eq("team_id", id)
+          .order("jersey_number", { ascending: true });
+
+        if (rosterError) throw rosterError;
+        setPlayers(rosterData);
+      } catch (err) {
+        logger.error("[RosterDetail] Error fetching roster", err);
       } finally {
         setLoading(false);
       }
     };
-    fetchData();
+
+    fetchTeamData();
   }, [id]);
 
   const handleAddPlayer = async () => {

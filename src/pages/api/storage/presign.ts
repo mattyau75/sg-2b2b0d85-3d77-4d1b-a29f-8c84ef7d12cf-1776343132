@@ -12,31 +12,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ AUTH CHECK: Correcting context format for @supabase/auth-helpers-nextjs v0.15.x
-    // The request and response must be passed within the third argument's context
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { 
-        req, 
-        res 
-      } as any // Casting to avoid strict version-specific type conflicts while maintaining functionality
-    );
-    
+    // 🛡️ SECURITY HANDSHAKE
+    const supabase = createServerClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      console.error("[Presign] Unauthorized: No session found in cookies");
-      return res.status(401).json({ 
-        error: "Unauthorized access blocked. Tactical ID required."
-      });
+      logger.error("[Presign] Unauthorized access attempt");
+      return res.status(401).json({ error: "Unauthorized access blocked." });
     }
 
     const { fileName } = req.body;
     if (!fileName) return res.status(400).json({ error: "Missing fileName" });
 
     // 🕒 Resolve environment variables
-    const bucketName = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || "videos";
+    const bucketName = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || "dribblestats-storage";
     
     // Create an authorized command for the specific file
     const command = new GetObjectCommand({

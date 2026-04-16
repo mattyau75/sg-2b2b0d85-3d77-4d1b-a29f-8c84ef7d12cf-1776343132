@@ -13,12 +13,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res }
-    );
+    // 🛡️ SECURITY HANDSHAKE (Corrected Signature)
+    const supabase = createServerClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {

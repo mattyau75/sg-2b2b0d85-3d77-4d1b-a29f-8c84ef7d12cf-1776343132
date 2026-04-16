@@ -27,6 +27,7 @@ import { storageService } from "@/services/storageService";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import axios from "axios";
+import { logger } from "@/lib/logger";
 
 export default function GameDetail() {
   const router = useRouter();
