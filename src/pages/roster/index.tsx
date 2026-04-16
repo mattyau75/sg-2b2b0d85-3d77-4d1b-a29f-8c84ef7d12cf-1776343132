@@ -238,9 +238,9 @@ export default function RosterDirectory() {
           <DialogContent className="bg-card border-border">
             <DialogHeader>
               <DialogTitle>Edit Team Details</DialogTitle>
-              <DialogDescription>Modify organizational settings for {selectedTeam?.name}.</DialogDescription>
+              <DialogDescription>Update the team name and metadata for the roster.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-name">Team Name</Label>
                 <Input 

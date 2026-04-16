@@ -324,9 +324,9 @@ export default function TeamRoster() {
           <DialogContent className="bg-card border-border">
             <DialogHeader>
               <DialogTitle>Edit Player Details</DialogTitle>
-              <DialogDescription>Modify attributes for {selectedPlayer?.name}.</DialogDescription>
+              <DialogDescription>Update the information and profile for this player.</DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label htmlFor="edit-pname">Full Name</Label>
                 <Input 
