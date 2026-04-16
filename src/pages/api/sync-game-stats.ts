@@ -14,7 +14,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res }
+      { 
+        req, 
+        res,
+        cookieOptions: {
+          name: "sb-hoqnqzghpkppewhhxrfv-auth-token",
+          domain: process.env.NODE_ENV === "production" ? ".dribblestats.com.au" : undefined,
+          path: "/",
+          sameSite: "lax",
+          secure: process.env.NODE_ENV === "production",
+        }
+      } as any
     );
     const { data: { session } } = await supabase.auth.getSession();
 
