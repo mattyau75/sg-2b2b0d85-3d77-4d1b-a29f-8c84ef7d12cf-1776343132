@@ -9,11 +9,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Aligned with v0.15.0 signature
+    // 🛡️ SECURITY HANDSHAKE
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res }
+      {
+        cookies: {
+          get(name: string) { return req.cookies[name]; },
+          set(name: string, value: string, options: any) { res.setHeader("Set-Cookie", `${name}=${value}`); },
+          remove(name: string, options: any) { res.setHeader("Set-Cookie", `${name}=; Max-Age=0`); },
+        },
+      }
     );
     const { data: { session } } = await supabase.auth.getSession();
 
