@@ -27,11 +27,14 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import axios from "axios";
 import { logger } from "@/lib/logger";
+import { ErrorMonitor } from "@/components/ErrorMonitor";
+import { useErrorMonitor } from "@/hooks/useErrorMonitor";
 
 export default function GameDetail() {
   const router = useRouter();
-  const { id } = router.query;
+  const gameId = typeof router.query.id === "string" ? router.query.id : undefined;
   const { toast } = useToast();
+  const { errors, logError, dismissError, dismissAll } = useErrorMonitor();
   
   const [game, setGame] = useState<any>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -54,10 +57,10 @@ export default function GameDetail() {
   const [awayRoster, setAwayRoster] = useState<any[]>([]);
 
   useEffect(() => {
-    if (id) {
+    if (gameId) {
       loadGameData();
     }
-  }, [id]);
+  }, [gameId]);
 
   const loadGameData = async () => {
     try {
@@ -66,7 +69,7 @@ export default function GameDetail() {
       const { data, error } = await supabase
         .from("games")
         .select(`*, home_team:home_team_id(name), away_team:away_team_id(name)`)
-        .eq("id", id as string)
+        .eq("id", gameId)
         .single();
 
       if (error) throw error;
@@ -118,12 +121,12 @@ export default function GameDetail() {
   };
 
   const fetchMappingData = async () => {
-    if (!id) return;
+    if (!gameId) return;
     try {
       const { data: mappings } = await supabase
         .from('ai_player_mappings')
         .select('*, players(*)')
-        .eq('game_id', id as string);
+        .eq('game_id', gameId);
       
       setAiMappings(mappings || []);
 
@@ -189,7 +192,7 @@ export default function GameDetail() {
       const { error } = await supabase
         .from("games")
         .update(updateData)
-        .eq("id", id as string);
+        .eq("id", gameId);
 
       if (error) throw error;
 
@@ -211,7 +214,7 @@ export default function GameDetail() {
   const handleStartProcess = async () => {
     setIsProcessing(true);
     try {
-      await axios.post('/api/process-game', { gameId: id });
+      await axios.post('/api/process-game', { gameId: gameId });
       toast({ title: "AI Process Started", description: "The scouting worker has been triggered." });
     } catch (err: any) {
       toast({ title: "Process Failed", description: err.message, variant: "destructive" });
@@ -230,6 +233,117 @@ export default function GameDetail() {
       return;
     }
     handleStartProcess();
+  };
+
+  const handleProcessGame = async () => {
+    if (!gameId) return;
+    
+    setProcessing(true);
+    
+    try {
+      const requestBody = {
+        gameId,
+        config: {
+          enable_tracking: true,
+          enable_stats: true,
+        }
+      };
+
+      logger.info("[GameDetail] Starting GPU Analysis", requestBody);
+
+      const response = await fetch("/api/process-game", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        // Log detailed error
+        logError(
+          "/api/process-game",
+          response.status,
+          responseData.error || "GPU Analysis failed",
+          responseData,
+          requestBody,
+          responseData.stack
+        );
+
+        toast({
+          title: "GPU Analysis Failed",
+          description: responseData.error || "See error monitor for details",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      logger.info("[GameDetail] GPU Analysis initiated successfully", responseData);
+
+      toast({
+        title: "GPU Analysis Initiated",
+        description: "AI processing started. Results will appear in real-time.",
+      });
+
+      // Start polling for results
+      const pollInterval = setInterval(async () => {
+        const { data, error } = await supabase
+          .from("games")
+          .select("processing_status, ai_entities")
+          .eq("id", gameId)
+          .single();
+
+        if (error) {
+          logger.error("[GameDetail] Polling error", error);
+          clearInterval(pollInterval);
+          return;
+        }
+
+        if (data?.processing_status === "completed") {
+          clearInterval(pollInterval);
+          setProcessing(false);
+          fetchGame();
+          toast({
+            title: "Analysis Complete",
+            description: "AI tracking data is now available.",
+          });
+        } else if (data?.processing_status === "failed") {
+          clearInterval(pollInterval);
+          setProcessing(false);
+          logError(
+            "GPU Processing",
+            500,
+            "Modal worker reported failure",
+            { status: data.processing_status },
+            requestBody
+          );
+        }
+      }, 3000);
+
+      // Stop polling after 5 minutes
+      setTimeout(() => {
+        clearInterval(pollInterval);
+        setProcessing(false);
+      }, 300000);
+
+    } catch (err: any) {
+      logger.error("[GameDetail] GPU Analysis error", err);
+      logError(
+        "/api/process-game",
+        0,
+        err.message || "Network error",
+        undefined,
+        { gameId },
+        err.stack
+      );
+      toast({
+        title: "Network Error",
+        description: "Failed to connect to GPU worker. Check console for details.",
+        variant: "destructive",
+      });
+    } finally {
+      setProcessing(false);
+    }
   };
 
   if (loading) return <Layout><div className="flex items-center justify-center h-screen"><RefreshCw className="w-8 h-8 animate-spin text-primary" /></div></Layout>;
@@ -385,7 +499,7 @@ export default function GameDetail() {
             </CardHeader>
             <CardContent className="flex-1 overflow-auto p-0">
               <MappingDashboard 
-                gameId={id as string} 
+                gameId={gameId as string} 
                 aiMappings={aiMappings}
                 homeRoster={homeRoster}
                 awayRoster={awayRoster}
@@ -397,6 +511,12 @@ export default function GameDetail() {
           </Card>
         </div>
       )}
+
+      <ErrorMonitor 
+        errors={errors}
+        onDismiss={dismissError}
+        onDismissAll={dismissAll}
+      />
     </Layout>
   );
 }

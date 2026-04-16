@@ -14,6 +14,13 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   useEffect(() => {
     const checkAuth = async () => {
+      // 🔓 DEVELOPMENT BYPASS: Skip auth in Softgen preview for faster testing
+      if (process.env.NODE_ENV === 'development') {
+        setAuthenticated(true);
+        setLoading(false);
+        return;
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
@@ -35,7 +42,9 @@ export function AuthGuard({ children }: AuthGuardProps) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         setAuthenticated(false);
-        router.push("/login");
+        if (process.env.NODE_ENV !== 'development') {
+          router.push("/login");
+        }
       } else if (session) {
         setAuthenticated(true);
       }
@@ -59,7 +68,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
 
   // If not authenticated and not on a public page, we've already triggered a redirect
   const isPublicPage = ["/login", "/help"].includes(router.pathname);
-  if (!authenticated && !isPublicPage) return null;
+  if (!authenticated && !isPublicPage && process.env.NODE_ENV !== 'development') return null;
 
   return <>{children}</>;
 }
