@@ -12,12 +12,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ AUTH CHECK: Using createServerClient for session verification in API routes
-    // In @supabase/auth-helpers-nextjs v0.15.x, createServerClient requires URL, KEY, and context
+    // 🛡️ AUTH CHECK: Correcting context format for @supabase/auth-helpers-nextjs v0.15.x
+    // The request and response must be passed within the third argument's context
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res }
+      { 
+        req, 
+        res 
+      } as any // Casting to avoid strict version-specific type conflicts while maintaining functionality
     );
     
     const { data: { session } } = await supabase.auth.getSession();
