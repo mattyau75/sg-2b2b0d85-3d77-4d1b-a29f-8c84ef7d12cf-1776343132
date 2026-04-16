@@ -13,6 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // 🛡️ AUTH CHECK: Using createServerClient for session verification in API routes
+    // For this version of @supabase/auth-helpers-nextjs, we pass { req, res } as the first argument
     const supabase = createServerClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
 
