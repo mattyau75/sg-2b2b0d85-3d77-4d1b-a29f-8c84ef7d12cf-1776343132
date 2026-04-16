@@ -1,8 +1,8 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { r2Client } from "@/lib/r2";
+import { r2Client } from "@/lib/r2Client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createServerClient, type CookieOptions } from "@supabase/auth-helpers-nextjs";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
 
 /**
@@ -12,7 +12,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 + Next.js 15 requirements
+    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 signature
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
