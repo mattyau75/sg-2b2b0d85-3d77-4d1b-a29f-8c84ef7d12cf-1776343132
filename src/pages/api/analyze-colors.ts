@@ -1,17 +1,30 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { logger } from "@/lib/logger";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
   
   const { gameId, videoPath } = req.body;
   if (!gameId || !videoPath) {
-    console.error("[AnalyzeColors] Missing gameId or videoPath");
+    logger.error("[AnalyzeColors] Missing gameId or videoPath");
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   try {
-    console.log(`[AnalyzeColors] Starting calibration for game ${gameId}`);
+    // 🛡️ SECURITY HANDSHAKE
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized access blocked." });
+    }
+
+    logger.info(`[AnalyzeColors] Starting calibration`, { gameId });
     // In a production environment, this would call a Modal.com micro-service 
     // that samples frames from the video and uses k-means clustering to find jersey colors.
     // We simulate a successful analysis here.

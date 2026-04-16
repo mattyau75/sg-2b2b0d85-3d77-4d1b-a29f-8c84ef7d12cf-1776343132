@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { logger } from "@/lib/logger";
 import axios from "axios";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -8,6 +9,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
+    // 🛡️ SECURITY HANDSHAKE
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized access blocked." });
+    }
+
     const { gameId } = req.body;
 
     // 1. Get Game Data to resolve video path
@@ -33,7 +46,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       videoUrl = `${r2Base}/${bucket}/${cleanPath}`;
     }
 
-    console.log(`[Process] Dispatching GPU Worker for Game: ${gameId} with Video: ${videoUrl}`);
+    logger.info(`[Process] Dispatching GPU Worker`, { gameId, videoUrl });
 
     // 🛡️ SECURITY: Sanitize the payload to prevent injection into the GPU worker
     const sanitizedPayload = {

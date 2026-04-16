@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { logger } from "@/lib/logger";
 
 /**
  * Module 1: Roster Preparation API
@@ -10,6 +11,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
   try {
+    // 🛡️ SECURITY HANDSHAKE
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized access blocked." });
+    }
+
     const { gameId, homeTeamId, awayTeamId } = req.body;
 
     if (!gameId || !homeTeamId || !awayTeamId) {
@@ -77,7 +90,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .upsert(statsEntries, { onConflict: 'game_id,player_id' });
 
     if (insertError) {
-      console.error("[PrepareMapping] Insert Error:", insertError);
+      logger.error("[PrepareMapping] Insert Error", insertError);
       throw insertError;
     }
 

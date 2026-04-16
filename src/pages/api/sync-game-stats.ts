@@ -1,10 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { supabase } from "@/integrations/supabase/client";
+import { createServerClient } from "@supabase/auth-helpers-nextjs";
+import { logger } from "@/lib/logger";
 import { calculateBoxScore } from "@/lib/stat-utils";
 
 /**
  * RE-ENGINEERED SYNC ENGINE (Module 3)
- * Implements a robust mapping and aggregation pipeline.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
@@ -13,7 +13,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
-    console.log(`[Modular Sync] Starting identity-first sync for Game: ${gameId}`);
+    // 🛡️ SECURITY HANDSHAKE
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      return res.status(401).json({ error: "Unauthorized access blocked." });
+    }
+
+    logger.info(`[Modular Sync] Starting identity-first sync`, { gameId });
 
     // 1. IDENTITY PASS: Fetch Game and Roster context
     const { data: game, error: gameError } = await supabase
