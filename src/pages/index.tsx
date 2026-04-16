@@ -1,3 +1,5 @@
+// Deployment Heartbeat: 2026-04-16T11:12:04Z
+// This comment triggers an automatic Vercel build via GitHub integration.
 import React, { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
