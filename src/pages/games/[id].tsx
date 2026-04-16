@@ -99,7 +99,8 @@ export default function GameDetail() {
           const response = await fetch('/api/storage/presign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ fileName: cleanPath })
+            body: JSON.stringify({ fileName: cleanPath }),
+            credentials: 'include' // 🛡️ ELITE: Ensure login cookies are passed
           });
 
           const result = await response.json();

@@ -12,18 +12,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Aligned with standard auth-helpers signature
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return req.cookies[name]; },
-          set(name: string, value: string, options: any) { res.setHeader("Set-Cookie", `${name}=${value}`); },
-          remove(name: string, options: any) { res.setHeader("Set-Cookie", `${name}=; Max-Age=0`); },
-        },
-      }
-    );
+    // 🛡️ SECURITY HANDSHAKE: Standardized 1-arg signature for Pages Router
+    const supabase = createServerClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {

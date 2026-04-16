@@ -10,20 +10,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          get(name: string) { return req.cookies[name]; },
-          set(name: string, value: string, options: any) { res.setHeader("Set-Cookie", `${name}=${value}`); },
-          remove(name: string, options: any) { res.setHeader("Set-Cookie", `${name}=; Max-Age=0`); },
-        },
-      }
-    );
+    // 🛡️ SECURITY HANDSHAKE: Standardized 1-arg signature for Pages Router
+    const supabase = createServerClient({ req, res });
     const { data: { session } } = await supabase.auth.getSession();
 
-    if (!session) return res.status(401).json({ error: "Unauthorized" });
+    if (!session) return res.status(401).json({ error: "Unauthorized access blocked." });
 
     logger.info(`[Sync] Tactical sync initiated for ${gameId}`);
 
