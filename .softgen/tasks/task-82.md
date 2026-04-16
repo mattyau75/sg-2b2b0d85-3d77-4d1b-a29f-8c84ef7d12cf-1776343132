@@ -16,5 +16,5 @@ Comprehensive audit to ensure latest coding standards, zero dead code, and harde
 - [x] Implement server-side session verification for all `src/pages/api/` routes
 - [x] Replace `console.log` with a production-safe logging utility
 - [x] Standardize R2 path resolution across all storage-related APIs
-- [ ] Remove unused imports and dead code from core components
-- [ ] Verify Supabase client initialization follows the latest v2 patterns
+- [x] Remove unused imports and dead code from core components
+- [x] Verify Supabase client initialization follows the latest v2 patterns
