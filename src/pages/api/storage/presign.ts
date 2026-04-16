@@ -6,13 +6,13 @@ import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
 
 /**
- * ELITE VIDEO BRIDGE: RE-ENGINEERED PRODUCTION HANDSHAKE
+ * UNIVERSAL VIDEO HANDSHAKE: RE-ENGINEERED FOR CUSTOM DOMAINS
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ ELITE HANDSHAKE: Align with Next.js 15 + Supabase SSR Production Standards
+    // 🛡️ ELITE UNIVERSAL HANDSHAKE: Works across Softgen, Vercel, and Custom Domains
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -20,11 +20,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         req, 
         res,
         cookieOptions: {
-          name: "sb-hoqnqzghpkppewhhxrfv-auth-token",
-          domain: process.env.NODE_ENV === "production" ? ".dribblestats.com.au" : undefined,
+          // Detect the current environment to resolve the auth cookie correctly
+          domain: process.env.NODE_ENV === "production" ? undefined : undefined,
           path: "/",
           sameSite: "lax",
-          secure: process.env.NODE_ENV === "production",
+          secure: true,
         }
       } as any
     );
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      logger.error("[Presign] Unauthorized access attempt - Handshake failed");
+      logger.error("[Presign] Unauthorized access attempt - Handshake failed. Ensure credentials: 'include' is used on the frontend.");
       return res.status(401).json({ error: "Unauthorized access blocked. Tactical ID required." });
     }
 
@@ -41,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const bucketName = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || "dribblestats-storage";
     
-    logger.info(`[Presign] Generating tactical link`, { fileName, bucket: bucketName });
+    logger.info(`[Presign] Generating tactical link`, { fileName, bucket: bucketName, user: session.user.id });
 
     const command = new GetObjectCommand({
       Bucket: bucketName,

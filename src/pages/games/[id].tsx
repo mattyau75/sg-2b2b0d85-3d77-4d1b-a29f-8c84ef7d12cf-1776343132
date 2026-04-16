@@ -96,21 +96,31 @@ export default function GameDetail() {
             ? data.video_path.replace(`${bucket}/`, '') 
             : data.video_path;
 
+          logger.info(`[GameDetail] 🛡️ Initiating Secure Video Handshake for: ${cleanPath}`);
+
           const response = await fetch('/api/storage/presign', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ fileName: cleanPath }),
-            credentials: 'include' // 🛡️ ELITE: Ensure login cookies are passed
+            // 🛡️ CRITICAL: Explicitly include cookies for custom domain session verification
+            credentials: 'include' 
           });
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            logger.error(`[GameDetail] Video Handshake Rejected: ${response.status}`, errorText);
+            throw new Error(`HTTP ${response.status}`);
+          }
 
           const result = await response.json();
           if (result.url) {
             setVideoUrl(result.url);
+            logger.info("[GameDetail] ✅ Video playback link unlocked.");
           } else {
-            console.error("[GameDetail] R2 Bridge Error:", result.error);
+            logger.error("[GameDetail] R2 Bridge Error:", result.error);
           }
         } catch (resErr) {
-          console.error("[GameDetail] Video resolution failed:", resErr);
+          logger.error("[GameDetail] Video resolution failed:", resErr);
         }
       }
     } catch (error: any) {
