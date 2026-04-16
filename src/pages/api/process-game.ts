@@ -34,23 +34,51 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("id", gameId)
       .single();
 
-    if (gameError || !game) throw new Error("Game not found");
-
-    let videoUrl = game.video_path;
-    if (videoUrl && !videoUrl.startsWith('http')) {
-      const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
-      const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-      const cleanPath = videoUrl.startsWith(`${bucket}/`) ? videoUrl.replace(`${bucket}/`, '') : videoUrl;
-      videoUrl = `${r2Base}/${bucket}/${cleanPath}`;
+    if (gameError || !game) {
+      logger.error("[ProcessGame] Game not found", { gameId, error: gameError });
+      return res.status(404).json({ error: "Game not found" });
     }
 
-    logger.info(`[Process] Dispatching GPU Worker`, { gameId, videoUrl });
+    // Construct public R2 URL for Modal worker
+    let videoUrl = game.video_path;
+    if (videoUrl && !videoUrl.startsWith('http')) {
+      const r2Endpoint = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
+      if (!r2Endpoint) {
+        logger.error("[ProcessGame] R2_ENDPOINT not configured");
+        return res.status(500).json({ error: "R2 endpoint not configured" });
+      }
+      // Use full path as-is (e.g., "videos/filename.mp4")
+      videoUrl = `${r2Endpoint}/${videoUrl}`;
+    }
 
-    const response = await fetch(`${process.env.MODAL_USER_URL}/process`, {
+    if (!videoUrl) {
+      logger.error("[ProcessGame] No video path found", { gameId });
+      return res.status(400).json({ error: "No video file associated with this game" });
+    }
+
+    // Verify Modal configuration
+    const modalUrl = process.env.MODAL_USER_URL;
+    const modalToken = process.env.MODAL_AUTH_TOKEN;
+    
+    if (!modalUrl || !modalToken) {
+      logger.error("[ProcessGame] Modal not configured", { 
+        hasUrl: !!modalUrl, 
+        hasToken: !!modalToken 
+      });
+      return res.status(500).json({ error: "GPU worker not configured. Check Modal environment variables." });
+    }
+
+    logger.info(`[ProcessGame] Dispatching GPU Worker`, { 
+      gameId, 
+      videoUrl,
+      modalUrl 
+    });
+
+    const response = await fetch(`${modalUrl}/process`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.MODAL_AUTH_TOKEN}`
+        "Authorization": `Bearer ${modalToken}`
       },
       body: JSON.stringify({
         gameId: String(gameId),
@@ -59,9 +87,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }),
     });
 
-    if (!response.ok) throw new Error("GPU Worker dispatch failed");
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.error("[ProcessGame] Modal API error", { 
+        status: response.status, 
+        error: errorText 
+      });
+      return res.status(500).json({ 
+        error: "GPU Worker dispatch failed", 
+        details: errorText 
+      });
+    }
 
-    return res.status(200).json({ success: true, message: "GPU processing initiated" });
+    const result = await response.json();
+    logger.info("[ProcessGame] GPU processing initiated successfully", { gameId });
+    return res.status(200).json({ success: true, message: "GPU processing initiated", result });
   } catch (error: any) {
     logger.error("[ProcessGame] Error", error);
     return res.status(500).json({ error: error.message });
