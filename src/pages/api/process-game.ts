@@ -3,10 +3,15 @@ import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  // Enhanced logging context
+  const timestamp = new Date().toISOString();
+  
+  // DIAGNOSTIC CHECKPOINT 1: Request received
+  logger.info(`[ProcessGame] ✅ CHECKPOINT 1: Request received at ${timestamp}`);
+  
   const logContext = {
     method: req.method,
     url: req.url,
+    timestamp,
     headers: {
       contentType: req.headers["content-type"],
       userAgent: req.headers["user-agent"],
@@ -14,44 +19,79 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     body: req.body,
   };
 
-  logger.info("[ProcessGame] API Request received", logContext);
+  logger.info("[ProcessGame] Request context", logContext);
 
   if (req.method !== "POST") {
-    logger.error("[ProcessGame] Invalid method", { method: req.method });
+    logger.error("[ProcessGame] ❌ CHECKPOINT 1 FAILED: Invalid method", { method: req.method });
     return res.status(405).json({ 
       error: "Method not allowed",
+      checkpoint: "METHOD_CHECK",
       details: { allowed: "POST", received: req.method }
     });
   }
 
   try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { req, res } as any
-    );
+    // DIAGNOSTIC CHECKPOINT 2: Creating Supabase client
+    logger.info("[ProcessGame] ✅ CHECKPOINT 2: Creating Supabase client");
+    
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    
+    logger.info("[ProcessGame] Environment check", {
+      hasSupabaseUrl: !!supabaseUrl,
+      hasSupabaseKey: !!supabaseKey,
+      supabaseUrlPrefix: supabaseUrl?.substring(0, 20)
+    });
 
-    const { data: { session } } = await supabase.auth.getSession();
-
-    if (!session) {
-      logger.error("[ProcessGame] Unauthorized - No session");
-      return res.status(401).json({ 
-        error: "Unauthorized - Authentication required",
-        details: { hasSession: false }
+    if (!supabaseUrl || !supabaseKey) {
+      logger.error("[ProcessGame] ❌ CHECKPOINT 2 FAILED: Missing Supabase credentials");
+      return res.status(500).json({
+        error: "Server configuration error",
+        checkpoint: "SUPABASE_CONFIG",
+        details: { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey }
       });
     }
 
+    const supabase = createServerClient(supabaseUrl, supabaseKey, { req, res } as any);
+
+    // DIAGNOSTIC CHECKPOINT 3: Checking auth session
+    logger.info("[ProcessGame] ✅ CHECKPOINT 3: Checking auth session");
+    
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    logger.info("[ProcessGame] Session check result", {
+      hasSession: !!session,
+      sessionError: sessionError?.message,
+      userId: session?.user?.id
+    });
+
+    if (!session) {
+      logger.error("[ProcessGame] ❌ CHECKPOINT 3 FAILED: No session");
+      return res.status(401).json({ 
+        error: "Unauthorized - Authentication required",
+        checkpoint: "AUTH_CHECK",
+        details: { hasSession: false, sessionError: sessionError?.message }
+      });
+    }
+
+    // DIAGNOSTIC CHECKPOINT 4: Validating request body
+    logger.info("[ProcessGame] ✅ CHECKPOINT 4: Validating request body");
+    
     const { gameId } = req.body;
 
     if (!gameId) {
-      logger.error("[ProcessGame] Missing gameId", { body: req.body });
+      logger.error("[ProcessGame] ❌ CHECKPOINT 4 FAILED: Missing gameId", { body: req.body });
       return res.status(400).json({ 
         error: "Missing required field: gameId",
+        checkpoint: "REQUEST_VALIDATION",
         details: { received: req.body }
       });
     }
 
-    logger.info("[ProcessGame] Fetching game data", { gameId });
+    logger.info("[ProcessGame] Request validated", { gameId, bodyKeys: Object.keys(req.body) });
+
+    // DIAGNOSTIC CHECKPOINT 5: Fetching game from database
+    logger.info("[ProcessGame] ✅ CHECKPOINT 5: Fetching game data", { gameId });
 
     const { data: game, error: gameError } = await supabase
       .from("games")
@@ -59,20 +99,42 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("id", gameId)
       .single();
 
+    logger.info("[ProcessGame] Game query result", { 
+      hasGame: !!game, 
+      error: gameError?.message,
+      gameId: game?.id,
+      videoPath: game?.video_path 
+    });
+
     if (gameError || !game) {
-      logger.error("[ProcessGame] Game not found", { gameId, error: gameError });
+      logger.error("[ProcessGame] ❌ CHECKPOINT 5 FAILED: Game not found", { gameId, error: gameError });
       return res.status(404).json({ 
         error: "Game not found",
+        checkpoint: "GAME_FETCH",
         details: { gameId, dbError: gameError }
       });
     }
 
-    // Construct public R2 URL for Modal worker
+    // DIAGNOSTIC CHECKPOINT 6: Constructing video URL
+    logger.info("[ProcessGame] ✅ CHECKPOINT 6: Constructing video URL");
+    
     let videoUrl = game.video_path;
+    
+    logger.info("[ProcessGame] Video path from DB", { 
+      videoPath: videoUrl,
+      startsWithHttp: videoUrl?.startsWith('http')
+    });
+
     if (videoUrl && !videoUrl.startsWith('http')) {
       const r2Endpoint = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
+      
+      logger.info("[ProcessGame] R2 endpoint check", {
+        hasR2Endpoint: !!r2Endpoint,
+        r2Endpoint: r2Endpoint
+      });
+
       if (!r2Endpoint) {
-        logger.error("[ProcessGame] R2_ENDPOINT not configured", {
+        logger.error("[ProcessGame] ❌ CHECKPOINT 6 FAILED: R2_ENDPOINT not configured", {
           envVars: {
             hasR2Endpoint: !!process.env.NEXT_PUBLIC_R2_ENDPOINT,
             hasR2Domain: !!process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN,
@@ -80,6 +142,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
         return res.status(500).json({ 
           error: "R2 endpoint not configured",
+          checkpoint: "VIDEO_URL_CONSTRUCTION",
           details: { 
             message: "NEXT_PUBLIC_R2_ENDPOINT environment variable is missing",
             envVarsPresent: Object.keys(process.env).filter(k => k.includes('R2'))
@@ -90,25 +153,40 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (!videoUrl) {
-      logger.error("[ProcessGame] No video path", { gameId, game });
+      logger.error("[ProcessGame] ❌ CHECKPOINT 6 FAILED: No video path", { gameId, game });
       return res.status(400).json({ 
         error: "No video file associated with this game",
+        checkpoint: "VIDEO_URL_VALIDATION",
         details: { gameId, videoPath: game.video_path }
       });
     }
 
-    // Verify Modal configuration
+    logger.info("[ProcessGame] Video URL constructed", { videoUrl });
+
+    // DIAGNOSTIC CHECKPOINT 7: Verifying Modal configuration
+    logger.info("[ProcessGame] ✅ CHECKPOINT 7: Verifying Modal configuration");
+    
     const modalUrl = process.env.MODAL_USER_URL;
     const modalToken = process.env.MODAL_AUTH_TOKEN;
     
+    logger.info("[ProcessGame] Modal config check", {
+      hasUrl: !!modalUrl,
+      hasToken: !!modalToken,
+      modalUrl: modalUrl,
+      modalUrlLength: modalUrl?.length,
+      tokenLength: modalToken?.length,
+      allModalEnvVars: Object.keys(process.env).filter(k => k.includes('MODAL'))
+    });
+    
     if (!modalUrl || !modalToken) {
-      logger.error("[ProcessGame] Modal not configured", { 
+      logger.error("[ProcessGame] ❌ CHECKPOINT 7 FAILED: Modal not configured", { 
         hasUrl: !!modalUrl, 
         hasToken: !!modalToken,
         envVars: Object.keys(process.env).filter(k => k.includes('MODAL'))
       });
       return res.status(500).json({ 
         error: "GPU worker not configured",
+        checkpoint: "MODAL_CONFIG",
         details: { 
           message: "MODAL_USER_URL or MODAL_AUTH_TOKEN missing",
           hasUrl: !!modalUrl,
@@ -118,12 +196,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    logger.info(`[ProcessGame] Dispatching to Modal GPU Worker`, { 
-      gameId, 
-      videoUrl,
-      modalUrl,
-      hasToken: !!modalToken
-    });
+    // DIAGNOSTIC CHECKPOINT 8: Preparing Modal request
+    logger.info("[ProcessGame] ✅ CHECKPOINT 8: Preparing Modal request");
 
     const modalPayload = {
       gameId: String(gameId),
@@ -131,9 +205,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       config: req.body.config || {}
     };
 
-    logger.info("[ProcessGame] Modal request payload", modalPayload);
+    const modalEndpoint = `${modalUrl}/process`;
 
-    const response = await fetch(`${modalUrl}/process`, {
+    logger.info("[ProcessGame] Modal request details", { 
+      endpoint: modalEndpoint,
+      payload: modalPayload,
+      hasAuthHeader: !!modalToken
+    });
+
+    // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
+    logger.info("[ProcessGame] ✅ CHECKPOINT 9: Dispatching to Modal GPU Worker");
+
+    const response = await fetch(modalEndpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -143,15 +226,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     const responseText = await response.text();
-    logger.info("[ProcessGame] Modal response", { 
+    
+    logger.info("[ProcessGame] Modal response received", { 
       status: response.status, 
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
-      body: responseText
+      bodyLength: responseText.length,
+      bodyPreview: responseText.substring(0, 200)
     });
 
+    // DIAGNOSTIC CHECKPOINT 10: Processing Modal response
+    logger.info("[ProcessGame] ✅ CHECKPOINT 10: Processing Modal response");
+
     if (!response.ok) {
-      logger.error("[ProcessGame] Modal API error", { 
+      logger.error("[ProcessGame] ❌ CHECKPOINT 10 FAILED: Modal API error", { 
         status: response.status,
         statusText: response.statusText,
         responseBody: responseText,
@@ -159,10 +247,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
       return res.status(500).json({ 
         error: "GPU Worker dispatch failed",
+        checkpoint: "MODAL_RESPONSE",
         details: {
           modalStatus: response.status,
           modalError: responseText,
-          modalUrl: `${modalUrl}/process`,
+          modalUrl: modalEndpoint,
           requestSent: modalPayload
         }
       });
@@ -171,33 +260,41 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     let result;
     try {
       result = JSON.parse(responseText);
-    } catch {
+    } catch (parseError: any) {
+      logger.warn("[ProcessGame] Could not parse Modal response as JSON", { 
+        error: parseError.message,
+        responseText 
+      });
       result = { raw: responseText };
     }
 
-    logger.info("[ProcessGame] GPU processing initiated successfully", { gameId, result });
+    logger.info("[ProcessGame] ✅ SUCCESS: GPU processing initiated", { gameId, result });
+    
     return res.status(200).json({ 
       success: true, 
       message: "GPU processing initiated", 
       result,
       debug: {
         videoUrl,
-        modalEndpoint: `${modalUrl}/process`
+        modalEndpoint,
+        timestamp
       }
     });
 
   } catch (err: any) {
-    logger.error("[ProcessGame] Unexpected error", {
+    logger.error("[ProcessGame] ❌ UNEXPECTED ERROR at unknown checkpoint", {
       error: err.message,
       stack: err.stack,
       name: err.name,
       request: logContext
     });
+    
     return res.status(500).json({ 
       error: "Internal server error",
+      checkpoint: "UNEXPECTED_ERROR",
       details: {
         message: err.message,
-        stack: err.stack,
+        stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
         type: err.name
       }
     });
