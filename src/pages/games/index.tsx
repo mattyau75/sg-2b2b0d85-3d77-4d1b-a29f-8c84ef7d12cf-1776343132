@@ -65,8 +65,12 @@ export default function GamesPage() {
       `)
       .order("created_at", { ascending: false });
 
+    console.log("[GamesPage] Query result:", { data, error, count: data?.length });
+
     if (!error && data) {
       setGames(data);
+    } else if (error) {
+      console.error("[GamesPage] Query error:", error);
     }
     setLoading(false);
   };
