@@ -13,27 +13,32 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // 🛡️ AUTH CHECK: Using standard auth-helpers for Vercel compatibility
+    // This helper automatically looks at cookies for the session
     const supabase = createPagesServerClient({ req, res });
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
-    if (!session) {
-      console.error("[Presign] Unauthorized: No session found in cookies");
-      return res.status(401).json({ error: "Unauthorized access blocked. Tactical ID required." });
+    if (sessionError || !session) {
+      console.error("[Presign] Unauthorized: No session found in cookies", sessionError);
+      return res.status(401).json({ 
+        error: "Unauthorized access blocked. Tactical ID required.",
+        details: sessionError?.message 
+      });
     }
 
     const { fileName } = req.body;
     if (!fileName) return res.status(400).json({ error: "Missing fileName" });
 
+    // 🕒 Resolve environment variables
     const bucketName = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || "videos";
     
     // Create an authorized command for the specific file
     const command = new GetObjectCommand({
-      Bucket: process.env.R2_BUCKET_NAME,
+      Bucket: bucketName,
       Key: fileName,
-      ResponseContentType: "video/mp4", // Force secure content type
+      ResponseContentType: "video/mp4",
     });
 
-    // 🕒 2026 BEST PRACTICE: 60-second high-speed expiration for elite security
+    // 🕒 60-second high-speed expiration for elite security
     const signedUrl = await getSignedUrl(r2Client, command, { expiresIn: 60 });
 
     return res.status(200).json({ url: signedUrl });
