@@ -45,10 +45,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { showBanner } from "@/components/DiagnosticBanner";
+import { rosterService } from "@/services/rosterService";
 
 export default function TeamRoster() {
   const router = useRouter();
-  const { id } = router.query;
+  const teamId = typeof router.query.id === 'string' ? router.query.id : undefined;
+  
   const [team, setTeam] = useState<any>(null);
   const [players, setPlayers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -57,64 +59,51 @@ export default function TeamRoster() {
   const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
   const [newPlayer, setNewPlayer] = useState({ name: "", number: "", position: "" });
 
-  const loadTeam = async () => {
-    if (!id) return;
+  const fetchTeamData = async () => {
+    if (!teamId) return;
+    setLoading(true);
     try {
-      const data = await rosterService.getTeam(id as string);
-      setTeam(data);
-    } catch (error) {
-      console.error("Failed to load team:", error);
+      const { data: teamData, error: teamError } = await supabase
+        .from("teams")
+        .select("*")
+        .eq("id", teamId)
+        .single();
+
+      if (teamError) throw teamError;
+      setTeam(teamData);
+
+      const { data: rosterData, error: rosterError } = await supabase
+        .from("players")
+        .select("*")
+        .eq("team_id", teamId)
+        .order("number", { ascending: true });
+
+      if (rosterError) throw rosterError;
+      setPlayers(rosterData || []);
+    } catch (err) {
+      logger.error("[RosterDetail] Error fetching roster", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (!id) return;
-    
-    const fetchTeamData = async () => {
-      setLoading(true);
-      try {
-        const { data: teamData, error: teamError } = await supabase
-          .from("teams")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (teamError) throw teamError;
-        setTeam(teamData);
-
-        const { data: rosterData, error: rosterError } = await supabase
-          .from("players")
-          .select("*")
-          .eq("team_id", id)
-          .order("jersey_number", { ascending: true });
-
-        if (rosterError) throw rosterError;
-        setPlayers(rosterData);
-      } catch (err) {
-        logger.error("[RosterDetail] Error fetching roster", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchTeamData();
-  }, [id]);
+  }, [teamId]);
 
   const handleAddPlayer = async () => {
-    if (!newPlayer.name || !id) return;
+    if (!newPlayer.name || !teamId) return;
     try {
       await rosterService.createPlayer({
         name: newPlayer.name,
         number: parseInt(newPlayer.number) || 0,
         position: newPlayer.position,
-        team_id: id as string,
+        team_id: teamId,
       });
       showBanner(`${newPlayer.name} is now on the roster.`, "success", "Player Added");
       setIsAddPlayerOpen(false);
       setNewPlayer({ name: "", number: "", position: "" });
-      loadTeam();
+      fetchTeamData();
     } catch (error) {
       showBanner("Failed to add player.", "error", "Error");
     }
@@ -130,7 +119,7 @@ export default function TeamRoster() {
       });
       showBanner(`${selectedPlayer.name} details saved.`, "success", "Player Updated");
       setIsEditPlayerOpen(false);
-      loadTeam();
+      fetchTeamData();
     } catch (error) {
       showBanner("Failed to update player.", "error", "Error");
     }
@@ -197,7 +186,7 @@ export default function TeamRoster() {
                   </div>
                   <div className="flex items-center gap-1.5 text-sm">
                     <Users className="h-4 w-4" />
-                    {team.players?.length || 0} Players
+                    {players.length} Players
                   </div>
                 </div>
               </div>
@@ -272,8 +261,8 @@ export default function TeamRoster() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {team.players?.length > 0 ? (
-                team.players.map((player: any) => (
+              {players.length > 0 ? (
+                players.map((player: any) => (
                   <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
                     <TableCell className="text-center font-mono font-bold text-primary">
                       #{player.number || "--"}

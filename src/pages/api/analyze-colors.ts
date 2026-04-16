@@ -12,8 +12,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 🛡️ SECURITY HANDSHAKE (Corrected Signature)
-    const supabase = createServerClient({ req, res });
+    // 🛡️ SECURITY HANDSHAKE: Aligned with v0.15.0 signature
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -21,17 +25,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     logger.info(`[AnalyzeColors] Starting calibration`, { gameId });
-    // In a production environment, this would call a Modal.com micro-service 
-    // that samples frames from the video and uses k-means clustering to find jersey colors.
-    // We simulate a successful analysis here.
     
     // Simulate processing delay
     await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Mock detected colors: Let's say we found a dominant White and a dominant Navy Blue
+    // Mock detected colors
     const detectedColors = ["#F8FAFC", "#1E293B"];
 
-    // Update the game record with detected colors
     const { error } = await supabase
       .from("games")
       .update({
@@ -41,24 +41,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           color_calibration_at: new Date().toISOString(),
           calibration_confidence: 0.94
         }
-      })
+      } as any)
       .eq("id", gameId);
 
     if (error) throw error;
 
-    // 🚀 SYNC TO HANDSHAKE BRIDGE
     await supabase.from("game_analysis").upsert({
       game_id: gameId.toLowerCase(),
       status: "calibrating",
       progress_percentage: 8,
       status_message: "🎨 COLOR CALIBRATION: Elite jersey colors identified & mapped."
-    }, { onConflict: 'game_id' });
+    } as any, { onConflict: 'game_id' });
 
     return res.status(200).json({ 
       success: true, 
       colors: detectedColors 
     });
   } catch (error: any) {
+    logger.error("[AnalyzeColors] Fatal error", error);
     return res.status(500).json({ message: error.message });
   }
 }

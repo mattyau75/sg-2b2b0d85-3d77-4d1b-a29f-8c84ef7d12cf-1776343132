@@ -9,8 +9,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ error: "Game ID is required" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE (Corrected Signature)
-    const supabase = createServerClient({ req, res });
+    // 🛡️ SECURITY HANDSHAKE: Aligned with v0.15.0 signature
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -19,7 +23,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     logger.info(`[ResetAnalysis] Forcing reset`, { gameId });
 
-    // Atomic reset of all analysis-related fields
     const { error } = await supabase
       .from('games')
       .update({
@@ -37,11 +40,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (error) throw error;
 
-    logger.info(`[ResetAnalysis] System state cleared`, { gameId });
-
     return res.status(200).json({ success: true });
   } catch (error: any) {
-    logger.error("[ResetAnalysis] Fatal error during reset", error);
+    logger.error("[ResetAnalysis] Fatal error", error);
     return res.status(500).json({ error: error.message });
   }
 }

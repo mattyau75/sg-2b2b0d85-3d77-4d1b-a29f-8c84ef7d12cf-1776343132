@@ -4,15 +4,17 @@ import { logger } from "@/lib/logger";
 
 /**
  * Module 1: Roster Preparation API
- * Ensures the player_game_stats table is populated with the rosters for both teams.
- * This is additive: it only adds players that don't already exist for this game.
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE (Corrected Signature)
-    const supabase = createServerClient({ req, res });
+    // 🛡️ SECURITY HANDSHAKE: Aligned with v0.15.0 signature
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -25,7 +27,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ message: "Missing required IDs" });
     }
 
-    // 1. Fetch current rosters from the directory for both teams
+    // 1. Fetch current rosters
     const { data: homePlayers, error: homeError } = await supabase
       .from('players')
       .select('id, team_id')
@@ -40,11 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const fullRoster = [...(homePlayers || []), ...(awayPlayers || [])];
 
-    if (fullRoster.length === 0) {
-      return res.status(200).json({ success: true, message: "No players found in directory to prepare", count: 0 });
-    }
-
-    // 2. Fetch players already in the game's stats table to avoid duplication
+    // 2. Fetch players already in the game's stats table
     const { data: existingStats, error: existingError } = await supabase
       .from('player_game_stats')
       .select('player_id')
@@ -53,19 +51,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (existingError) throw new Error("Failed to check existing game stats");
 
     const existingPlayerIds = new Set(existingStats?.map(s => s.player_id) || []);
-
-    // 3. Filter only NEW players that aren't already in the game
     const newPlayers = fullRoster.filter(p => !existingPlayerIds.has(p.id));
 
     if (newPlayers.length === 0) {
-      return res.status(200).json({ 
-        success: true, 
-        message: "Rosters are already up to date. No new players were added.",
-        count: 0 
-      });
+      return res.status(200).json({ success: true, count: 0 });
     }
 
-    // 4. Prepare entries for new players only
+    // 4. Prepare entries
     const statsEntries = newPlayers.map(p => ({
       game_id: gameId,
       player_id: p.id,
@@ -80,24 +72,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       minutes: 0
     }));
 
-    // Use upsert as a safety measure, though filtering already handled deduplication
     const { error: insertError } = await supabase
       .from('player_game_stats')
-      .upsert(statsEntries, { onConflict: 'game_id,player_id' });
+      .upsert(statsEntries as any, { onConflict: 'game_id,player_id' });
 
     if (insertError) {
       logger.error("[PrepareMapping] Insert Error", insertError);
       throw insertError;
     }
 
-    return res.status(200).json({ 
-      success: true, 
-      message: `Successfully added ${statsEntries.length} new players to the mapping queue.`,
-      count: statsEntries.length 
-    });
+    return res.status(200).json({ success: true, count: statsEntries.length });
 
   } catch (error: any) {
-    console.error("[PrepareMapping] Crash:", error.message);
+    logger.error("[PrepareMapping] Crash", error);
     return res.status(500).json({ message: error.message });
   }
 }

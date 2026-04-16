@@ -1,7 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
-import axios from "axios";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {
@@ -9,8 +8,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // 🛡️ SECURITY HANDSHAKE (Corrected Signature)
-    const supabase = createServerClient({ req, res });
+    // 🛡️ SECURITY HANDSHAKE: Aligned with v0.15.0 signature
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -19,7 +22,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { gameId } = req.body;
 
-    // 1. Get Game Data to resolve video path
     const { data: game, error: gameError } = await supabase
       .from("games")
       .select("*")
@@ -28,26 +30,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (gameError || !game) throw new Error("Game not found");
 
-    // 2. Resolve Video URL (Same logic as UI)
     let videoUrl = game.video_path;
     if (videoUrl && !videoUrl.startsWith('http')) {
       const r2Base = process.env.NEXT_PUBLIC_R2_ENDPOINT?.replace(/\/$/, '');
       const bucket = process.env.NEXT_PUBLIC_R2_BUCKET_NAME || 'videos';
-      
-      // Fix: Strip bucket name from start of path if it's already present
-      const cleanPath = videoUrl.startsWith(`${bucket}/`) 
-        ? videoUrl.replace(`${bucket}/`, '') 
-        : videoUrl;
-        
+      const cleanPath = videoUrl.startsWith(`${bucket}/`) ? videoUrl.replace(`${bucket}/`, '') : videoUrl;
       videoUrl = `${r2Base}/${bucket}/${cleanPath}`;
     }
 
     logger.info(`[Process] Dispatching GPU Worker`, { gameId, videoUrl });
 
-    // 🛡️ SECURITY: Sanitize the payload to prevent injection into the GPU worker
     const sanitizedPayload = {
       gameId: String(gameId).replace(/[^a-zA-Z0-9-]/g, ""),
-      videoUrl: String(videoUrl), // Ensure string type
+      videoUrl: String(videoUrl),
       config: typeof req.body.config === 'object' ? req.body.config : {}
     };
 
@@ -55,8 +50,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.MODAL_AUTH_TOKEN}`,
-        "X-Request-Source": "DribbleStats-Elite-2026"
+        "Authorization": `Bearer ${process.env.MODAL_AUTH_TOKEN}`
       },
       body: JSON.stringify(sanitizedPayload),
     });
@@ -67,10 +61,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
   } catch (error: any) {
-    console.error("[ProcessGame] Error:", error.message);
-    return res.status(500).json({ 
-      error: "Failed to initiate GPU processing",
-      details: error.message 
-    });
+    logger.error("[ProcessGame] Error", error);
+    return res.status(500).json({ error: error.message });
   }
 }
