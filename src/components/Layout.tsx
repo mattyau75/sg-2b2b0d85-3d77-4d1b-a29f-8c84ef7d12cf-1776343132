@@ -76,7 +76,7 @@ export function Layout({ children, title, description }: LayoutProps) {
             ))}
           </nav>
 
-          <div className="mt-auto pt-6 border-t border-border">
+          <div className="mt-auto pt-6 border-t border-border space-y-2">
             <Link
               href="/settings"
               className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-muted/50 transition-all group w-full text-left"
@@ -84,6 +84,14 @@ export function Layout({ children, title, description }: LayoutProps) {
               <Settings className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
               <span className="hidden md:block font-medium text-muted-foreground group-hover:text-foreground">Settings</span>
             </Link>
+            
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-4 px-4 py-3 rounded-xl hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all group w-full text-left"
+            >
+              <LogOut className="h-5 w-5 group-hover:text-destructive transition-colors" />
+              <span className="hidden md:block font-medium group-hover:text-destructive">Sign Out</span>
+            </button>
           </div>
         </div>
       </aside>
