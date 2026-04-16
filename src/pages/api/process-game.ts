@@ -1,5 +1,5 @@
 import { NextApiRequest, NextApiResponse } from "next";
-import { createServerClient } from "@supabase/ssr";
+import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
 import { serialize, parse } from "cookie";
 
@@ -32,25 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // Create Supabase client with proper cookie handling for Next.js API routes
     logger.info("[ProcessGame] ✅ CHECKPOINT 3: Creating Supabase server client");
     
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return Object.keys(req.cookies).map((name) => ({
-              name,
-              value: req.cookies[name] || '',
-            }));
-          },
-          setAll(cookiesToSet) {
-            cookiesToSet.forEach(({ name, value, options }) => {
-              res.setHeader('Set-Cookie', serialize(name, value, options));
-            });
-          },
-        },
-      }
-    );
+    const supabase = createPagesServerClient({ req, res });
 
     logger.info("[ProcessGame] ✅ CHECKPOINT 4: Supabase client created successfully");
 
