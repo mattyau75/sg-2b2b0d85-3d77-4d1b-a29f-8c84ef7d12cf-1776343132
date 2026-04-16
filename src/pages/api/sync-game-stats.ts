@@ -10,7 +10,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!gameId) return res.status(400).json({ message: "Game ID required" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 signature
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -26,8 +25,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
       } as any
     );
+    
     const { data: { session } } = await supabase.auth.getSession();
-
     if (!session) return res.status(401).json({ error: "Unauthorized access blocked." });
 
     logger.info(`[Sync] Tactical sync initiated for ${gameId}`);

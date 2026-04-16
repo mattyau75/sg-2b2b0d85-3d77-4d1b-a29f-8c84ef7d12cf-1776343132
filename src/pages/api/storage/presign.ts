@@ -6,13 +6,13 @@ import { createServerClient } from "@supabase/auth-helpers-nextjs";
 import { logger } from "@/lib/logger";
 
 /**
- * ELITE VIDEO BRIDGE: SECURE PRODUCTION HANDSHAKE
+ * ELITE VIDEO BRIDGE: RE-ENGINEERED PRODUCTION HANDSHAKE
  */
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "POST") return res.status(405).json({ error: "Method not allowed" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 signature
+    // 🛡️ ELITE HANDSHAKE: Align with Next.js 15 + Supabase SSR Production Standards
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -32,7 +32,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      logger.error("[Presign] Unauthorized access attempt - No session found");
+      logger.error("[Presign] Unauthorized access attempt - Handshake failed");
       return res.status(401).json({ error: "Unauthorized access blocked. Tactical ID required." });
     }
 
@@ -54,7 +54,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     return res.status(200).json({ url: signedUrl });
   } catch (err: any) {
-    logger.error("[StoragePresign] Critical Handshake Error", err);
+    logger.error("[StoragePresign] Fatal Handshake Failure", err);
     return res.status(500).json({ error: err.message });
   }
 }
