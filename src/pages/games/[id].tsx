@@ -238,7 +238,7 @@ export default function GameDetail() {
   const handleProcessGame = async () => {
     if (!gameId) return;
     
-    setProcessing(true);
+    setIsProcessing(true);
     
     try {
       const requestBody = {
@@ -289,7 +289,7 @@ export default function GameDetail() {
       const pollInterval = setInterval(async () => {
         const { data, error } = await supabase
           .from("games")
-          .select("processing_status, ai_entities")
+          .select("*")
           .eq("id", gameId)
           .single();
 
@@ -299,22 +299,24 @@ export default function GameDetail() {
           return;
         }
 
-        if (data?.processing_status === "completed") {
+        const gameData = data as any;
+
+        if (gameData?.processing_status === "completed" || gameData?.analysis_status === "completed") {
           clearInterval(pollInterval);
-          setProcessing(false);
-          fetchGame();
+          setIsProcessing(false);
+          loadGameData();
           toast({
             title: "Analysis Complete",
             description: "AI tracking data is now available.",
           });
-        } else if (data?.processing_status === "failed") {
+        } else if (gameData?.processing_status === "failed" || gameData?.analysis_status === "failed") {
           clearInterval(pollInterval);
-          setProcessing(false);
+          setIsProcessing(false);
           logError(
             "GPU Processing",
             500,
             "Modal worker reported failure",
-            { status: data.processing_status },
+            { status: gameData?.processing_status || gameData?.analysis_status },
             requestBody
           );
         }
@@ -323,7 +325,7 @@ export default function GameDetail() {
       // Stop polling after 5 minutes
       setTimeout(() => {
         clearInterval(pollInterval);
-        setProcessing(false);
+        setIsProcessing(false);
       }, 300000);
 
     } catch (err: any) {
@@ -342,7 +344,7 @@ export default function GameDetail() {
         variant: "destructive",
       });
     } finally {
-      setProcessing(false);
+      setIsProcessing(false);
     }
   };
 
