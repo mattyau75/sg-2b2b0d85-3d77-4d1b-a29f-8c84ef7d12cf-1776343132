@@ -2,7 +2,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { r2Client } from "@/lib/r2Client";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { createPagesServerClient } from "@supabase/auth-helpers-nextjs";
+import { createServerClient, serializeCookie } from "@supabase/auth-helpers-nextjs";
 
 /**
  * DUAL-PURPOSE PRESIGN API:
@@ -13,8 +13,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     // 🛡️ AUTH CHECK: Using standard auth-helpers for Vercel compatibility
-    // This helper automatically looks at cookies for the session
-    const supabase = createPagesServerClient({ req, res });
+    const supabase = createServerClient({ req, res });
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError || !session) {
