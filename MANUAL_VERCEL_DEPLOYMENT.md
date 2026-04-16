@@ -26,18 +26,11 @@ Copy and paste these exact key/value pairs into your Vercel Project Settings (Se
 
 ## ☁️ Cloudflare R2 Storage
 
-⚠️ **R2 API tokens must be regenerated** - Get fresh credentials from Cloudflare:
-
-1. Go to **dash.cloudflare.com** → **R2** → **Manage R2 API Tokens**
-2. **Create new token** → Name: "DribbleStats Production"
-3. Permissions: **Object Read & Write**, Scope: `videos` bucket
-4. Copy the credentials and add to Vercel:
-
 | Key | Value |
 | :--- | :--- |
 | `R2_ACCOUNT_ID` | `a7732b05eed44346d0b8d0e6edd40ad3` |
-| `R2_ACCESS_KEY_ID` | `[PASTE NEW ACCESS KEY FROM CLOUDFLARE]` |
-| `R2_SECRET_ACCESS_KEY` | `[PASTE NEW SECRET KEY FROM CLOUDFLARE]` |
+| `R2_ACCESS_KEY_ID` | `3fa13e87d5ff7e84a5b1d16f01d66ebe` |
+| `R2_SECRET_ACCESS_KEY` | `aa93bbcc42b12b8f4e1c1f2b942edf9e4c3d20f99a797c05ace73de6e1c6c6ab` |
 | `NEXT_PUBLIC_R2_BUCKET_NAME` | `videos` |
 | `R2_ENDPOINT` | `https://a7732b05eed44346d0b8d0e6edd40ad3.r2.cloudflarestorage.com` |
 | `NEXT_PUBLIC_R2_ENDPOINT` | `https://pub-fa42028a0f9146ecb0d848e7abcbbe01.r2.dev` |
