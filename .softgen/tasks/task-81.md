@@ -18,6 +18,6 @@ Finalizing the production bridge for dribblestats.com.au. Ensures SSL is active,
 - [x] Verify CNAME Record (cname.vercel-dns.com) for www.dribblestats.com.au
 - [x] Update Supabase Auth Site URL to https://dribblestats.com.au
 - [x] Update Supabase Auth Redirect URLs to include https://dribblestats.com.au/**
-- [ ] Verify GitHub Repository Sync (Softgen -> GitHub)
+- [ ] Verify GitHub Repository Sync (Softgen -> GitHub) - **STALLED: Awaiting User Push**
 - [ ] Verify Vercel Production Build (GitHub -> Vercel)
 - [ ] Test production login flow on the live domain
