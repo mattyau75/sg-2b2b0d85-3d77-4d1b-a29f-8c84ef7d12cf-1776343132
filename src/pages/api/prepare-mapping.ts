@@ -6,8 +6,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (req.method !== "POST") return res.status(405).json({ message: "Method not allowed" });
 
   try {
-    // 🛡️ SECURITY HANDSHAKE: Standardized 1-arg signature for Pages Router
-    const supabase = createServerClient({ req, res });
+    // 🛡️ SECURITY HANDSHAKE: Align with specific auth-helpers v0.15 signature
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { req, res }
+    );
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
