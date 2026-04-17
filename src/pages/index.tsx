@@ -142,6 +142,33 @@ export default function Dashboard() {
     router.push("/login");
   };
 
+  const handleStartAnalysis = async (gameId: string) => {
+    try {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session?.access_token 
+        ? { Authorization: `Bearer ${session.access_token}` } 
+        : {};
+
+      await axios.post('/api/process-game', { gameId }, { headers });
+      
+      toast({
+        title: "Analysis Initiated",
+        description: "The GPU cluster is waking up. Check the game detail for the live trace.",
+      });
+      fetchDashboardData();
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message;
+      toast({
+        title: "Analysis Failed",
+        description: errorMsg,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Layout title="Dashboard | DribbleStats AI Elite">
       <div className="space-y-8 pb-20">
@@ -284,9 +311,20 @@ export default function Dashboard() {
                       <div key={i} className="space-y-3 p-4 rounded-xl bg-white/5 border border-white/5">
                         <div className="flex justify-between items-center">
                           <span className="text-[10px] font-mono font-bold uppercase truncate w-32">{job.name}</span>
-                          <Badge variant="outline" className={cn("text-[8px] uppercase tracking-tighter", config.color)}>
-                            {config.label}
-                          </Badge>
+                          <div className="flex gap-2">
+                            {job.status === 'pending' && (
+                              <Button 
+                                size="sm" 
+                                className="h-6 text-[8px] bg-primary hover:bg-primary/80"
+                                onClick={() => handleStartAnalysis(job.id)}
+                              >
+                                Run AI Analysis
+                              </Button>
+                            )}
+                            <Badge variant="outline" className={cn("text-[8px] uppercase tracking-tighter", config.color)}>
+                              {config.label}
+                            </Badge>
+                          </div>
                         </div>
                         <div className="h-1 w-full bg-white/10 rounded-full overflow-hidden">
                           <div 

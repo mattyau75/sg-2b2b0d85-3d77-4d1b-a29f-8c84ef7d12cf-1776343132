@@ -74,9 +74,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // DIAGNOSTIC CHECKPOINT 7: Verifying Modal configuration
-    const rawModalUrl = process.env.MODAL_USER_URL || "";
-    const modalUrl = rawModalUrl.replace(/['"]+/g, "").trim().replace(/\/+$/, "");
+    const rawModalUrl = process.env.MODAL_USER_URL || process.env.MODAL_URL || "";
+    let modalUrl = rawModalUrl.replace(/['"]+/g, "").trim().replace(/\/+$/, "");
     
+    // Ensure we have the correct sub-route if needed
+    if (!modalUrl.endsWith('/analyze')) {
+      modalUrl = `${modalUrl}/analyze`;
+    }
+
     const rawModalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY || "";
     const modalToken = rawModalToken.replace(/['"]+/g, "").trim();
 
@@ -84,8 +89,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       logger.error("[ProcessGame] ❌ GPU worker config missing", { hasUrl: !!modalUrl, hasToken: !!modalToken });
       return res.status(500).json({ error: "GPU worker not configured in environment variables" });
     }
-
-    const modalEndpoint = modalUrl.includes('-analyze') ? modalUrl : `${modalUrl}/analyze`;
 
     // DIAGNOSTIC CHECKPOINT 8: Preparing Modal request
     logger.info("[ProcessGame] ✅ CHECKPOINT 8: Preparing Modal request");
@@ -98,14 +101,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     logger.info("[ProcessGame] 🚀 DISPATCHING TO GPU", { 
       gameId, 
-      endpoint: modalEndpoint,
-      payload_keys: Object.keys(modalPayload)
+      endpoint: modalUrl,
+      payload: modalPayload
     });
 
     // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
-    logger.info("[ProcessGame] 🚀 DISPATCHING HEARTBEAT TO GPU", { gameId, endpoint: modalEndpoint });
+    logger.info("[ProcessGame] 🚀 DISPATCHING HEARTBEAT TO GPU", { gameId, endpoint: modalUrl });
     
-    const response = await fetch(modalEndpoint, {
+    const response = await fetch(modalUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -137,7 +140,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true, 
       message: "GPU processing initiated", 
       result: responseData,
-      debug: { videoUrl, modalEndpoint, timestamp }
+      debug: { videoUrl, modalUrl, timestamp }
     });
 
   } catch (err: any) {
