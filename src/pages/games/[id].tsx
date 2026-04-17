@@ -42,6 +42,7 @@ export default function GameDetail() {
   const [showTeamsModal, setShowTeamsModal] = useState(false);
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isErrorMonitorOpen, setIsErrorMonitorOpen] = useState(false);
 
   // Stage Verifications
   const [stagesVerified, setStagesVerified] = useState({
@@ -75,7 +76,6 @@ export default function GameDetail() {
       if (error) throw error;
       setGame(data);
 
-      // Load persisted stage verification states
       setStagesVerified({
         setup: data.setup_verified || false,
         analysis: data.analysis_verified || false,
@@ -83,38 +83,25 @@ export default function GameDetail() {
         finalize: data.finalize_verified || false
       });
 
-      // 🎥 SIMPLIFIED PUBLIC R2 VIDEO URL - NO AUTH COMPLEXITY
       if (data.video_path) {
         const r2PublicDomain = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN;
         const r2Endpoint = process.env.NEXT_PUBLIC_R2_ENDPOINT;
-        
-        // Use the video_path as-is - it already contains the full path structure (e.g., "videos/filename.mp4")
         const videoPath = data.video_path;
 
-        // Construct public URL
         let publicUrl;
         if (r2PublicDomain) {
-          // Custom domain (e.g., videos.dribblestats.com.au)
           publicUrl = `https://${r2PublicDomain}/${videoPath}`;
         } else if (r2Endpoint) {
-          // R2.dev public URL - Use full path including folder structure
           publicUrl = `${r2Endpoint.replace(/\/$/, '')}/${videoPath}`;
         } else {
           logger.error("[GameDetail] No R2 public URL configured");
-          toast({ 
-            title: "Video Configuration Error", 
-            description: "R2 public domain not configured. Check environment variables.",
-            variant: "destructive"
-          });
           return;
         }
-
-        logger.info(`[GameDetail] 🎥 Direct R2 Public URL: ${publicUrl}`);
         setVideoUrl(publicUrl);
       }
     } catch (error: any) {
-      console.error("Fetch failed:", error);
-      toast({ title: "Sync Error", description: error.message, variant: "destructive" });
+      logger.error("Fetch failed:", error);
+      logError("/api/games", 500, error.message, error);
     } finally {
       setLoading(false);
     }
@@ -137,7 +124,7 @@ export default function GameDetail() {
         setAwayRoster(away || []);
       }
     } catch (err) {
-      console.error("Mapping data fetch failed:", err);
+      logger.error("Mapping data fetch failed:", err);
     }
   };
 
@@ -150,7 +137,6 @@ export default function GameDetail() {
   const toggleStageVerify = async (stage: keyof typeof stagesVerified) => {
     const isCurrentlyVerified = stagesVerified[stage];
     
-    // 🛡️ DEPENDENCY CHECK: Block unverification if NEXT stage is already verified or active
     if (isCurrentlyVerified) {
       const stageOrder: (keyof typeof stagesVerified)[] = ['setup', 'analysis', 'mapping', 'finalize'];
       const currentIndex = stageOrder.indexOf(stage);
@@ -165,7 +151,6 @@ export default function GameDetail() {
         return;
       }
 
-      // Also block if AI is currently analyzing for Step 02
       if (stage === 'setup' && game?.processing_status === 'analyzing') {
         toast({
           title: "Action Blocked",
@@ -179,10 +164,8 @@ export default function GameDetail() {
     const newValue = !isCurrentlyVerified;
     
     try {
-      // 1. Update UI immediately (Optimistic)
       setStagesVerified(prev => ({ ...prev, [stage]: newValue }));
 
-      // 2. Persist to Database with explicit keys to satisfy TypeScript
       const updateData: any = {};
       if (stage === 'setup') updateData.setup_verified = newValue;
       if (stage === 'analysis') updateData.analysis_verified = newValue;
@@ -201,148 +184,30 @@ export default function GameDetail() {
         description: `Progress permanently saved for ${stage} module.`,
       });
     } catch (err: any) {
-      // Rollback on error
       setStagesVerified(prev => ({ ...prev, [stage]: isCurrentlyVerified }));
-      toast({
-        title: "Persistence Failed",
-        description: err.message,
-        variant: "destructive"
-      });
+      logError("Update Stage", 500, err.message, err);
     }
   };
 
   const handleStartProcess = async () => {
-    setIsProcessing(true);
-    try {
-      await axios.post('/api/process-game', { gameId: gameId });
-      toast({ title: "AI Process Started", description: "The scouting worker has been triggered." });
-    } catch (err: any) {
-      toast({ title: "Process Failed", description: err.message, variant: "destructive" });
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const handleStartAnalysis = async () => {
     if (!stagesVerified.setup) {
-      toast({ 
-        title: "Setup Required", 
-        description: "Please verify Step 01 (Setup & Calibration) before starting GPU analysis.",
-        variant: "destructive"
-      });
+      showBanner("Step 01 (Setup) must be verified before starting AI analysis.", "warning", "PRE-FLIGHT BLOCKED");
       return;
     }
-    handleStartProcess();
-  };
 
-  const handleProcessGame = async () => {
-    if (!gameId) return;
-    
     setIsProcessing(true);
+    const requestBody = { gameId: gameId };
     
     try {
-      const requestBody = {
-        gameId,
-        config: {
-          enable_tracking: true,
-          enable_stats: true,
-        }
-      };
-
-      logger.info("[GameDetail] Starting GPU Analysis", requestBody);
-
-      const response = await fetch("/api/process-game", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        // Log detailed error
-        logError(
-          "/api/process-game",
-          response.status,
-          responseData.error || "GPU Analysis failed",
-          responseData,
-          requestBody,
-          responseData.stack
-        );
-
-        toast({
-          title: "GPU Analysis Failed",
-          description: responseData.error || "See error monitor for details",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      logger.info("[GameDetail] GPU Analysis initiated successfully", responseData);
-
-      toast({
-        title: "GPU Analysis Initiated",
-        description: "AI processing started. Results will appear in real-time.",
-      });
-
-      // Start polling for results
-      const pollInterval = setInterval(async () => {
-        const { data, error } = await supabase
-          .from("games")
-          .select("*")
-          .eq("id", gameId)
-          .single();
-
-        if (error) {
-          logger.error("[GameDetail] Polling error", error);
-          clearInterval(pollInterval);
-          return;
-        }
-
-        const gameData = data as any;
-
-        if (gameData?.processing_status === "completed" || gameData?.analysis_status === "completed") {
-          clearInterval(pollInterval);
-          setIsProcessing(false);
-          loadGameData();
-          toast({
-            title: "Analysis Complete",
-            description: "AI tracking data is now available.",
-          });
-        } else if (gameData?.processing_status === "failed" || gameData?.analysis_status === "failed") {
-          clearInterval(pollInterval);
-          setIsProcessing(false);
-          logError(
-            "GPU Processing",
-            500,
-            "Modal worker reported failure",
-            { status: gameData?.processing_status || gameData?.analysis_status },
-            requestBody
-          );
-        }
-      }, 3000);
-
-      // Stop polling after 5 minutes
-      setTimeout(() => {
-        clearInterval(pollInterval);
-        setIsProcessing(false);
-      }, 300000);
-
+      const res = await axios.post('/api/process-game', requestBody);
+      showBanner("GPU Analysis Engine Dispatched Successfully", "success", "ANALYSIS INITIATED");
+      loadGameData();
     } catch (err: any) {
-      logger.error("[GameDetail] GPU Analysis error", err);
-      logError(
-        "/api/process-game",
-        0,
-        err.message || "Network error",
-        undefined,
-        { gameId },
-        err.stack
-      );
-      toast({
-        title: "Network Error",
-        description: "Failed to connect to GPU worker. Check console for details.",
-        variant: "destructive",
-      });
+      const errorMsg = err.response?.data?.error || err.message;
+      const status = err.response?.status || 500;
+      
+      logError("/api/process-game", status, errorMsg, err.response?.data, requestBody);
+      showBanner(`AI Dispatch Failure: ${errorMsg}`, "error", "GPU CRITICAL 401/500");
     } finally {
       setIsProcessing(false);
     }
@@ -351,9 +216,8 @@ export default function GameDetail() {
   if (loading) return <Layout><div className="flex items-center justify-center h-screen"><RefreshCw className="w-8 h-8 animate-spin text-primary" /></div></Layout>;
 
   return (
-    <Layout>
+    <Layout title={`Game Details | ${game.home_team?.name} vs ${game.away_team?.name}`}>
       <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
-        {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-secondary/20 p-6 rounded-2xl border border-white/5">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
@@ -367,6 +231,18 @@ export default function GameDetail() {
           </div>
           
           <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className={cn(
+                "gap-2 border-destructive/50 text-destructive hover:bg-destructive/10",
+                errors.length > 0 && "animate-pulse border-destructive"
+              )}
+              onClick={() => setIsErrorMonitorOpen(true)}
+            >
+              <AlertCircle className="h-4 w-4" />
+              Logs ({errors.length})
+            </Button>
             <Button variant="outline" size="sm" onClick={() => router.back()}>Back to Queue</Button>
             <Button size="sm" className="gap-2" onClick={handleStartProcess} disabled={isProcessing}>
               <PlayCircle className={cn("w-4 h-4", isProcessing && "animate-pulse")} />
@@ -403,7 +279,7 @@ export default function GameDetail() {
                 title="02. AI GPU Analysis" 
                 status={stagesVerified.analysis ? "complete" : (game?.processing_status === 'analyzing' ? "processing" : "pending")}
                 description="Heavy GPU inference for player tracking."
-                onAction={handleStartAnalysis}
+                onAction={handleStartProcess}
                 disabled={!stagesVerified.setup}
                 isVerified={stagesVerified.analysis}
                 onVerify={() => toggleStageVerify('analysis')}
@@ -515,9 +391,11 @@ export default function GameDetail() {
       )}
 
       <ErrorMonitor 
-        errors={errors}
-        onDismiss={dismissError}
-        onDismissAll={dismissAll}
+        errors={errors} 
+        onDismiss={dismissError} 
+        onDismissAll={dismissAll} 
+        isOpen={isErrorMonitorOpen}
+        onToggle={() => setIsErrorMonitorOpen(!isErrorMonitorOpen)}
       />
     </Layout>
   );
