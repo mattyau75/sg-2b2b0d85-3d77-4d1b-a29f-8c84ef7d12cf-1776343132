@@ -40,6 +40,8 @@ import { ErrorMonitor } from "@/components/ErrorMonitor";
 import { useErrorMonitor } from "@/hooks/useErrorMonitor";
 import { WorkerLogs } from "@/components/WorkerLogs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { BoxScore } from "@/components/BoxScore";
+import { PlayByPlayFeed } from "@/components/PlayByPlayFeed";
 
 export default function GameDetail() {
   const router = useRouter();
@@ -237,17 +239,17 @@ export default function GameDetail() {
 
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           <div className="xl:col-span-2 space-y-6">
-            <Card className="bg-black border-white/10 overflow-hidden rounded-2xl shadow-2xl relative">
-              <div className="aspect-video bg-muted flex items-center justify-center">
-                {videoUrl ? (
-                  <VideoPlayer videoUrl={videoUrl} />
-                ) : (
+            <Card className="glass-card border-none overflow-hidden aspect-video relative group">
+              {videoUrl ? (
+                <VideoPlayer videoUrl={videoUrl} />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-muted/5">
                   <div className="text-center space-y-4">
                     <Video className="w-12 h-12 text-muted-foreground mx-auto" />
                     <p className="text-muted-foreground">Video stream pending...</p>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </Card>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -261,37 +263,25 @@ export default function GameDetail() {
                     <ShotChart shots={[]} />
                  </CardContent>
                </Card>
-               <Card className="glass-card border-none">
-                  <CardHeader>
-                    <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                      <Target className="h-4 w-4 text-primary" /> Efficiency Clusters
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="h-64 flex items-center justify-center text-muted-foreground text-xs uppercase tracking-widest">
-                    Awaiting Mapping Completion
-                  </CardContent>
-               </Card>
+               
+               <PlayByPlayFeed gameId={gameId as string} />
             </div>
           </div>
 
           <div className="space-y-6">
-             <Card className="glass-card border-none min-h-[600px]">
+             <BoxScore gameId={gameId as string} />
+             
+             <Card className="glass-card border-none">
                 <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-                      <BarChart3 className="h-4 w-4 text-primary" /> Live Box Score
-                    </span>
-                    <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">AI Mapped</Badge>
+                  <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                    <Users className="h-4 w-4 text-primary" /> AI Mapping
                   </CardTitle>
+                  <CardDescription className="text-[10px] font-mono">
+                    Connect AI-detected jerseys to roster identities
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="p-0">
-                   <div className="p-12 text-center space-y-4">
-                      <div className="h-16 w-16 bg-white/5 rounded-full mx-auto flex items-center justify-center">
-                        <Activity className="h-8 w-8 text-muted-foreground/20" />
-                      </div>
-                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Awaiting First Stat Batch</p>
-                      <p className="text-[10px] text-muted-foreground/40 italic">Open the AI HUD above to track analysis progress.</p>
-                   </div>
+                <CardContent>
+                  <MappingDashboard gameId={gameId as string} />
                 </CardContent>
              </Card>
           </div>

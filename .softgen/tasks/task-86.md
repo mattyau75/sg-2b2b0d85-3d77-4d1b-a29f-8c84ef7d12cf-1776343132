@@ -13,9 +13,9 @@ position: 86
 Create the elite scouting interface for viewing AI-generated statistics and mapping AI-detected players to roster identities.
 
 ## Checklist:
-- [ ] Create BoxScore.tsx component with traditional basketball stats table
-- [ ] Build PlayByPlayFeed.tsx for chronological event stream
-- [ ] Enhance MappingDashboard.tsx with drag-drop or select-based mapping
-- [ ] Integrate all components into the Game Detail page
-- [ ] Add real-time data fetching from play_by_play and box_scores tables
-- [ ] Style with premium dark theme matching the elite aesthetic
+- [x] Create BoxScore.tsx component with traditional basketball stats table
+- [x] Build PlayByPlayFeed.tsx for chronological event stream
+- [x] Enhance MappingDashboard.tsx with drag-drop or select-based mapping
+- [x] Integrate all components into the Game Detail page
+- [x] Add real-time data fetching from play_by_play and box_scores tables
+- [x] Style with premium dark theme matching the elite aesthetic
