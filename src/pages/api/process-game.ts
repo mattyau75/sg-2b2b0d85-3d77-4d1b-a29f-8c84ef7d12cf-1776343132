@@ -85,8 +85,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rawModalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY || "";
     const modalToken = rawModalToken.replace(/['"]+/g, "").trim();
 
-    if (!modalUrl || !modalToken) {
-      logger.error("[ProcessGame] ❌ GPU worker config missing", { hasUrl: !!modalUrl, hasToken: !!modalToken });
+    if (!modalEndpoint || !modalToken) {
+      logger.error("[ProcessGame] ❌ GPU worker config missing", { hasUrl: !!modalEndpoint, hasToken: !!modalToken });
       return res.status(500).json({ error: "GPU worker not configured in environment variables" });
     }
 
@@ -101,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     logger.info("[ProcessGame] 🚀 DISPATCHING TO GPU", { 
       gameId, 
-      endpoint: modalUrl,
+      endpoint: modalEndpoint,
       payload: modalPayload
     });
 
@@ -143,7 +143,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       success: true, 
       message: "GPU processing initiated", 
       result: responseData,
-      debug: { videoUrl, modalUrl, timestamp }
+      debug: { videoUrl, modalEndpoint, timestamp }
     });
 
   } catch (err: any) {
