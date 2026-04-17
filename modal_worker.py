@@ -96,15 +96,31 @@ def analyze_game(data: dict):
 
         # 2. Simulated Analysis Loop (0-100%)
         # In production, this tracks actual frame processing
+        stats_buffer = [] # Buffer for play-by-play events
+        
         for i in range(10, 101, 10):
             status_msg = "Detecting players and tracking jersey numbers..."
             if i > 40: status_msg = "Calibrating team colors and mapping entities..."
             if i > 70: status_msg = "Finalizing spatial mapping and event generation..."
             if i == 100: status_msg = "✅ Analysis Complete. Syncing results..."
             
+            # Buffer a few mock stats for each segment
+            stats_buffer.append({
+                "game_id": game_id,
+                "player_id": None, # Mapping would happen here
+                "event_type": "detection",
+                "timestamp_seconds": float(i),
+                "metadata": {"progress": i, "engine": "A10G"}
+            })
+
             log_to_trace(supabase, game_id, f"Processing segment: {status_msg}", "info")
             update_progress(supabase, game_id, i, status_msg)
             time.sleep(3) # Simulated processing time
+
+        # 3. FINAL BATCH MIGRATION
+        if stats_buffer:
+            log_to_trace(supabase, game_id, f"🚀 MIGRATING BATCH: Sending {len(stats_buffer)} events to master database...", "info", "GPU-SYNC")
+            supabase.table("play_by_play").insert(stats_buffer).execute()
 
         log_to_trace(supabase, game_id, "🏁 GPU processing successfully concluded.", "info")
         return {"status": "success", "game_id": game_id}

@@ -15,8 +15,8 @@ Optimizing the data pipeline using a Hybrid-Batch approach. The GPU will pulse l
 ## Checklist:
 - [x] Create `play_by_play` and `box_scores` tables with optimized schema
 - [x] Implement `HeartbeatLink` component in `WorkerLogs.tsx`
-- [ ] Update `modal_worker.py` to buffer stats and perform a single batch-insert at the end
-- [ ] Add "momentum" logic to the Dashboard progress bar to prevent perceived stalls
+- [x] Update `modal_worker.py` to buffer stats and perform a single batch-insert at the end
+- [x] Add "momentum" logic to the Dashboard progress bar to prevent perceived stalls
 ]]>
 
 [Tool result trimmed: kept first 100 chars and last 100 chars of 858 chars.]

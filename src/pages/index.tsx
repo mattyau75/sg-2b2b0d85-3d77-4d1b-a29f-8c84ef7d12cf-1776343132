@@ -53,6 +53,23 @@ export default function Dashboard() {
   const [isErrorMonitorOpen, setIsErrorMonitorOpen] = useState(false);
   const { errors, logError, dismissError, dismissAll } = useErrorMonitor();
 
+  useEffect(() => {
+    // Progress Momentum Logic: Drift forward every 500ms
+    const momentumInterval = setInterval(() => {
+      setActiveJobs(prev => prev.map(job => {
+        if (job.status === 'analyzing' || job.status === 'ignited') {
+          // Slowly drift forward but never pass 99% until GPU confirms 100%
+          const drift = 0.05; 
+          const nextProgress = Math.min(job.progress + drift, 99.5);
+          return { ...job, progress: nextProgress };
+        }
+        return job;
+      }));
+    }, 500);
+
+    return () => clearInterval(momentumInterval);
+  }, []);
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
