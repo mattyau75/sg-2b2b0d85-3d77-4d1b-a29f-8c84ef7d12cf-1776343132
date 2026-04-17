@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
 // Read from environment variables and trim whitespace to prevent ERR_NAME_NOT_RESOLVED
-const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "https://hoqnqzghpkppewhhxrfv.supabase.co").trim();
 const SUPABASE_PUBLISHABLE_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
@@ -17,6 +17,6 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 }
 
 export const supabase = createClient<Database>(
-  SUPABASE_URL || 'https://placeholder.supabase.co', 
+  SUPABASE_URL, 
   SUPABASE_PUBLISHABLE_KEY || 'placeholder'
 );
