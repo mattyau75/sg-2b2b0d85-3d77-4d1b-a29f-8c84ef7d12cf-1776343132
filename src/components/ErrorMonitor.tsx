@@ -70,11 +70,11 @@ export function ErrorMonitor({ errors, onDismiss, onDismissAll, isOpen, onToggle
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center gap-2">
                           <Badge variant="outline" className="text-[8px] border-destructive/50 text-destructive">
-                            {error.statusCode}
+                            {error.status}
                           </Badge>
                           <span className="text-[10px] font-mono text-muted-foreground">{error.endpoint}</span>
                         </div>
-                        <p className="text-xs font-medium text-destructive">{error.message}</p>
+                        <p className="text-xs font-medium text-destructive">{error.error}</p>
                         <p className="text-[10px] text-muted-foreground font-mono">
                           {new Date(error.timestamp).toLocaleTimeString()}
                         </p>
