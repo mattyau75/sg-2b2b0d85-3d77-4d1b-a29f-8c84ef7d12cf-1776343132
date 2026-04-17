@@ -128,12 +128,21 @@ def analyze(data: dict):
     if supabase_url and supabase_key:
         try:
             supabase = create_client(supabase_url, supabase_key)
-            log_to_trace(supabase, game_id, "💓 GPU HEARTBEAT: Analysis Cluster Acknowledged.", "info", "GPU-CORE")
-        except:
-            pass
+            # Log the connection established event
+            log_to_trace(supabase, game_id, "🚀 GPU CLUSTER HANDSHAKE: Connection Established.", "info", "GPU-CORE")
+            
+            # Update analysis record
+            supabase.table("game_analysis").upsert({
+                "game_id": game_id,
+                "status": "analyzing",
+                "status_message": "GPU cluster waking up...",
+                "progress_percentage": 5,
+                "updated_at": datetime.utcnow().isoformat()
+            }, on_conflict=["game_id"]).execute()
+        except Exception as e:
+            print(f"⚠️ Heartbeat Pulse Error: {e}")
 
-    # Start the actual analysis in the background/asynchronously if possible
-    # but for now, we return the ACK to the caller immediately
+    # Start the actual analysis in the background
     analyze_game.spawn(data)
     
     return {

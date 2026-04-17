@@ -41,6 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     // 4. PRE-IGNITION: Update status to prevent frontend timeout
+    // This ensures the UI stays "warm" while the GPU cluster wakes up
     await supabase
       .from("games")
       .update({ 
@@ -51,19 +52,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .eq("id", gameId);
 
     // 5. Industrial Standard URL Construction
+    // WE USE THE RAW URL - NO GUESSING - NO SUFFIX ADDING
     const rawModalUrl = (process.env.MODAL_USER_URL || "").trim();
     if (!rawModalUrl) {
+      logger.error("[ProcessGame] ❌ MODAL_USER_URL not configured");
       return res.status(500).json({ error: "MODAL_USER_URL not configured" });
     }
 
-    // Standardize: Strip quotes, strip trailing slash, ensure single /analyze suffix
-    const cleanBaseUrl = rawModalUrl.replace(/['"]+/g, "").replace(/\/+$/, "").replace(/\/analyze$/, "");
-    const modalEndpoint = `${cleanBaseUrl}/analyze`;
+    // Clean only quotes and trailing slashes
+    const modalEndpoint = rawModalUrl.replace(/['"]+/g, "").replace(/\/+$/, "");
 
     const rawModalToken = (process.env.MODAL_AUTH_TOKEN || "").trim();
     const modalToken = rawModalToken.replace(/['"]+/g, "");
 
     if (!modalToken) {
+      logger.error("[ProcessGame] ❌ MODAL_AUTH_TOKEN not configured");
       return res.status(500).json({ error: "MODAL_AUTH_TOKEN not configured" });
     }
 
@@ -110,13 +113,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    const responseData = JSON.parse(responseText);
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: "GPU cluster acknowledged request", 
-      result: responseData 
-    });
+    // 7. Success - GPU cluster has acknowledged the task
+    try {
+      const responseData = JSON.parse(responseText);
+      return res.status(200).json({ 
+        success: true, 
+        message: "GPU cluster acknowledged request", 
+        result: responseData 
+      });
+    } catch (e) {
+      // Fallback for non-JSON responses that are still OK
+      return res.status(200).json({ 
+        success: true, 
+        message: "GPU cluster acknowledged request", 
+        rawResult: responseText 
+      });
+    }
 
   } catch (err: any) {
     logger.error("[ProcessGame] ❌ UNEXPECTED ERROR", { error: err.message });

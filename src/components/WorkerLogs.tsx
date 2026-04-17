@@ -17,27 +17,30 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
   const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'active' | 'timeout'>('waiting');
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const fetchLogs = async () => {
+    const { data } = await supabase
+      .from('game_events')
+      .select('*')
+      .eq('game_id', gameId)
+      .order('timestamp_ms', { ascending: true });
+    
+    if (data && data.length > 0) {
+      setLogs(data);
+      setConnectionStatus('active');
+    }
+  };
+
   useEffect(() => {
     if (!gameId) return;
     
+    // Initial fetch
+    fetchLogs();
+
     // Set a timeout to show a warning if no handshake arrives
     // We increase this slightly as GPU boot-up can take time
     const timer = setTimeout(() => {
       if (logs.length === 0) setConnectionStatus('timeout');
     }, 45000); 
-
-    // Fetch initial logs
-    const fetchLogs = async () => {
-      const { data } = await supabase
-        .from('game_events')
-        .select('*')
-        .eq('game_id', gameId)
-        .order('timestamp_ms', { ascending: true });
-      
-      if (data) setLogs(data);
-    };
-
-    fetchLogs();
 
     // Subscribe to real-time pulses
     const channel = supabase
