@@ -14,10 +14,16 @@ interface WorkerLog {
 
 export function WorkerLogs({ gameId }: { gameId: string }) {
   const [logs, setLogs] = useState<WorkerLog[]>([]);
+  const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'active' | 'timeout'>('waiting');
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!gameId) return;
+    
+    // Set a timeout to show a warning if no handshake arrives
+    const timer = setTimeout(() => {
+      if (logs.length === 0) setConnectionStatus('timeout');
+    }, 20000);
 
     // Fetch initial logs
     const fetchLogs = async () => {
@@ -64,13 +70,34 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
         </div>
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-1">
-             <div className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-             <span className="text-[9px] text-accent uppercase font-black">GPU Link Active</span>
+             <div className={cn(
+               "h-1.5 w-1.5 rounded-full animate-pulse",
+               connectionStatus === 'active' ? "bg-accent" : 
+               connectionStatus === 'timeout' ? "bg-red-500" : "bg-yellow-500"
+             )} />
+             <span className={cn(
+               "text-[9px] uppercase font-black",
+               connectionStatus === 'active' ? "text-accent" : 
+               connectionStatus === 'timeout' ? "text-red-500" : "text-yellow-500"
+             )}>
+               {connectionStatus === 'active' ? "GPU Link Active" : 
+                connectionStatus === 'timeout' ? "Handshake Timeout" : "Awaiting Handshake"}
+             </span>
            </div>
         </div>
       </div>
       
       <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-1 custom-scrollbar">
+        {connectionStatus === 'timeout' && logs.length === 0 && (
+          <div className="bg-red-500/10 border border-red-500/20 rounded p-3 mb-4 text-red-400">
+            <p className="font-bold mb-1">⚠️ HANDSHAKE TIMEOUT</p>
+            <p className="text-[10px] opacity-80 leading-relaxed">
+              The GPU cluster was dispatched but has not reported back. 
+              Please verify that 'supabase-keys' (SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY) 
+              are correctly set in your Modal.com Secrets dashboard.
+            </p>
+          </div>
+        )}
         {logs.length === 0 && (
           <div className="text-white/20 italic p-4 text-center">Awaiting handshake pulse...</div>
         )}

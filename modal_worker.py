@@ -20,6 +20,10 @@ def log_to_trace(supabase, game_id, message, severity="info", module="GPU-ENGINE
     try:
         # Ensure message is a string and payload is clean
         print(f"📡 [TRACE] {module}: {message}")
+        if not supabase:
+            print("⚠️ Trace skipped: Supabase client not initialized")
+            return
+            
         supabase.table("game_events").insert({
             "game_id": game_id,
             "event_type": "gpu_pulse",
@@ -29,11 +33,12 @@ def log_to_trace(supabase, game_id, message, severity="info", module="GPU-ENGINE
             "timestamp_ms": int(time.time() * 1000)
         }).execute()
     except Exception as e:
-        print(f"⚠️ Trace Error: {e}")
+        print(f"❌ Trace Network Error: {e}")
 
 def update_progress(supabase, game_id, progress, status_msg):
     """Updates the master progress in game_analysis and games tables"""
     try:
+        if not supabase: return
         # Update Analysis Table
         supabase.table("game_analysis").upsert({
             "game_id": game_id,
@@ -66,9 +71,12 @@ def analyze_game(data: dict):
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
+    print(f"🛠️ GPU Pre-flight: URL={bool(supabase_url)}, Key={bool(supabase_key)}, Game={game_id}")
+
     if not all([game_id, video_url, supabase_url, supabase_key]):
-        error_msg = f"❌ HANDSHAKE BLOCKED: Missing credentials. URL: {bool(supabase_url)}, Key: {bool(supabase_key)}"
+        error_msg = f"❌ HANDSHAKE BLOCKED: Missing credentials in Modal Secrets. Please check 'supabase-keys' secret in Modal dashboard."
         print(error_msg)
+        # We can't log to DB if we don't have keys, so this only shows in Modal logs
         return {"status": "error", "message": error_msg}
 
     supabase = create_client(supabase_url, supabase_key)
