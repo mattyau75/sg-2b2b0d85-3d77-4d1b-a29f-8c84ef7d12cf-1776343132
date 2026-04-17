@@ -12,25 +12,26 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 
 export default function PlayerAnalytics() {
   const router = useRouter();
-  const { id } = router.query;
+  const playerId = typeof router.query.id === "string" ? router.query.id : undefined;
   const [player, setPlayer] = useState<any>(null);
   const [stats, setStats] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (id) {
+    if (playerId) {
       fetchPlayerData();
     }
-  }, [id]);
+  }, [playerId]);
 
   const fetchPlayerData = async () => {
+    if (!playerId) return;
     try {
       setLoading(true);
 
       const { data: playerData } = await supabase
         .from("players")
         .select("*, team:teams(name)")
-        .eq("id", id)
+        .eq("id", playerId)
         .single();
 
       const { data: statsData } = await supabase
@@ -39,7 +40,7 @@ export default function PlayerAnalytics() {
           *,
           game:games(id, venue, created_at)
         `)
-        .eq("player_id", id)
+        .eq("player_id", playerId)
         .order("created_at", { ascending: false })
         .limit(10);
 
