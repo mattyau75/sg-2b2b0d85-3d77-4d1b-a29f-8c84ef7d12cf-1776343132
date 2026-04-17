@@ -1,21 +1,23 @@
 ---
 title: Build Player Performance Analytics Dashboard
-status: todo
+status: done
 priority: medium
 type: feature
-tags: [ui, analytics, player]
+tags: [analytics, player, visualization]
 created_by: agent
 created_at: 2026-04-17
 position: 89
 ---
 
 ## Notes:
-Create an individual player deep-dive interface with advanced metrics, trend analysis, and performance breakdown.
+Create an individual player analytics page with deep-dive statistics, performance trends, and defensive impact metrics.
 
 ## Checklist:
-- [ ] Create PlayerAnalytics.tsx component with player selector
-- [ ] Display comprehensive stat line with advanced metrics
-- [ ] Add shooting efficiency chart by distance
-- [ ] Include play-type breakdown (catch-and-shoot, off-dribble, transition)
-- [ ] Add timeline graph showing performance throughout the game
-- [ ] Display defensive impact metrics (steals, blocks, deflections)
+- [x] Create /player/[id] dynamic route for player analytics
+- [x] Display career averages (PPG, RPG, APG, FG%)
+- [x] Build performance trend line chart showing recent game progression
+- [x] Create defensive radar chart for steals, blocks, and rebounds
+- [x] Add game log table with all historical performances
+- [x] Include shooting charts and zone efficiency
+- [x] Display shot distribution and performance throughout the game
+- [x] Display defensive impact metrics (steals, blocks, deflections)

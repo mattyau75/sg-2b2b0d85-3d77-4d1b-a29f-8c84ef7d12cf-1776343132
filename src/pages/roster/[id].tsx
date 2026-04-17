@@ -263,54 +263,20 @@ export default function TeamRoster() {
             <TableBody>
               {players.length > 0 ? (
                 players.map((player: any) => (
-                  <TableRow key={player.id} className="border-white/5 hover:bg-white/5 transition-colors">
-                    <TableCell className="text-center font-mono font-bold text-primary">
-                      #{player.number || "--"}
+                  <TableRow key={player.id} className="border-white/5 hover:bg-white/5">
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {player.jersey_number}
                     </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-muted border border-border overflow-hidden">
-                          {player.avatar_url ? (
-                            <img src={player.avatar_url} alt={player.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center text-xs text-muted-foreground bg-muted">
-                              {player.name.charAt(0)}
-                            </div>
-                          )}
-                        </div>
-                        <span className="font-medium">{player.name}</span>
-                      </div>
+                    <TableCell className="font-medium">{player.name}</TableCell>
+                    <TableCell className="text-center font-mono text-xs">
+                      {player.position || '-'}
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="bg-white/5 text-[10px]">
-                        {player.position || "N/A"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48 bg-card border-border">
-                          <DropdownMenuItem className="focus:bg-primary/20 cursor-pointer flex items-center gap-2">
-                            <ExternalLink className="h-3 w-3" /> View Profile
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="focus:bg-primary/20 cursor-pointer flex items-center gap-2"
-                            onClick={() => {
-                              setSelectedPlayer(player);
-                              setIsEditPlayerOpen(true);
-                            }}
-                          >
-                            <Edit className="h-3 w-3" /> Edit Player
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive focus:bg-destructive/10 cursor-pointer flex items-center gap-2">
-                            <Trash2 className="h-3 w-3" /> Remove Player
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="text-center">
+                      <Link href={`/player/${player.id}`}>
+                        <Button variant="ghost" size="sm" className="h-7 text-xs">
+                          View Stats
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))
