@@ -372,6 +372,7 @@ export default function Dashboard() {
         onDismissAll={dismissAll} 
         isOpen={isErrorMonitorOpen}
         onToggle={() => setIsErrorMonitorOpen(!isErrorMonitorOpen)}
+        forceVisible={true}
       />
     </Layout>
   );

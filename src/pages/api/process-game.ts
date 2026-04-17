@@ -75,12 +75,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     // DIAGNOSTIC CHECKPOINT 7: Verifying Modal configuration
     const rawModalUrl = process.env.MODAL_USER_URL || process.env.MODAL_URL || "";
-    let modalUrl = rawModalUrl.replace(/['"]+/g, "").trim().replace(/\/+$/, "");
+    let baseUrl = rawModalUrl.replace(/['"]+/g, "").trim().replace(/\/+$/, "");
     
-    // Ensure we have the correct sub-route if needed
-    if (!modalUrl.endsWith('/analyze')) {
-      modalUrl = `${modalUrl}/analyze`;
-    }
+    // STRIP EXISTING SUFFIXES to prevent doubling up (e.g. .../analyze/analyze)
+    baseUrl = baseUrl.replace(/\/(analyze|process-game|analyze_game)$/, "");
+
+    const modalEndpoint = `${baseUrl}/analyze`;
 
     const rawModalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY || "";
     const modalToken = rawModalToken.replace(/['"]+/g, "").trim();
@@ -106,9 +106,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
-    logger.info("[ProcessGame] 🚀 DISPATCHING HEARTBEAT TO GPU", { gameId, endpoint: modalUrl });
+    logger.info("[ProcessGame] 🚀 DISPATCHING HEARTBEAT TO GPU", { 
+      gameId, 
+      endpoint: modalEndpoint 
+    });
     
-    const response = await fetch(modalUrl, {
+    const response = await fetch(modalEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
