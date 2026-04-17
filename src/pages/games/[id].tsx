@@ -260,7 +260,7 @@ export default function GameDetail() {
                    </CardTitle>
                  </CardHeader>
                  <CardContent>
-                    <ShotChart shots={[]} />
+                    <ShotChart gameId={gameId as string} />
                  </CardContent>
                </Card>
                
