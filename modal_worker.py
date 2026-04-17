@@ -18,12 +18,14 @@ image = (
 def log_to_trace(supabase, game_id, message, severity="info", module="GPU-ENGINE"):
     """Writes a technical pulse directly to the game_events table for the Live Trace"""
     try:
+        # Ensure message is a string and payload is clean
+        print(f"📡 [TRACE] {module}: {message}")
         supabase.table("game_events").insert({
             "game_id": game_id,
             "event_type": "gpu_pulse",
             "severity": severity,
             "module_id": module,
-            "payload": {"message": message},
+            "payload": {"message": str(message)},
             "timestamp_ms": int(time.time() * 1000)
         }).execute()
     except Exception as e:
@@ -65,14 +67,16 @@ def analyze_game(data: dict):
     supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
 
     if not all([game_id, video_url, supabase_url, supabase_key]):
-        return {"status": "error", "message": "❌ HANDSHAKE BLOCKED: Missing credentials."}
+        error_msg = f"❌ HANDSHAKE BLOCKED: Missing credentials. URL: {bool(supabase_url)}, Key: {bool(supabase_key)}"
+        print(error_msg)
+        return {"status": "error", "message": error_msg}
 
     supabase = create_client(supabase_url, supabase_key)
     
     try:
-        # 1. Start Analysis
-        log_to_trace(supabase, game_id, "🚀 GPU Cluster Initialized. Starting video stream...", "info")
-        update_progress(supabase, game_id, 5, "Initializing GPU Cluster...")
+        # 1. IMMEDIATE STARTUP PULSE
+        log_to_trace(supabase, game_id, "🚀 GPU CLUSTER HANDSHAKE: Connection Established.", "info", "GPU-CORE")
+        update_progress(supabase, game_id, 5, "Initializing AI Vision Engine...")
         time.sleep(2)
 
         # 2. Simulated Analysis Loop (0-100%)

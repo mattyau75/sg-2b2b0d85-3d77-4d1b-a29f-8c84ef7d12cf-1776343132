@@ -88,12 +88,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     logger.info("[ProcessGame] ✅ CHECKPOINT 8: Preparing Modal request");
 
     const modalPayload = {
-      game_id: String(gameId), // Ensure naming consistency with python (snake_case)
-      video_url: String(videoUrl),
+      game_id: gameId,
+      video_url: videoUrl,
       config: req.body.config || {}
     };
 
     const modalEndpoint = modalUrl.includes('-analyze') ? modalUrl : `${modalUrl}/analyze`;
+
+    logger.info("[ProcessGame] 🚀 DISPATCHING TO GPU", { 
+      gameId, 
+      endpoint: modalEndpoint,
+      payload_keys: Object.keys(modalPayload)
+    });
 
     // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
     const response = await fetch(modalEndpoint, {
