@@ -41,6 +41,7 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
         table: 'game_events',
         filter: `game_id=eq.${gameId}` 
       }, (payload) => {
+        console.log("GPU Pulse Received:", payload.new);
         setLogs(prev => [...prev, payload.new as WorkerLog]);
       })
       .subscribe();

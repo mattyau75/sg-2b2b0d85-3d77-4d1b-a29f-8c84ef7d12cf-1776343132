@@ -15,30 +15,39 @@ image = (
     )
 )
 
-def log_to_trace(supabase, game_id, progress, message, status="processing"):
-    """ATOMIC UPSERT: Updates progress in both analysis trace and master games table"""
+def log_to_trace(supabase, game_id, message, severity="info", module="GPU-ENGINE"):
+    """Writes a technical pulse directly to the game_events table for the Live Trace"""
     try:
-        timestamp_z = datetime.utcnow().isoformat() + "Z"
-        
-        # 1. Update Analysis Trace
+        supabase.table("game_events").insert({
+            "game_id": game_id,
+            "event_type": "gpu_pulse",
+            "severity": severity,
+            "module_id": module,
+            "payload": {"message": message},
+            "timestamp_ms": int(time.time() * 1000)
+        }).execute()
+    except Exception as e:
+        print(f"⚠️ Trace Error: {e}")
+
+def update_progress(supabase, game_id, progress, status_msg):
+    """Updates the master progress in game_analysis and games tables"""
+    try:
+        # Update Analysis Table
         supabase.table("game_analysis").upsert({
             "game_id": game_id,
             "progress_percentage": progress,
-            "status_message": message,
-            "status": status,
-            "updated_at": timestamp_z
+            "status_message": status_msg,
+            "status": "analyzing" if progress < 100 else "completed",
+            "updated_at": datetime.utcnow().isoformat()
         }, on_conflict=["game_id"]).execute()
         
-        # 2. Sync to Master Games Table
+        # Sync to Games Table for the Dashboard
         supabase.table("games").update({
             "progress_percentage": progress,
-            "status": status,
-            "updated_at": timestamp_z
+            "status": "analyzing" if progress < 100 else "completed"
         }).eq("id", game_id).execute()
-        
-        print(f"[{progress}%] {message}")
     except Exception as e:
-        print(f"⚠️ Trace Sync Error: {e}")
+        print(f"⚠️ Progress Sync Error: {e}")
 
 @app.function(
     image=image,
@@ -62,7 +71,8 @@ def analyze_game(data: dict):
     
     try:
         # 1. Start Analysis
-        log_to_trace(supabase, game_id, 5, "🚀 GPU Cluster Initialized. Starting video stream...", "analyzing")
+        log_to_trace(supabase, game_id, "🚀 GPU Cluster Initialized. Starting video stream...", "info")
+        update_progress(supabase, game_id, 5, "Initializing GPU Cluster...")
         time.sleep(2)
 
         # 2. Simulated Analysis Loop (0-100%)
@@ -73,12 +83,15 @@ def analyze_game(data: dict):
             if i > 70: status_msg = "Finalizing spatial mapping and event generation..."
             if i == 100: status_msg = "✅ Analysis Complete. Syncing results..."
             
-            log_to_trace(supabase, game_id, i, status_msg, "analyzing" if i < 100 else "completed")
+            log_to_trace(supabase, game_id, f"Processing segment: {status_msg}", "info")
+            update_progress(supabase, game_id, i, status_msg)
             time.sleep(3) # Simulated processing time
 
+        log_to_trace(supabase, game_id, "🏁 GPU processing successfully concluded.", "info")
         return {"status": "success", "game_id": game_id}
     except Exception as e:
-        log_to_trace(supabase, game_id, 0, f"❌ GPU Error: {str(e)}", "error")
+        log_to_trace(supabase, game_id, f"❌ GPU Error: {str(e)}", "error")
+        update_progress(supabase, game_id, 0, f"Error: {str(e)}")
         return {"status": "error", "message": str(e)}
 
 @app.function(secrets=[modal.Secret.from_name("supabase-keys")])
@@ -91,8 +104,8 @@ def analyze_endpoint(data: dict):
     if not game_id:
         return {"status": "error", "message": "Missing game_id"}
         
-    # Trigger the GPU function asynchronously (FIXED: correct function name)
-    analyze_game.spawn({"game_id": game_id, "video_url": video_url})
+    # Trigger the GPU function asynchronously
+    analyze_game.spawn(data)
     
     return {
         "status": "dispatched",

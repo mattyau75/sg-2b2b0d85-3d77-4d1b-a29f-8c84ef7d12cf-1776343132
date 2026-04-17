@@ -27,9 +27,9 @@ import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 const STATUS_CONFIG: Record<string, { label: string; color: string; progress: number }> = {
   'pending': { label: 'Queued', color: 'text-zinc-400', progress: 10 },
   'ignited': { label: 'GPU Handshake', color: 'text-blue-400', progress: 20 },
-  'analyzing': { label: 'Streaming', color: 'text-orange-400 animate-pulse', progress: 65 },
-  'completed': { label: 'Ready', color: 'text-emerald-400', progress: 100 },
-  'error': { label: 'Stalled', color: 'text-red-400', progress: 0 }
+  'analyzing': { label: 'AI Processing', color: 'text-orange-400 animate-pulse', progress: 65 },
+  'completed': { label: 'Analysis Ready', color: 'text-emerald-400', progress: 100 },
+  'error': { label: 'GPU Stalled', color: 'text-red-400', progress: 0 }
 };
 
 export default function AnalysisQueuePage() {
