@@ -20,7 +20,13 @@ import {
   Video,
   Check,
   AlertTriangle,
-  Terminal
+  Terminal,
+  Zap,
+  Activity,
+  Info,
+  ChevronRight,
+  Target,
+  MousePointer2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showBanner } from "@/components/DiagnosticBanner";
@@ -33,7 +39,6 @@ import { ErrorMonitor } from "@/components/ErrorMonitor";
 import { useErrorMonitor } from "@/hooks/useErrorMonitor";
 import { WorkerLogs } from "@/components/WorkerLogs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Cpu, Zap, Activity, Info, AlertTriangle, ChevronRight, BarChart3, Target, MousePointer2 } from "lucide-react";
 
 export default function GameDetail() {
   const router = useRouter();
