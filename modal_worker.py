@@ -106,21 +106,38 @@ def analyze_game(data: dict):
         update_progress(supabase, game_id, 0, f"Error: {str(e)}")
         return {"status": "error", "message": str(e)}
 
-@app.function(secrets=[modal.Secret.from_name("supabase-keys")])
-@modal.web_endpoint(method="POST", label="analyze")
-def analyze_endpoint(data: dict):
-    """ENTRY POINT: Validates request and spawns GPU worker"""
-    game_id = data.get("game_id")
-    video_url = data.get("video_url")
+@app.function(
+    image=image,
+    gpu=modal.gpu.A10G(),
+    timeout=3600,
+    secrets=[modal.Secret.from_name("supabase-keys")]
+)
+@modal.web_endpoint(method="POST")
+def analyze(data: dict):
+    """GPU WEB ENDPOINT: Entry point for analysis requests"""
+    from supabase import create_client
     
-    if not game_id:
-        return {"status": "error", "message": "Missing game_id"}
-        
-    # Trigger the GPU function asynchronously
+    # 0. IMMEDIATE HEARTBEAT ACKNOWLEDGMENT
+    game_id = data.get("game_id")
+    print(f"💓 [HEARTBEAT] Received request for Game: {game_id}")
+    
+    supabase_url = os.environ.get("SUPABASE_URL")
+    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
+    
+    # Initialize client early to send heartbeat pulse to UI
+    if supabase_url and supabase_key:
+        try:
+            supabase = create_client(supabase_url, supabase_key)
+            log_to_trace(supabase, game_id, "💓 GPU HEARTBEAT: Analysis Cluster Acknowledged.", "info", "GPU-CORE")
+        except:
+            pass
+
+    # Start the actual analysis in the background/asynchronously if possible
+    # but for now, we return the ACK to the caller immediately
     analyze_game.spawn(data)
     
     return {
-        "status": "dispatched",
+        "status": "ignited", 
         "message": "🚀 GPU Cluster Spawning. Watch the live trace for progress.",
         "game_id": game_id
     }

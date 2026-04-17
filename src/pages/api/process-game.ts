@@ -110,42 +110,30 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
+    logger.info("[ProcessGame] 🚀 DISPATCHING HEARTBEAT TO GPU", { gameId, endpoint: modalEndpoint });
+    
     const response = await fetch(modalEndpoint, {
-      method: "POST",
+      method: 'POST',
       headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${modalToken}`.trim()
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${modalToken}`
       },
-      body: JSON.stringify(modalPayload),
+      body: JSON.stringify(modalPayload)
     });
 
     const responseText = await response.text();
-    
-    if (response.status === 401) {
-      return res.status(401).json({
-        error: "GPU Worker Authentication Failed",
-        details: { modalResponse: responseText }
-      });
-    }
+    logger.info("[ProcessGame] 📥 GPU RESPONSE RECEIVED", { status: response.status, body: responseText });
 
     if (!response.ok) {
-      return res.status(500).json({ 
-        error: "GPU Worker dispatch failed",
-        details: { modalStatus: response.status, modalError: responseText }
-      });
+      throw new Error(`GPU Dispatch Failed: ${response.status} - ${responseText}`);
     }
 
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (e) {
-      result = { raw: responseText };
-    }
+    const responseData = JSON.parse(responseText);
 
     return res.status(200).json({ 
       success: true, 
       message: "GPU processing initiated", 
-      result,
+      result: responseData,
       debug: { videoUrl, modalEndpoint, timestamp }
     });
 
