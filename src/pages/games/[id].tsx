@@ -19,7 +19,8 @@ import {
   RefreshCw,
   Video,
   Check,
-  AlertTriangle
+  AlertTriangle,
+  Terminal
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showBanner } from "@/components/DiagnosticBanner";
@@ -360,6 +361,29 @@ export default function GameDetail() {
               </CardContent>
             </Card>
           </div>
+        </div>
+
+        {/* SECTION: AI ENGINE STATUS & TRACE */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
+          <Card className="lg:col-span-2 border-primary/20 bg-background/50 backdrop-blur">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-xl font-bold flex items-center gap-2">
+                  <Terminal className="h-5 w-5 text-primary" />
+                  Live GPU Technical Trace
+                </CardTitle>
+                <CardDescription>Real-time monitor of the AI cluster activities</CardDescription>
+              </div>
+              {isProcessing && (
+                <Badge variant="outline" className="animate-pulse bg-primary/10 text-primary border-primary/50">
+                  GPU ACTIVE
+                </Badge>
+              )}
+            </CardHeader>
+            <CardContent>
+              <WorkerLogs gameId={id as string} />
+            </CardContent>
+          </Card>
         </div>
       </div>
 

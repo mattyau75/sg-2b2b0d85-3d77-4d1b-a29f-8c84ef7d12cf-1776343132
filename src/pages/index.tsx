@@ -100,17 +100,16 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-
+    // Real-time listener for game status changes
     const channel = supabase
-      .channel('dashboard-sync')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'games' },
-        () => {
-          fetchDashboardData();
-        }
-      )
+      .channel('dashboard_updates')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'game_analysis' 
+      }, () => {
+        fetchGames();
+      })
       .subscribe();
 
     return () => {
