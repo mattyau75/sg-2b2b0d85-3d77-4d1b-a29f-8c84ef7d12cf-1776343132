@@ -221,7 +221,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
 
     // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
-    logger.info("[ProcessGame] ✅ CHECKPOINT 9: Dispatching to Modal GPU Worker");
+    logger.info("[ProcessGame] ✅ CHECKPOINT 9: Dispatching to Modal GPU Worker", {
+      endpoint: modalEndpoint,
+      tokenPreview: modalToken ? `${modalToken.substring(0, 5)}...` : 'NONE'
+    });
 
     const response = await fetch(modalEndpoint, {
       method: "POST",
@@ -238,9 +241,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       status: response.status, 
       statusText: response.statusText,
       headers: Object.fromEntries(response.headers.entries()),
-      bodyLength: responseText.length,
-      bodyPreview: responseText.substring(0, 200)
+      responseText: responseText.substring(0, 500)
     });
+
+    if (response.status === 401) {
+      logger.error("[ProcessGame] ❌ MODAL AUTHENTICATION FAILED (401)", {
+        message: "The Modal token is likely invalid or expired.",
+        responseText
+      });
+      return res.status(401).json({
+        error: "GPU Worker Authentication Failed",
+        checkpoint: "MODAL_AUTH",
+        details: {
+          modalStatus: 401,
+          modalError: responseText,
+          suggestion: "Please check your MODAL_AUTH_TOKEN in Vercel settings."
+        }
+      });
+    }
 
     // DIAGNOSTIC CHECKPOINT 10: Processing Modal response
     logger.info("[ProcessGame] ✅ CHECKPOINT 10: Processing Modal response");

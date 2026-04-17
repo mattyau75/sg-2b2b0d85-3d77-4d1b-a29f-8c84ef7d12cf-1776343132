@@ -1,5 +1,4 @@
 // Deployment Heartbeat: 2026-04-16T11:12:04Z
-// This comment triggers an automatic Vercel build via GitHub integration.
 import React, { useState, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,21 +13,21 @@ import {
   History,
   Trophy,
   ChevronRight,
-  Plus,
   RefreshCw,
-  LayoutDashboard,
   Zap,
   Rocket,
-  LogOut
+  LogOut,
+  AlertTriangle
 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
-import { DiagnosticBanner, showBanner } from "@/components/DiagnosticBanner";
+import { showBanner } from "@/components/DiagnosticBanner";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { useRouter } from "next/router";
 import { useToast } from "@/hooks/use-toast";
+import { ErrorMonitor } from "@/components/ErrorMonitor";
+import { useErrorMonitor } from "@/hooks/useErrorMonitor";
 import axios from "axios";
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; progress: number }> = {
@@ -51,11 +50,8 @@ export default function Dashboard() {
     speed: "0.4s/f"
   });
   const [loading, setLoading] = useState(true);
-  const [isNewGameModalOpen, setIsNewGameModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState("all");
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [selectedGameForEdit, setSelectedGameForEdit] = useState<any>(null);
+  const [isErrorMonitorOpen, setIsErrorMonitorOpen] = useState(false);
+  const { errors, logError, dismissError, dismissAll } = useErrorMonitor();
 
   const fetchDashboardData = async () => {
     setLoading(true);
@@ -69,7 +65,12 @@ export default function Dashboard() {
         `)
         .order("created_at", { ascending: false });
       
-      if (!gamesError && games) {
+      if (gamesError) {
+        logError("/api/games", 500, gamesError.message, gamesError);
+        throw gamesError;
+      }
+
+      if (games) {
         setRecentGames(games.filter(g => g.status === 'completed').slice(0, 3));
         
         const active = games
@@ -91,7 +92,7 @@ export default function Dashboard() {
         ...prev,
         totalClips: count || 0
       }));
-    } catch (err) {
+    } catch (err: any) {
       logger.error("Dashboard fetch error", err);
     } finally {
       setLoading(false);
@@ -117,12 +118,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  const handleUploadSuccess = (gameId: string) => {
-    setIsNewGameModalOpen(false);
-    showBanner("Atomic Handshake Initialized. GPU ignition sequence started.", "success", "Swarm Launched");
-    router.push(`/games/${gameId}`);
-  };
-
   const handleForceDeploy = async () => {
     try {
       const res = await axios.post('/api/deploy-modal-direct');
@@ -130,12 +125,11 @@ export default function Dashboard() {
         title: "Deployment Triggered",
         description: res.data.message,
       });
-    } catch (err) {
-      toast({
-        title: "Deployment Failed",
-        description: "Check server logs for details.",
-        variant: "destructive"
-      });
+      showBanner("GPU Deployment Sequence Initiated Successfully", "success", "DEPLOYMENT OK");
+    } catch (err: any) {
+      const errorMsg = err.response?.data?.error || err.message;
+      logError("/api/deploy-modal-direct", err.response?.status || 500, errorMsg, err.response?.data);
+      showBanner(`Deployment Critical Failure: ${errorMsg}`, "error", "DEPLOYMENT 401/500");
     }
   };
 
@@ -155,6 +149,18 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Elite Performance Snapshot • Automated Scouting Intelligence</p>
           </div>
           <div className="flex items-center gap-3">
+            <Button 
+              variant="outline" 
+              size="sm"
+              className={cn(
+                "gap-2 border-destructive/50 text-destructive hover:bg-destructive/10",
+                errors.length > 0 && "animate-pulse border-destructive"
+              )}
+              onClick={() => setIsErrorMonitorOpen(true)}
+            >
+              <AlertTriangle className="h-4 w-4" />
+              Logs ({errors.length})
+            </Button>
             <Button 
               variant="outline" 
               size="icon" 
@@ -301,7 +307,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* EMERGENCY DEPLOY BUTTON */}
         <div className="mt-12 p-6 border border-primary/20 bg-primary/5 rounded-xl flex items-center justify-between">
           <div>
             <h3 className="text-lg font-bold flex items-center gap-2">
@@ -318,6 +323,14 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+      
+      <ErrorMonitor 
+        errors={errors} 
+        onDismiss={dismissError} 
+        onDismissAll={dismissAll} 
+        isOpen={isErrorMonitorOpen}
+        onToggle={() => setIsErrorMonitorOpen(!isErrorMonitorOpen)}
+      />
     </Layout>
   );
 }

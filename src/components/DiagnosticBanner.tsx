@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, Info, AlertCircle, AlertTriangle, CheckCircle, CheckCircle2 } from "lucide-react";
+import { X, Info, AlertCircle, AlertTriangle, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export type BannerSeverity = "info" | "error" | "success" | "warning";
@@ -10,9 +10,10 @@ interface BannerProps {
   severity: BannerSeverity;
   onClose?: () => void;
   className?: string;
+  persistent?: boolean;
 }
 
-export function DiagnosticBanner({ title, message, severity, onClose, className }: BannerProps) {
+export function DiagnosticBanner({ title, message, severity, onClose, className, persistent = true }: BannerProps) {
   const icons = {
     info: Info,
     error: AlertCircle,
@@ -37,7 +38,7 @@ export function DiagnosticBanner({ title, message, severity, onClose, className 
         <Icon className="w-5 h-5 shrink-0 mt-0.5" />
         <div className="space-y-1 flex-1 min-w-0">
           {title && <h5 className="text-sm font-bold uppercase tracking-tight">{title}</h5>}
-          <p className="text-sm leading-relaxed">{message}</p>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap">{message}</p>
         </div>
       </div>
       {onClose && (
@@ -80,7 +81,7 @@ export function GlobalBannerContainer() {
   if (banners.length === 0) return null;
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] w-full max-w-2xl flex flex-col gap-2 px-4 pointer-events-none">
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl flex flex-col gap-2 px-4 pointer-events-none">
       {banners.map((banner) => (
         <div key={banner.id} className="pointer-events-auto">
           <DiagnosticBanner
