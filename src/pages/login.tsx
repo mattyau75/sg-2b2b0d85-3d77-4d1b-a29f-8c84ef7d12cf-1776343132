@@ -16,6 +16,34 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // Diagnostic check
+  React.useEffect(() => {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    console.log("Supabase URL Check:", url ? "Loaded" : "MISSING");
+    if (!url && typeof window !== "undefined") {
+      console.error("CRITICAL: NEXT_PUBLIC_SUPABASE_URL is missing on client-side");
+    }
+  }, []);
+
+  const handleResetPassword = async () => {
+    if (!email) {
+      showBanner("Please enter your email in the box first", "error");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/reset-password`,
+      });
+      if (error) throw error;
+      showBanner("Password reset email sent! Check your inbox.", "success");
+    } catch (err: any) {
+      showBanner(err.message, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -102,7 +130,15 @@ export default function LoginPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Password</Label>
-                  {isLogin && <button type="button" className="text-[10px] text-primary hover:underline font-bold uppercase">Forgot?</button>}
+                  {isLogin && (
+                    <button 
+                      type="button" 
+                      onClick={handleResetPassword}
+                      className="text-[10px] text-primary hover:underline font-bold uppercase"
+                    >
+                      Forgot?
+                    </button>
+                  )}
                 </div>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
