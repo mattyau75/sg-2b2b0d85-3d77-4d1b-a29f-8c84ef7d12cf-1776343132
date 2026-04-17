@@ -212,7 +212,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       config: req.body.config || {}
     };
 
-    const modalEndpoint = `${modalUrl}/process`;
+    const modalEndpoint = `${modalUrl}/analyze`; // FIXED: Changed from /process to /analyze
 
     logger.info("[ProcessGame] Modal request details", { 
       endpoint: modalEndpoint,

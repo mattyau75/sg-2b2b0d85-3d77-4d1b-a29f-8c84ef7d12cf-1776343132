@@ -101,6 +101,7 @@ export const showBanner = (message: string, severity: BannerSeverity = "info", t
       message, 
       severity,
       title,
+      persistent: true // Ensure all global banners are persistent
     },
   });
   window.dispatchEvent(event);
