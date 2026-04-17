@@ -205,8 +205,9 @@ export default function GameDetail() {
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message;
       const status = err.response?.status || 500;
+      const details = err.response?.data?.details || err.response?.data;
       
-      logError("/api/process-game", status, errorMsg, err.response?.data, requestBody);
+      logError("/api/process-game", status, errorMsg, details, requestBody);
       showBanner(`AI Dispatch Failure: ${errorMsg}`, "error", "GPU CRITICAL 401/500");
     } finally {
       setIsProcessing(false);
