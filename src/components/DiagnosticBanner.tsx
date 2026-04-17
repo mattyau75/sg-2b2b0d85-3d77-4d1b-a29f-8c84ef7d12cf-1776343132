@@ -14,6 +14,7 @@ interface BannerProps {
 }
 
 export function DiagnosticBanner({ title, message, severity, onClose, className, persistent = true }: BannerProps) {
+  const [isVisible, setIsVisible] = useState(true);
   const icons = {
     info: Info,
     error: AlertCircle,

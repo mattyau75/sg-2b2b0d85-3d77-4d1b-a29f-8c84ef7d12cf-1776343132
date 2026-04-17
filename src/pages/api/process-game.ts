@@ -80,17 +80,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const rawModalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY || "";
     const modalToken = rawModalToken.replace(/['"]+/g, "").trim();
 
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    
     if (!modalUrl || !modalToken) {
       logger.error("[ProcessGame] ❌ GPU worker config missing", { hasUrl: !!modalUrl, hasToken: !!modalToken });
       return res.status(500).json({ error: "GPU worker not configured in environment variables" });
     }
 
-    if (!supabaseServiceKey) {
-      logger.error("[ProcessGame] ❌ SUPABASE_SERVICE_ROLE_KEY missing");
-      return res.status(500).json({ error: "Server authentication key missing (SUPABASE_SERVICE_ROLE_KEY)" });
-    }
+    const modalEndpoint = modalUrl.includes('-analyze') ? modalUrl : `${modalUrl}/analyze`;
 
     // DIAGNOSTIC CHECKPOINT 8: Preparing Modal request
     logger.info("[ProcessGame] ✅ CHECKPOINT 8: Preparing Modal request");
@@ -100,8 +95,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       video_url: videoUrl,
       config: req.body.config || {}
     };
-
-    const modalEndpoint = modalUrl.includes('-analyze') ? modalUrl : `${modalUrl}/analyze`;
 
     logger.info("[ProcessGame] 🚀 DISPATCHING TO GPU", { 
       gameId, 

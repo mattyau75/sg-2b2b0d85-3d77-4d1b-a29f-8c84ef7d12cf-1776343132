@@ -192,12 +192,8 @@ export default function GameDetail() {
     }
   };
 
-  const handleStartProcess = async () => {
-    if (!stagesVerified.setup) {
-      showBanner("Step 01 (Setup) must be verified before starting AI analysis.", "warning", "PRE-FLIGHT BLOCKED");
-      return;
-    }
-
+  const handleStartAnalysis = async () => {
+    if (!gameId) return;
     setIsProcessing(true);
     const requestBody = { gameId: gameId };
     
@@ -256,7 +252,7 @@ export default function GameDetail() {
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={() => router.back()}>Back to Queue</Button>
-            <Button size="sm" className="gap-2" onClick={handleStartProcess} disabled={isProcessing}>
+            <Button size="sm" className="gap-2" onClick={handleStartAnalysis} disabled={isProcessing}>
               <PlayCircle className={cn("w-4 h-4", isProcessing && "animate-pulse")} />
               {isProcessing ? "Processing..." : "Run AI Scouting"}
             </Button>
@@ -291,7 +287,7 @@ export default function GameDetail() {
                 title="02. AI GPU Analysis" 
                 status={stagesVerified.analysis ? "complete" : (game?.processing_status === 'analyzing' ? "processing" : "pending")}
                 description="Heavy GPU inference for player tracking."
-                onAction={handleStartProcess}
+                onAction={handleStartAnalysis}
                 disabled={!stagesVerified.setup}
                 isVerified={stagesVerified.analysis}
                 onVerify={() => toggleStageVerify('analysis')}
