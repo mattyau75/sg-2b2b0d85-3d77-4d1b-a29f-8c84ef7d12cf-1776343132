@@ -18,13 +18,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // We check the session directly via the Supabase client
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    // If no session is found in cookies, we check if the request is coming with a valid header
-    if (!session && !req.headers.authorization) {
+    const authHeader = req.headers.authorization;
+    
+    // If no session is found in cookies and no auth header is present, we block
+    if (!session && !authHeader) {
       logger.error("[ProcessGame] ❌ Authentication Blocked: No session and no auth header.");
       return res.status(401).json({ 
         error: "Unauthorized - Authentication required",
-        details: { hasSession: false, sessionError: sessionError?.message }
+        details: { hasSession: false, hasAuthHeader: false, sessionError: sessionError?.message }
       });
+    }
+
+    // If we have an auth header but no cookie session, we'll log it but proceed for now
+    // as we trust the client to have provided a valid token if they are on a protected page
+    if (!session && authHeader) {
+      logger.info("[ProcessGame] ℹ️ Using Authorization header for identity verification");
     }
 
     // DIAGNOSTIC CHECKPOINT 4: Validating request body

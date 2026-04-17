@@ -120,7 +120,12 @@ export default function Dashboard() {
 
   const handleForceDeploy = async () => {
     try {
-      const res = await axios.post('/api/deploy-modal-direct');
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session?.access_token 
+        ? { Authorization: `Bearer ${session.access_token}` } 
+        : {};
+
+      const res = await axios.post('/api/deploy-modal-direct', {}, { headers });
       toast({
         title: "Deployment Triggered",
         description: res.data.message,

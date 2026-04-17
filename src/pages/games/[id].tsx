@@ -200,7 +200,13 @@ export default function GameDetail() {
     const requestBody = { gameId: gameId };
     
     try {
-      const res = await axios.post('/api/process-game', requestBody);
+      // Get the current session token to pass to the API
+      const { data: { session } } = await supabase.auth.getSession();
+      const headers = session?.access_token 
+        ? { Authorization: `Bearer ${session.access_token}` } 
+        : {};
+
+      const res = await axios.post('/api/process-game', requestBody, { headers });
       showBanner("GPU Analysis Engine Dispatched Successfully", "success", "ANALYSIS INITIATED");
       loadGameData();
     } catch (err: any) {
