@@ -2,34 +2,37 @@
 
 # Load env vars from .env.local if they exist
 if [ -f .env.local ]; then
-  # Simple POSIX compatible env loading
   export $(grep -v '^#' .env.local | xargs)
 fi
-
-# DribbleStats AI Elite: Direct Modal Deployment Script
-# Use this to bypass GitHub Action limits.
 
 set -e
 
 echo "🚀 Initializing DribbleStats AI GPU Deployment..."
 
-# 1. Check for Modal Credentials
+# 1. Detection Phase
+PYTHON_CMD=$(which python3 || which python)
+if [ -z "$PYTHON_CMD" ]; then
+  echo "❌ Error: Python 3 not found in environment."
+  exit 1
+fi
+
+# 2. Check for Modal Credentials
 if [ -z "$MODAL_TOKEN_ID" ] || [ -z "$MODAL_TOKEN_SECRET" ]; then
   echo "❌ Error: MODAL_TOKEN_ID or MODAL_TOKEN_SECRET is not set."
   echo "Please verify your Environment Settings."
   exit 1
 fi
 
-# 2. Install Modal using python3 module path
-echo "📦 Installing Modal CLI..."
-python3 -m pip install modal --quiet
+# 3. Install Modal CLI
+echo "📦 Installing Modal CLI (Approx 30s)..."
+$PYTHON_CMD -m pip install modal --quiet
 
-# 3. Configure Modal Token
-echo "🔑 Authenticating with Modal..."
-python3 -m modal token set --token-id "$MODAL_TOKEN_ID" --token-secret "$MODAL_TOKEN_SECRET"
+# 4. Configure Modal Token
+echo "🔑 Authenticating..."
+$PYTHON_CMD -m modal token set --token-id "$MODAL_TOKEN_ID" --token-secret "$MODAL_TOKEN_SECRET"
 
-# 4. Deploy the Worker
-echo "☁️  Deploying modal_worker.py to Modal GPU Cluster..."
-python3 -m modal deploy modal_worker.py
+# 5. Deploy the Worker
+echo "☁️  Deploying GPU Cluster (First run takes 3-5 mins for AI library setup)..."
+$PYTHON_CMD -m modal deploy modal_worker.py
 
-echo "✅ Success! Your GPU Scouting Worker is live on Modal."
+echo "✅ SUCCESS: Your GPU Scouting Worker is live on Modal."
