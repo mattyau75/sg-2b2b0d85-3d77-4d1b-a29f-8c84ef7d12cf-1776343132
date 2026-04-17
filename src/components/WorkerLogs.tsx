@@ -18,15 +18,21 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const fetchLogs = async () => {
-    const { data } = await supabase
-      .from('game_events')
-      .select('*')
-      .eq('game_id', gameId)
-      .order('timestamp_ms', { ascending: true });
-    
-    if (data && data.length > 0) {
-      setLogs(data);
-      setConnectionStatus('active');
+    try {
+      const { data, error } = await supabase
+        .from('game_events')
+        .select('*')
+        .eq('game_id', gameId)
+        .order('timestamp_ms', { ascending: true });
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        setLogs(data);
+        setConnectionStatus('active');
+      }
+    } catch (err) {
+      console.error("Fetch Logs Error:", err);
     }
   };
 

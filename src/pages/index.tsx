@@ -100,14 +100,15 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    // Real-time listener for game status changes
+    // Enhanced real-time listener for ALL relevant columns
     const channel = supabase
       .channel('dashboard_updates')
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
         table: 'games' 
-      }, () => {
+      }, (payload) => {
+        console.log("Real-time Update Received:", payload.new);
         fetchDashboardData();
       })
       .subscribe();
@@ -144,6 +145,11 @@ export default function Dashboard() {
 
   const handleStartAnalysis = async (gameId: string) => {
     try {
+      // 1. Instant Local UI Update (Bypass Stall)
+      setActiveJobs(prev => prev.map(job => 
+        job.id === gameId ? { ...job, status: 'ignited', progress: 15 } : job
+      ));
+      
       setLoading(true);
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session?.access_token 
