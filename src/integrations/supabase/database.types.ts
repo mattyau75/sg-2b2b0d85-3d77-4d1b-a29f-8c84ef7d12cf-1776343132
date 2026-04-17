@@ -96,6 +96,7 @@ export type Database = {
           id: string
           minutes_played: number | null
           player_id: string | null
+          plus_minus: number | null
           points: number | null
           rebounds: number | null
           steals: number | null
@@ -116,6 +117,7 @@ export type Database = {
           id?: string
           minutes_played?: number | null
           player_id?: string | null
+          plus_minus?: number | null
           points?: number | null
           rebounds?: number | null
           steals?: number | null
@@ -136,6 +138,7 @@ export type Database = {
           id?: string
           minutes_played?: number | null
           player_id?: string | null
+          plus_minus?: number | null
           points?: number | null
           rebounds?: number | null
           steals?: number | null
@@ -384,6 +387,7 @@ export type Database = {
       lineup_stats: {
         Row: {
           assists: number | null
+          blocks: number | null
           created_at: string | null
           fg_attempted: number | null
           fg_made: number | null
@@ -395,6 +399,7 @@ export type Database = {
           points_for: number | null
           possessions: number | null
           rebounds: number | null
+          steals: number | null
           team_id: string | null
           three_pa: number | null
           three_pm: number | null
@@ -402,6 +407,7 @@ export type Database = {
         }
         Insert: {
           assists?: number | null
+          blocks?: number | null
           created_at?: string | null
           fg_attempted?: number | null
           fg_made?: number | null
@@ -413,6 +419,7 @@ export type Database = {
           points_for?: number | null
           possessions?: number | null
           rebounds?: number | null
+          steals?: number | null
           team_id?: string | null
           three_pa?: number | null
           three_pm?: number | null
@@ -420,6 +427,7 @@ export type Database = {
         }
         Update: {
           assists?: number | null
+          blocks?: number | null
           created_at?: string | null
           fg_attempted?: number | null
           fg_made?: number | null
@@ -431,6 +439,7 @@ export type Database = {
           points_for?: number | null
           possessions?: number | null
           rebounds?: number | null
+          steals?: number | null
           team_id?: string | null
           three_pa?: number | null
           three_pm?: number | null

@@ -42,6 +42,7 @@ import { WorkerLogs } from "@/components/WorkerLogs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { BoxScore } from "@/components/BoxScore";
 import { PlayByPlayFeed } from "@/components/PlayByPlayFeed";
+import { LineupAnalyzer } from "@/components/LineupAnalyzer";
 
 export default function GameDetail() {
   const router = useRouter();
@@ -270,6 +271,8 @@ export default function GameDetail() {
 
           <div className="space-y-6">
              <BoxScore gameId={gameId as string} />
+             
+             <LineupAnalyzer gameId={gameId as string} />
              
              <Card className="glass-card border-none">
                 <CardHeader>

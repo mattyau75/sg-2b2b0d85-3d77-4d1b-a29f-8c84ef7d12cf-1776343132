@@ -1,6 +1,6 @@
 ---
 title: Implement Advanced Box Score Analytics
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [analytics, boxscore, advanced-stats]
@@ -13,11 +13,11 @@ position: 91
 Add elite analytics features to box score: +/- (plus/minus), EFF (efficiency rating), RNK (weighted player ranking), and Team Lineup Analyzer to identify best on-court player combinations.
 
 ## Checklist:
-- [ ] Add plus_minus column to box_scores table
-- [ ] Update BoxScore.tsx to display +/-, EFF, and RNK columns
-- [ ] Implement efficiency calculation logic
-- [ ] Implement weighted ranking calculation
-- [ ] Create lineups table to track 5-player combinations
-- [ ] Build LineupAnalyzer component for best lineup identification
-- [ ] Calculate lineup metrics: +/-, rebounds, turnovers, steals, blocks
-- [ ] Add lineup visualization with sortable metrics
+- [x] Add plus_minus column to box_scores table
+- [x] Update BoxScore.tsx to display +/-, EFF, and RNK columns
+- [x] Implement efficiency calculation logic
+- [x] Implement weighted ranking calculation
+- [x] Create lineups table to track 5-player combinations
+- [x] Build LineupAnalyzer component for best lineup identification
+- [x] Calculate lineup metrics: +/-, rebounds, turnovers, steals, blocks
+- [x] Add lineup visualization with sortable metrics

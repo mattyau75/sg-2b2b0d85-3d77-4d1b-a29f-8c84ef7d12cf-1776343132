@@ -1,33 +1,31 @@
 import React, { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trophy } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { logger } from "@/lib/logger";
+import { Trophy } from "lucide-react";
 
 interface PlayerStats {
   id: string;
-  player_id: string;
-  team_id: string;
-  minutes_played: number;
   points: number;
   rebounds: number;
   assists: number;
   steals: number;
   blocks: number;
+  turnovers: number;
   fg_made: number;
   fg_attempted: number;
   three_pt_made: number;
   three_pt_attempted: number;
   ft_made: number;
   ft_attempted: number;
-  turnovers: number;
-  player?: {
+  minutes_played: number;
+  plus_minus: number;
+  player: {
     name: string;
     number: number;
-  };
+  } | null;
 }
 
 interface BoxScoreProps {
@@ -48,14 +46,16 @@ export function BoxScore({ gameId }: BoxScoreProps) {
   const fetchBoxScore = async () => {
     try {
       setLoading(true);
-      
+
       const { data: gameData } = await supabase
         .from("games")
         .select("home_team_id, away_team_id")
         .eq("id", gameId)
         .single();
 
-      const { data, error } = await supabase
+      if (!gameData) return;
+
+      const { data: stats } = await supabase
         .from("box_scores")
         .select(`
           *,
@@ -63,16 +63,11 @@ export function BoxScore({ gameId }: BoxScoreProps) {
         `)
         .eq("game_id", gameId);
 
-      if (error) throw error;
+      const homeTeamStats = (stats || []).filter(s => s.team_id === gameData.home_team_id);
+      const awayTeamStats = (stats || []).filter(s => s.team_id === gameData.away_team_id);
 
-      if (data && gameData) {
-        const home = data.filter(p => p.team_id === gameData.home_team_id);
-        const away = data.filter(p => p.team_id === gameData.away_team_id);
-        setHomeStats(home as unknown as PlayerStats[]);
-        setAwayStats(away as unknown as PlayerStats[]);
-      }
-    } catch (err: any) {
-      logger.error("[BoxScore] Fetch failed", err);
+      setHomeStats(homeTeamStats);
+      setAwayStats(awayTeamStats);
     } finally {
       setLoading(false);
     }
@@ -90,6 +85,28 @@ export function BoxScore({ gameId }: BoxScoreProps) {
     return ((twoPtMade / twoPtAttempted) * 100).toFixed(1);
   };
 
+  const calculateEFF = (stat: PlayerStats) => {
+    // Standard Efficiency Formula: (PTS + REB + AST + STL + BLK) - (FGA - FGM) - (FTA - FTM) - TO
+    const positive = stat.points + stat.rebounds + stat.assists + stat.steals + stat.blocks;
+    const fgMissed = stat.fg_attempted - stat.fg_made;
+    const ftMissed = stat.ft_attempted - stat.ft_made;
+    const negative = fgMissed + ftMissed + stat.turnovers;
+    return positive - negative;
+  };
+
+  const calculateRNK = (stat: PlayerStats) => {
+    // Weighted Player Ranking: (PTS × 1.0) + (REB × 1.2) + (AST × 1.5) + (STL × 2.0) + (BLK × 2.0) + (EFF × 0.5)
+    const eff = calculateEFF(stat);
+    const rank = 
+      (stat.points * 1.0) +
+      (stat.rebounds * 1.2) +
+      (stat.assists * 1.5) +
+      (stat.steals * 2.0) +
+      (stat.blocks * 2.0) +
+      (eff * 0.5);
+    return rank.toFixed(1);
+  };
+
   const renderStatsTable = (stats: PlayerStats[]) => {
     if (stats.length === 0) {
       return (
@@ -104,6 +121,9 @@ export function BoxScore({ gameId }: BoxScoreProps) {
       );
     }
 
+    // Sort by RNK descending
+    const sortedStats = [...stats].sort((a, b) => parseFloat(calculateRNK(b)) - parseFloat(calculateRNK(a)));
+
     return (
       <div className="overflow-x-auto">
         <Table>
@@ -115,8 +135,9 @@ export function BoxScore({ gameId }: BoxScoreProps) {
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">PTS</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">REB</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">AST</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">STL</TableHead>
-              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">BLK</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">+/-</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">EFF</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">RNK</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">FG%</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">2P%</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">3P%</TableHead>
@@ -124,74 +145,98 @@ export function BoxScore({ gameId }: BoxScoreProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stats.map((stat) => (
-              <TableRow key={stat.id} className="border-white/5 hover:bg-white/5 transition-colors">
-                <TableCell className="font-mono text-xs text-muted-foreground">
-                  {stat.player?.number || '-'}
-                </TableCell>
-                <TableCell className="font-medium text-sm">
-                  {stat.player?.name || 'Unknown Player'}
-                </TableCell>
-                <TableCell className="text-center font-mono text-xs">{stat.minutes_played || 0}</TableCell>
-                <TableCell className="text-center font-bold text-primary">{stat.points || 0}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{stat.rebounds || 0}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{stat.assists || 0}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{stat.steals || 0}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{stat.blocks || 0}</TableCell>
-                <TableCell className="text-center font-mono text-xs">
-                  {calculateFGPercentage(stat.fg_made, stat.fg_attempted)}%
-                </TableCell>
-                <TableCell className="text-center font-mono text-xs">
-                  {calculate2PPercentage(stat.fg_made, stat.fg_attempted, stat.three_pt_made, stat.three_pt_attempted)}%
-                </TableCell>
-                <TableCell className="text-center font-mono text-xs">
-                  {calculateFGPercentage(stat.three_pt_made, stat.three_pt_attempted)}%
-                </TableCell>
-                <TableCell className="text-center font-mono text-xs">
-                  {calculateFGPercentage(stat.ft_made, stat.ft_attempted)}%
-                </TableCell>
-              </TableRow>
-            ))}
+            {sortedStats.map((stat, index) => {
+              const eff = calculateEFF(stat);
+              const rnk = calculateRNK(stat);
+              const plusMinus = stat.plus_minus || 0;
+              
+              return (
+                <TableRow key={stat.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {stat.player?.number || '-'}
+                  </TableCell>
+                  <TableCell className="font-medium text-sm">
+                    <div className="flex items-center gap-2">
+                      {stat.player?.name || 'Unknown Player'}
+                      {index === 0 && (
+                        <Badge variant="outline" className="text-[8px] border-primary/50 text-primary">MVP</Badge>
+                      )}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">{stat.minutes_played || 0}</TableCell>
+                  <TableCell className="text-center font-bold text-primary">{stat.points || 0}</TableCell>
+                  <TableCell className="text-center font-mono text-xs">{stat.rebounds || 0}</TableCell>
+                  <TableCell className="text-center font-mono text-xs">{stat.assists || 0}</TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    <span className={plusMinus >= 0 ? "text-emerald-400" : "text-red-400"}>
+                      {plusMinus >= 0 ? '+' : ''}{plusMinus}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs font-semibold">
+                    {eff}
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs font-bold text-accent">
+                    {rnk}
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    {calculateFGPercentage(stat.fg_made, stat.fg_attempted)}%
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    {calculate2PPercentage(stat.fg_made, stat.fg_attempted, stat.three_pt_made, stat.three_pt_attempted)}%
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    {calculateFGPercentage(stat.three_pt_made, stat.three_pt_attempted)}%
+                  </TableCell>
+                  <TableCell className="text-center font-mono text-xs">
+                    {calculateFGPercentage(stat.ft_made, stat.ft_attempted)}%
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>
     );
   };
 
+  if (loading) {
+    return (
+      <Card className="glass-card border-none">
+        <CardHeader>
+          <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-primary" /> Box Score
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="py-12 text-center">
+            <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card className="glass-card border-none">
       <CardHeader>
-        <CardTitle className="flex items-center justify-between">
-          <span className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-primary" /> Live Box Score
-          </span>
-          {(homeStats.length > 0 || awayStats.length > 0) && (
-            <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">
-              AI Mapped
-            </Badge>
-          )}
+        <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+          <Trophy className="h-4 w-4 text-primary" /> Advanced Box Score
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
+      <CardContent>
         <Tabs defaultValue="home" className="w-full">
-          <TabsList className="w-full grid grid-cols-2 bg-muted/10 border-b border-white/5 rounded-none">
-            <TabsTrigger 
-              value="home" 
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none"
-            >
+          <TabsList className="w-full grid grid-cols-2 bg-muted/10 border border-white/5">
+            <TabsTrigger value="home" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               Home Team
             </TabsTrigger>
-            <TabsTrigger 
-              value="away"
-              className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary rounded-none"
-            >
+            <TabsTrigger value="away" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
               Away Team
             </TabsTrigger>
           </TabsList>
-          <TabsContent value="home" className="m-0 p-6">
+          <TabsContent value="home" className="mt-4">
             {renderStatsTable(homeStats)}
           </TabsContent>
-          <TabsContent value="away" className="m-0 p-6">
+          <TabsContent value="away" className="mt-4">
             {renderStatsTable(awayStats)}
           </TabsContent>
         </Tabs>
