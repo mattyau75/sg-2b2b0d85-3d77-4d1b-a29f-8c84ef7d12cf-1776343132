@@ -21,9 +21,10 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
     if (!gameId) return;
     
     // Set a timeout to show a warning if no handshake arrives
+    // We increase this slightly as GPU boot-up can take time
     const timer = setTimeout(() => {
       if (logs.length === 0) setConnectionStatus('timeout');
-    }, 20000);
+    }, 45000); 
 
     // Fetch initial logs
     const fetchLogs = async () => {
