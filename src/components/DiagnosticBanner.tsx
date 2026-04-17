@@ -68,7 +68,7 @@ export function GlobalBannerContainer() {
   useEffect(() => {
     const handleAddBanner = (e: any) => {
       const newBanner = e.detail;
-      // All banners are now persistent by default unless explicitly set otherwise
+      // All banners are now strictly persistent by default
       setBanners((prev) => [...prev, { ...newBanner, persistent: true }]);
     };
 
