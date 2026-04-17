@@ -32,6 +32,8 @@ import { logger } from "@/lib/logger";
 import { ErrorMonitor } from "@/components/ErrorMonitor";
 import { useErrorMonitor } from "@/hooks/useErrorMonitor";
 import { WorkerLogs } from "@/components/WorkerLogs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Cpu, Zap, Activity, Info, AlertTriangle, ChevronRight, BarChart3, Target, MousePointer2 } from "lucide-react";
 
 export default function GameDetail() {
   const router = useRouter();
@@ -46,6 +48,7 @@ export default function GameDetail() {
   const [showMappingModal, setShowMappingModal] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isErrorMonitorOpen, setIsErrorMonitorOpen] = useState(false);
+  const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
 
   // Stage Verifications
   const [stagesVerified, setStagesVerified] = useState({
