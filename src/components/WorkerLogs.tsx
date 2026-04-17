@@ -17,33 +17,10 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
   const [connectionStatus, setConnectionStatus] = useState<'waiting' | 'active' | 'timeout'>('waiting');
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const fetchLogs = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('game_events')
-        .select('*')
-        .eq('game_id', gameId)
-        .order('timestamp_ms', { ascending: true });
-      
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        setLogs(data);
-        setConnectionStatus('active');
-      }
-    } catch (err) {
-      console.error("Fetch Logs Error:", err);
-    }
-  };
-
   useEffect(() => {
     if (!gameId) return;
     
-    // Initial fetch
-    fetchLogs();
-
     // Set a timeout to show a warning if no handshake arrives
-    // We increase this to 60s to be safe during cold starts
     const timer = setTimeout(() => {
       if (logs.length === 0) setConnectionStatus('timeout');
     }, 60000); 
@@ -57,13 +34,16 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
         table: 'game_events',
         filter: `game_id=eq.${gameId}` 
       }, (payload) => {
-        console.log("GPU Pulse Received:", payload.new);
         setLogs(prev => [...prev, payload.new as WorkerLog]);
+        setConnectionStatus('active');
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
-  }, [gameId]);
+    return () => { 
+      clearTimeout(timer);
+      supabase.removeChannel(channel); 
+    };
+  }, [gameId, logs.length]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -81,17 +61,17 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-1">
              <div className={cn(
-               "h-1.5 w-1.5 rounded-full animate-pulse",
-               connectionStatus === 'active' ? "bg-accent" : 
-               connectionStatus === 'timeout' ? "bg-red-500" : "bg-yellow-500"
+               "h-1.5 w-1.5 rounded-full",
+               connectionStatus === 'active' ? "bg-accent animate-pulse" : 
+               connectionStatus === 'timeout' ? "bg-red-500" : "bg-yellow-500 animate-pulse"
              )} />
              <span className={cn(
                "text-[9px] uppercase font-black",
                connectionStatus === 'active' ? "text-accent" : 
                connectionStatus === 'timeout' ? "text-red-500" : "text-yellow-500"
              )}>
-               {connectionStatus === 'active' ? "GPU Link Active" : 
-                connectionStatus === 'timeout' ? "Handshake Timeout" : "Awaiting Handshake"}
+               {connectionStatus === 'active' ? "GPU Link: Active" : 
+                connectionStatus === 'timeout' ? "Handshake: Failed" : "Awaiting GPU Pulse"}
              </span>
            </div>
         </div>

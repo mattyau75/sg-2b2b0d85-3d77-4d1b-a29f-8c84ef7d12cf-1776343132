@@ -84,6 +84,91 @@ export type Database = {
           },
         ]
       }
+      box_scores: {
+        Row: {
+          assists: number | null
+          blocks: number | null
+          fg_attempted: number | null
+          fg_made: number | null
+          ft_attempted: number | null
+          ft_made: number | null
+          game_id: string | null
+          id: string
+          minutes_played: number | null
+          player_id: string | null
+          points: number | null
+          rebounds: number | null
+          steals: number | null
+          team_id: string | null
+          three_pt_attempted: number | null
+          three_pt_made: number | null
+          turnovers: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          assists?: number | null
+          blocks?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
+          game_id?: string | null
+          id?: string
+          minutes_played?: number | null
+          player_id?: string | null
+          points?: number | null
+          rebounds?: number | null
+          steals?: number | null
+          team_id?: string | null
+          three_pt_attempted?: number | null
+          three_pt_made?: number | null
+          turnovers?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          assists?: number | null
+          blocks?: number | null
+          fg_attempted?: number | null
+          fg_made?: number | null
+          ft_attempted?: number | null
+          ft_made?: number | null
+          game_id?: string | null
+          id?: string
+          minutes_played?: number | null
+          player_id?: string | null
+          points?: number | null
+          rebounds?: number | null
+          steals?: number | null
+          team_id?: string | null
+          three_pt_attempted?: number | null
+          three_pt_made?: number | null
+          turnovers?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "box_scores_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_scores_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "box_scores_team_id_fkey"
+            columns: ["team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_analysis: {
         Row: {
           game_id: string | null
