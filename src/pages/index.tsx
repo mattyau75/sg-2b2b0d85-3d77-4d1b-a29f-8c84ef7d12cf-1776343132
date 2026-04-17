@@ -100,7 +100,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    // Enhanced real-time listener for ALL relevant columns
+    // Enhanced real-time listener for ALL relevant columns in the games table
     const channel = supabase
       .channel('dashboard_updates')
       .on('postgres_changes', { 
@@ -108,13 +108,17 @@ export default function Dashboard() {
         schema: 'public', 
         table: 'games' 
       }, (payload) => {
-        console.log("Real-time Update Received:", payload.new);
+        console.log("Real-time Dashboard Update:", payload.new);
         fetchDashboardData();
       })
       .subscribe();
 
+    // 5-second Heartbeat Polling Fallback
+    const interval = setInterval(fetchDashboardData, 5000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, []);
 

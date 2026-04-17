@@ -56,7 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       .update({ 
         ignition_status: "ignited",
         processing_status: "analyzing",
-        status: "analyzing", // Sync both status columns for UI compatibility
+        status: "analyzing", // Explicitly sync the status column
         status_message: "GPU Dispatching..." 
       })
       .eq("id", gameId);
