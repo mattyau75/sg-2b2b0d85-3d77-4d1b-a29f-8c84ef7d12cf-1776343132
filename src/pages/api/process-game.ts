@@ -78,12 +78,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       endpoint: modalEndpoint 
     });
 
-    // 6. Execute Dispatch
+    // 6. Execute Dispatch with Strict Headers
     const response = await fetch(modalEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${modalToken}`
+        'Authorization': `Bearer ${modalToken}`,
+        'X-Client-Version': '1.1.0'
       },
       body: JSON.stringify(modalPayload)
     });
