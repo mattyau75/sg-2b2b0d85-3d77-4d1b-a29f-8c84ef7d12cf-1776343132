@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useRouter } from "next/router";
 import { profileService } from "@/services/profileService";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 interface LayoutProps {
   children: React.ReactNode;
