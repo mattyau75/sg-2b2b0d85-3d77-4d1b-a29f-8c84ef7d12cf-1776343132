@@ -212,7 +212,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       config: req.body.config || {}
     };
 
-    const modalEndpoint = `${modalUrl}/analyze`; // FIXED: Changed from /process to /analyze
+    // If the modalUrl already points to the function endpoint (contains -analyze), use it as is
+    const modalEndpoint = modalUrl.includes('-analyze') ? modalUrl : `${modalUrl}/analyze`;
 
     logger.info("[ProcessGame] Modal request details", { 
       endpoint: modalEndpoint,

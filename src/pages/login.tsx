@@ -19,7 +19,7 @@ export default function LoginPage() {
   // Diagnostic check
   React.useEffect(() => {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    console.log("Supabase URL Check:", url ? "Loaded" : "MISSING");
+    console.log("Supabase Client URL:", url);
     if (!url && typeof window !== "undefined") {
       console.error("CRITICAL: NEXT_PUBLIC_SUPABASE_URL is missing on client-side");
     }
