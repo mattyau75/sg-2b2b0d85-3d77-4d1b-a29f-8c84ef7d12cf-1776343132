@@ -13,8 +13,8 @@ position: 85
 Optimizing the data pipeline using a Hybrid-Batch approach. The GPU will pulse logs for UI feedback but buffer heavy statistical data locally before a final migration to Supabase.
 
 ## Checklist:
-- [ ] Create `play_by_play` and `box_scores` tables with optimized schema
-- [ ] Implement `HeartbeatLink` component in `WorkerLogs.tsx`
+- [x] Create `play_by_play` and `box_scores` tables with optimized schema
+- [x] Implement `HeartbeatLink` component in `WorkerLogs.tsx`
 - [ ] Update `modal_worker.py` to buffer stats and perform a single batch-insert at the end
 - [ ] Add "momentum" logic to the Dashboard progress bar to prevent perceived stalls
 ]]>
