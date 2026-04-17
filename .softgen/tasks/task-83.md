@@ -1,16 +1,16 @@
 ---
 title: "Persistent Error Tracking & Modal 401 Fix"
-status: "in_progress"
+status: "done"
 priority: "high"
 type: "bug"
-tags: ["errors", "modal", "ux"]
+tags: ["ui", "api", "diagnostics"]
 created_by: "agent"
 created_at: "2026-04-17"
 position: 83
 ---
 
 ## Notes:
-The user can login, but Modal (Module 2) returns 401. User wants persistent error notifications and a clear tracking panel.
+Improved the diagnostic visibility by making banners persistent and adding a sticky error console. Addressed the 401 error in game processing by refining the Modal endpoint path and authorization logic.
 
 ## Checklist:
 - [x] Update DiagnosticBanner to be persistent with a dismiss button
