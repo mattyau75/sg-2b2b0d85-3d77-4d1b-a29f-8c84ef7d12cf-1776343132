@@ -37,10 +37,10 @@ export function WorkerLogs({ gameId }: { gameId: string }) {
     fetchLogs();
 
     // Set a timeout to show a warning if no handshake arrives
-    // We increase this slightly as GPU boot-up can take time
+    // We increase this to 60s to be safe during cold starts
     const timer = setTimeout(() => {
       if (logs.length === 0) setConnectionStatus('timeout');
-    }, 45000); 
+    }, 60000); 
 
     // Subscribe to real-time pulses
     const channel = supabase

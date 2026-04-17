@@ -74,9 +74,16 @@ def analyze_game(data: dict):
     print(f"🛠️ GPU Pre-flight: URL={bool(supabase_url)}, Key={bool(supabase_key)}, Game={game_id}")
 
     if not all([game_id, video_url, supabase_url, supabase_key]):
-        error_msg = f"❌ HANDSHAKE BLOCKED: Missing credentials in Modal Secrets. Please check 'supabase-keys' secret in Modal dashboard."
+        error_msg = f"❌ HANDSHAKE BLOCKED: Missing credentials in Modal Secrets. Please check 'supabase-keys' secret in Modal dashboard (requires SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY)."
         print(error_msg)
-        # We can't log to DB if we don't have keys, so this only shows in Modal logs
+        # Try to log even if keys are shaky (the DB allows anon insert for events)
+        if game_id and supabase_url:
+            try:
+                from supabase import create_client
+                # Try with whatever we have
+                temp_sb = create_client(supabase_url, supabase_key or "missing")
+                log_to_trace(temp_sb, game_id, error_msg, "error", "GPU-AUTH")
+            except: pass
         return {"status": "error", "message": error_msg}
 
     supabase = create_client(supabase_url, supabase_key)

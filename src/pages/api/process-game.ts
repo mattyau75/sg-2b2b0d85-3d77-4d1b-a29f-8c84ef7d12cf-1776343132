@@ -40,7 +40,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return res.status(400).json({ error: "No video file associated with this game" });
     }
 
-    // 4. PRE-IGNITION: Update status to prevent frontend timeout
+    // 1. IMMEDIATE DISPATCH PULSE - We write this from the API to confirm the bridge is active
+    await supabase.from("game_events").insert({
+      game_id: gameId,
+      event_type: "dispatch_pulse",
+      severity: "info",
+      module_id: "BRIDGE",
+      payload: { message: "🚀 Handshake Dispatched: App is contacting GPU cluster..." },
+      timestamp_ms: Date.now()
+    });
+
+    // 2. PRE-IGNITION: Update status to prevent frontend timeout
     // This ensures the UI stays "warm" while the GPU cluster wakes up
     await supabase
       .from("games")
