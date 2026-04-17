@@ -46,17 +46,31 @@ export function ShotChart({ gameId }: ShotChartProps) {
     try {
       setLoading(true);
 
-      // Fetch shot tracking data with player names
+      // Fetch shot tracking data from play_by_play with player names
       const { data: shotData, error: shotError } = await supabase
-        .from("shot_tracking")
+        .from("play_by_play")
         .select(`
-          *,
+          id, x_coord, y_coord, is_make, player_id, event_type, game_time,
           player:players(name, number)
         `)
-        .eq("game_id", gameId);
+        .eq("game_id", gameId)
+        .not("x_coord", "is", null)
+        .not("y_coord", "is", null);
 
       if (shotError) throw shotError;
-      setShots((shotData as unknown as Shot[]) || []);
+      
+      const formattedShots: Shot[] = (shotData || []).map((d: any) => ({
+        id: d.id,
+        x: Number(d.x_coord),
+        y: Number(d.y_coord),
+        is_make: !!d.is_make,
+        player_id: d.player_id,
+        player: d.player,
+        shot_type: d.event_type,
+        game_time: d.game_time || "0:00"
+      }));
+      
+      setShots(formattedShots);
 
       // Fetch unique players for filtering
       const { data: gameData } = await supabase

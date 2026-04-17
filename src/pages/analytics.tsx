@@ -226,7 +226,14 @@ export default function AnalyticsPage() {
                 </div>
               </CardHeader>
               <CardContent className="p-4">
-                <ShotChart shots={shots} />
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-2">
+                    <Target className="w-4 h-4 text-primary" />
+                    Shot Selection
+                  </h3>
+                </div>
+                {/* Analytics page needs a selected game context, fallback to empty string if not selected */}
+                <ShotChart gameId={selectedGame || ""} />
                 <div className="mt-6 space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase text-muted-foreground">Paint Dominance</span>
