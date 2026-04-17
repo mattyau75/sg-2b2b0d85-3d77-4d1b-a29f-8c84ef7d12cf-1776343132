@@ -1,69 +1,30 @@
-import type { NextApiRequest, NextApiResponse } from "next";
-import { createServerClient } from "@supabase/auth-helpers-nextjs";
-import { serialize } from "cookie";
+import { NextApiRequest, NextApiResponse } from "next";
+import { supabase } from "@/integrations/supabase/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Method not allowed" });
+  // Watchdog API: Can be called by a cron job or manual trigger to clean up "Zombie" jobs
+  const { data: stalledGames } = await supabase
+    .from("games")
+    .select("id, updated_at")
+    .eq("status", "analyzing")
+    .lt("updated_at", new Date(Date.now() - 15 * 60 * 1000).toISOString());
+
+  if (stalledGames && stalledGames.length > 0) {
+    for (const game of stalledGames) {
+      await supabase.from("games").update({ 
+        status: "error", 
+        status_message: "Stall Detected: No activity for 15 minutes." 
+      }).eq("id", game.id);
+      
+      await supabase.from("game_events").insert({
+        game_id: game.id,
+        event_type: "watchdog_timeout",
+        severity: "error",
+        payload: { message: "System watchdog terminated job due to inactivity." },
+        timestamp_ms: Date.now()
+      });
+    }
   }
 
-  try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll() {
-            return Object.keys(req.cookies).map((name) => ({
-              name,
-              value: req.cookies[name] || '',
-            }));
-          },
-          setAll(cookiesToSet) {
-            try {
-              const setCookieHeaders = cookiesToSet.map(({ name, value, options }) =>
-                serialize(name, value, options)
-              );
-              if (setCookieHeaders.length > 0) {
-                res.setHeader('Set-Cookie', setCookieHeaders);
-              }
-            } catch (error) {
-              // Ignore if headers already sent
-            }
-          },
-        },
-      }
-    );
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return res.status(401).json({ error: "Unauthorized" });
-    }
-
-    const { gameId, stats } = req.body;
-
-    if (!gameId || !stats) {
-      return res.status(400).json({ error: "Missing required fields" });
-    }
-
-    const { data, error } = await supabase
-      .from("games")
-      .update({ 
-        stats,
-        updated_at: new Date().toISOString()
-      })
-      .eq("id", gameId)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Sync stats error:", error);
-      return res.status(500).json({ error: error.message });
-    }
-
-    return res.status(200).json({ success: true, data });
-  } catch (error: any) {
-    console.error("Unexpected error:", error);
-    return res.status(500).json({ error: error.message });
-  }
+  return res.status(200).json({ checked: stalledGames?.length || 0 });
 }

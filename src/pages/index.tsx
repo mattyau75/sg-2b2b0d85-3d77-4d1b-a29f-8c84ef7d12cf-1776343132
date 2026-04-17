@@ -348,6 +348,21 @@ export default function Dashboard() {
                                 Run AI Analysis
                               </Button>
                             )}
+                            {(job.status === 'analyzing' || job.status === 'ignited') && (
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                className="h-6 text-[8px] opacity-50 hover:opacity-100"
+                                onClick={async () => {
+                                  if (confirm("Stop analysis? This will terminate the GPU cluster.")) {
+                                    await supabase.from("games").update({ status: 'cancelled', progress_percentage: 0 }).eq("id", job.id);
+                                    fetchDashboardData();
+                                  }
+                                }}
+                              >
+                                Abort
+                              </Button>
+                            )}
                             <Badge variant="outline" className={cn("text-[8px] uppercase tracking-tighter", config.color)}>
                               {config.label}
                             </Badge>

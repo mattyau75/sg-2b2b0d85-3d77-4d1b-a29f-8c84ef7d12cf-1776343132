@@ -99,6 +99,15 @@ def analyze_game(data: dict):
         stats_buffer = [] # Buffer for play-by-play events
         
         for i in range(10, 101, 10):
+            # 2.1 CHECK FOR USER ABORT
+            try:
+                res = supabase.table("games").select("status").eq("id", game_id).single().execute()
+                if res.data and res.data.get("status") == "cancelled":
+                    log_to_trace(supabase, game_id, "🛑 USER ABORT DETECTED: Terminating GPU process immediately.", "warn", "GPU-CORE")
+                    return {"status": "cancelled", "message": "User terminated job"}
+            except Exception as abort_err:
+                print(f"⚠️ Abort Check Error: {abort_err}")
+
             status_msg = "Detecting players and tracking jersey numbers..."
             if i > 40: status_msg = "Calibrating team colors and mapping entities..."
             if i > 70: status_msg = "Finalizing spatial mapping and event generation..."
