@@ -12,10 +12,10 @@ export interface Shot {
 }
 
 interface ShotChartProps {
-  shots: Shot[];
+  shots?: Shot[];
 }
 
-export function ShotChart({ shots }: ShotChartProps) {
+export function ShotChart({ shots = [] }: ShotChartProps) {
   return (
     <Court className="bg-muted/10">
       <TooltipProvider>

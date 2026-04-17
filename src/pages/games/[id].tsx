@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { VideoPlayer } from "@/components/VideoPlayer";
 import { EditGameTeamsModal } from "@/components/EditGameTeamsModal";
 import { MappingDashboard } from "@/components/MappingDashboard";
+import { ShotChart } from "@/components/ShotChart";
 import { 
   Settings2, 
   Users, 
@@ -55,19 +56,6 @@ export default function GameDetail() {
   const [isErrorMonitorOpen, setIsErrorMonitorOpen] = useState(false);
   const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
 
-  // Stage Verifications
-  const [stagesVerified, setStagesVerified] = useState({
-    setup: false,
-    analysis: false,
-    mapping: false,
-    finalize: false
-  });
-
-  // Mapping Data
-  const [aiMappings, setAiMappings] = useState<any[]>([]);
-  const [homeRoster, setHomeRoster] = useState<any[]>([]);
-  const [awayRoster, setAwayRoster] = useState<any[]>([]);
-
   useEffect(() => {
     if (gameId) {
       loadGameData();
@@ -86,13 +74,6 @@ export default function GameDetail() {
 
       if (error) throw error;
       setGame(data);
-
-      setStagesVerified({
-        setup: data.setup_verified || false,
-        analysis: data.analysis_verified || false,
-        mapping: data.mapping_verified || false,
-        finalize: data.finalize_verified || false
-      });
 
       if (data.video_path) {
         const r2PublicDomain = process.env.NEXT_PUBLIC_R2_PUBLIC_DOMAIN;
@@ -118,110 +99,24 @@ export default function GameDetail() {
     }
   };
 
-  const fetchMappingData = async () => {
-    if (!gameId) return;
-    try {
-      const { data: mappings } = await supabase
-        .from('ai_player_mappings')
-        .select('*, players(*)')
-        .eq('game_id', gameId);
-      
-      setAiMappings(mappings || []);
-
-      if (game?.home_team_id && game?.away_team_id) {
-        const { data: home } = await supabase.from('players').select('*').eq('team_id', game.home_team_id);
-        const { data: away } = await supabase.from('players').select('*').eq('team_id', game.away_team_id);
-        setHomeRoster(home || []);
-        setAwayRoster(away || []);
-      }
-    } catch (err) {
-      logger.error("Mapping data fetch failed:", err);
-    }
-  };
-
-  useEffect(() => {
-    if (showMappingModal) {
-      fetchMappingData();
-    }
-  }, [showMappingModal]);
-
-  const toggleStageVerify = async (stage: keyof typeof stagesVerified) => {
-    const isCurrentlyVerified = stagesVerified[stage];
-    
-    if (isCurrentlyVerified) {
-      const stageOrder: (keyof typeof stagesVerified)[] = ['setup', 'analysis', 'mapping', 'finalize'];
-      const currentIndex = stageOrder.indexOf(stage);
-      const nextStage = stageOrder[currentIndex + 1];
-      
-      if (nextStage && stagesVerified[nextStage]) {
-        toast({
-          title: "Action Blocked",
-          description: `Cannot unverify ${stage} because the next module (${nextStage}) is already verified.`,
-          variant: "destructive"
-        });
-        return;
-      }
-
-      if (stage === 'setup' && game?.processing_status === 'analyzing') {
-        toast({
-          title: "Action Blocked",
-          description: "Cannot unverify setup while AI analysis is actively running.",
-          variant: "destructive"
-        });
-        return;
-      }
-    }
-
-    const newValue = !isCurrentlyVerified;
-    
-    try {
-      setStagesVerified(prev => ({ ...prev, [stage]: newValue }));
-
-      const updateData: any = {};
-      if (stage === 'setup') updateData.setup_verified = newValue;
-      if (stage === 'analysis') updateData.analysis_verified = newValue;
-      if (stage === 'mapping') updateData.mapping_verified = newValue;
-      if (stage === 'finalize') updateData.finalize_verified = newValue;
-
-      const { error } = await supabase
-        .from("games")
-        .update(updateData)
-        .eq("id", gameId);
-
-      if (error) throw error;
-
-      toast({
-        title: newValue ? "Stage Verified" : "Stage Unverified",
-        description: `Progress permanently saved for ${stage} module.`,
-      });
-    } catch (err: any) {
-      setStagesVerified(prev => ({ ...prev, [stage]: isCurrentlyVerified }));
-      logError("Update Stage", 500, err.message, err);
-    }
-  };
-
   const handleStartAnalysis = async () => {
     if (!gameId) return;
     setIsProcessing(true);
     const requestBody = { gameId: gameId };
     
     try {
-      // Get the current session token to pass to the API
       const { data: { session } } = await supabase.auth.getSession();
       const headers = session?.access_token 
         ? { Authorization: `Bearer ${session.access_token}` } 
         : {};
 
-      const res = await axios.post('/api/process-game', requestBody, { headers });
+      await axios.post('/api/process-game', requestBody, { headers });
       showBanner("GPU Analysis Engine Dispatched Successfully", "success", "ANALYSIS INITIATED");
       loadGameData();
     } catch (err: any) {
       const errorMsg = err.response?.data?.error || err.message;
-      const status = err.response?.status || 500;
-      const details = err.response?.data?.details || err.response?.data;
-      
-      logError("/api/process-game", status, errorMsg, details, requestBody);
-      showBanner(`AI Dispatch Failure: ${errorMsg}`, "error", "GPU CRITICAL 401/500");
+      logError("/api/process-game", err.response?.status || 500, errorMsg, err.response?.data, requestBody);
+      showBanner(`AI Dispatch Failure: ${errorMsg}`, "error", "GPU CRITICAL");
     } finally {
       setIsProcessing(false);
     }
@@ -234,10 +129,10 @@ export default function GameDetail() {
       <div className="max-w-[1600px] mx-auto space-y-6 pb-20">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-secondary/20 p-6 rounded-2xl border border-white/5">
           <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="text-primary border-primary/50 bg-primary/5">Elite Scouting</Badge>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-sm text-muted-foreground">{game.date ? new Date(game.date).toLocaleDateString() : 'No date'}</span>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs font-mono uppercase tracking-widest">
+              <span className="text-primary font-bold">{game?.venue || 'Elite Scouting'}</span>
+              <span>•</span>
+              <span>{game.created_at ? new Date(game.created_at).toLocaleDateString() : 'No date'}</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight">
               {game.home_team?.name || 'Home Team'} <span className="text-muted-foreground mx-2">vs</span> {game.away_team?.name || 'Away Team'}
@@ -245,21 +140,94 @@ export default function GameDetail() {
           </div>
           
           <div className="flex items-center gap-3">
-            {(errors.length > 0 || isErrorMonitorOpen) && (
-              <Button 
-                variant="outline" 
-                size="sm"
-                className={cn(
-                  "gap-2 border-destructive border-2 text-destructive bg-destructive/5",
-                  errors.length > 0 && "animate-pulse"
-                )}
-                onClick={() => setIsErrorMonitorOpen(true)}
-              >
-                <AlertTriangle className="h-4 w-4" />
-                System Logs ({errors.length})
-              </Button>
-            )}
-            <Button variant="outline" size="sm" onClick={() => router.back()}>Back to Queue</Button>
+             {/* Floating AI Command Center Trigger */}
+             <Dialog open={isCommandCenterOpen} onOpenChange={setIsCommandCenterOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className={cn(
+                      "h-12 w-12 rounded-full border-primary/20 bg-primary/5 hover:bg-primary/10 group relative transition-all",
+                      game?.status === 'analyzing' && "animate-pulse border-primary shadow-[0_0_15px_rgba(255,100,0,0.3)]"
+                    )}
+                  >
+                    <Cpu className={cn("h-6 w-6 text-primary group-hover:scale-110 transition-transform")} />
+                    {game?.status === 'analyzing' && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-4 w-4 bg-accent text-[8px] font-black items-center justify-center text-black">AI</span>
+                      </span>
+                    )}
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl bg-background/95 backdrop-blur-2xl border-white/5 p-0 overflow-hidden">
+                  <div className="grid grid-cols-1 md:grid-cols-3 h-[600px]">
+                    {/* Progress Sidebar */}
+                    <div className="p-8 border-r border-white/5 space-y-8 bg-black/40">
+                      <div className="space-y-2">
+                        <h2 className="text-xl font-bold flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-primary" /> AI Cluster Engine
+                        </h2>
+                        <p className="text-xs text-muted-foreground font-mono">Real-time GPU Synchronization Status</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-[10px] font-mono font-bold uppercase">
+                            <span>Analysis Momentum</span>
+                            <span>{game?.progress_percentage || 0}%</span>
+                          </div>
+                          <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary transition-all duration-1000" 
+                              style={{ width: `${game?.progress_percentage || 0}%` }}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="p-4 rounded-xl bg-white/5 border border-white/5 space-y-1">
+                          <p className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">Current Phase</p>
+                          <p className="text-xs font-medium text-white italic">{game?.status_message || 'Cluster Warming...'}</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-2 gap-2 pt-4">
+                           <div className="p-3 rounded-lg bg-white/5 border border-white/5 text-center">
+                              <p className="text-[8px] text-muted-foreground uppercase">GPU Health</p>
+                              <p className="text-xs font-bold text-accent">99.2%</p>
+                           </div>
+                           <div className="p-3 rounded-lg bg-white/5 border border-white/5 text-center">
+                              <p className="text-[8px] text-muted-foreground uppercase">Latency</p>
+                              <p className="text-xs font-bold text-blue-400">0.4s/f</p>
+                           </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-8">
+                         <Button 
+                           variant="destructive" 
+                           className="w-full h-10 text-xs font-bold uppercase tracking-widest border border-red-500/20"
+                           disabled={game?.status !== 'analyzing'}
+                           onClick={async () => {
+                             if (confirm("Terminate GPU job immediately?")) {
+                               await supabase.from("games").update({ status: 'cancelled' }).eq("id", gameId);
+                               setIsCommandCenterOpen(false);
+                               loadGameData();
+                             }
+                           }}
+                         >
+                           Terminate Analysis
+                         </Button>
+                      </div>
+                    </div>
+
+                    {/* Technical Trace Log */}
+                    <div className="md:col-span-2 p-0 flex flex-col bg-black/60">
+                       <WorkerLogs gameId={gameId as string} />
+                    </div>
+                  </div>
+                </DialogContent>
+             </Dialog>
+
+            <Button variant="outline" size="sm" onClick={() => router.back()}>Queue</Button>
             <Button size="sm" className="gap-2" onClick={handleStartAnalysis} disabled={isProcessing}>
               <PlayCircle className={cn("w-4 h-4", isProcessing && "animate-pulse")} />
               {isProcessing ? "Processing..." : "Run AI Scouting"}
@@ -267,10 +235,10 @@ export default function GameDetail() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-8 space-y-6">
-            <Card className="bg-black border-white/10 overflow-hidden rounded-2xl shadow-2xl">
-              <div className="aspect-video bg-muted flex items-center justify-center relative">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+          <div className="xl:col-span-2 space-y-6">
+            <Card className="bg-black border-white/10 overflow-hidden rounded-2xl shadow-2xl relative">
+              <div className="aspect-video bg-muted flex items-center justify-center">
                 {videoUrl ? (
                   <VideoPlayer videoUrl={videoUrl} />
                 ) : (
@@ -282,152 +250,53 @@ export default function GameDetail() {
               </div>
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <ModuleCard 
-                title="01. Setup & Calibration" 
-                status={stagesVerified.setup ? "complete" : "pending"}
-                description="Team selection and jersey color detection."
-                onAction={() => setShowTeamsModal(true)}
-                isVerified={stagesVerified.setup}
-                onVerify={() => toggleStageVerify('setup')}
-              />
-              <ModuleCard 
-                title="02. AI GPU Analysis" 
-                status={stagesVerified.analysis ? "complete" : (game?.processing_status === 'analyzing' ? "processing" : "pending")}
-                description="Heavy GPU inference for player tracking."
-                onAction={handleStartAnalysis}
-                disabled={!stagesVerified.setup}
-                isVerified={stagesVerified.analysis}
-                onVerify={() => toggleStageVerify('analysis')}
-              />
-              <ModuleCard 
-                title="03. Personnel Mapping" 
-                status={stagesVerified.mapping ? "complete" : "pending"}
-                description="Map AI entities to roster players."
-                onAction={() => setShowMappingModal(true)}
-                disabled={!stagesVerified.analysis}
-                isVerified={stagesVerified.mapping}
-                onVerify={() => toggleStageVerify('mapping')}
-              />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <Card className="glass-card border-none">
+                 <CardHeader className="flex flex-row items-center justify-between">
+                   <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                     <MousePointer2 className="h-4 w-4 text-primary" /> Shot Chart Intelligence
+                   </CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                    <ShotChart shots={[]} />
+                 </CardContent>
+               </Card>
+               <Card className="glass-card border-none">
+                  <CardHeader>
+                    <CardTitle className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                      <Target className="h-4 w-4 text-primary" /> Efficiency Clusters
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="h-64 flex items-center justify-center text-muted-foreground text-xs uppercase tracking-widest">
+                    Awaiting Mapping Completion
+                  </CardContent>
+               </Card>
             </div>
           </div>
 
-          <div className="lg:col-span-4 space-y-6">
-            <Card className="bg-secondary/10 border-white/5">
-              <CardHeader>
-                <CardTitle className="text-sm font-medium flex items-center gap-2 uppercase tracking-widest text-muted-foreground">
-                  <BarChart3 className="w-4 h-4" />
-                  Scouting Lifecycle
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <StageItem 
-                  step="01" 
-                  title="Video Ingest" 
-                  status="completed" 
-                  description="8GB Cloudflare R2 Upload verified."
-                />
-                <StageItem 
-                  step="02" 
-                  title="AI Inference" 
-                  status={game.analysis_status === 'processing' ? 'active' : game.analysis_status === 'completed' ? 'completed' : 'pending'} 
-                  description="GPU Object Tracking & Player Detection."
-                />
-                <StageItem 
-                  step="03" 
-                  title="Mapping" 
-                  status={stagesVerified.mapping ? 'completed' : 'pending'} 
-                  description="AI-to-Human entity verification."
-                />
-                <StageItem 
-                  step="04" 
-                  title="Tactical Boxscore" 
-                  status={stagesVerified.finalize ? 'completed' : 'pending'} 
-                  description="Generating elite analytics dashboard."
-                />
-              </CardContent>
-            </Card>
-
-            <Card className="bg-primary/5 border-primary/20">
-              <CardHeader>
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-primary" />
-                  System Health
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Modal GPU Status</span>
-                  <span className="flex items-center gap-1.5 text-green-400">
-                    <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                    Online
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="space-y-6">
+             <Card className="glass-card border-none min-h-[600px]">
+                <CardHeader>
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="text-sm font-black uppercase tracking-widest flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4 text-primary" /> Live Box Score
+                    </span>
+                    <Badge variant="outline" className="text-[10px] border-primary/20 text-primary">AI Mapped</Badge>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                   <div className="p-12 text-center space-y-4">
+                      <div className="h-16 w-16 bg-white/5 rounded-full mx-auto flex items-center justify-center">
+                        <Activity className="h-8 w-8 text-muted-foreground/20" />
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono uppercase tracking-widest">Awaiting First Stat Batch</p>
+                      <p className="text-[10px] text-muted-foreground/40 italic">Open the AI HUD above to track analysis progress.</p>
+                   </div>
+                </CardContent>
+             </Card>
           </div>
         </div>
-
-        {/* SECTION: AI ENGINE STATUS & TRACE */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8">
-          <Card className="lg:col-span-2 border-primary/20 bg-background/50 backdrop-blur">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-xl font-bold flex items-center gap-2">
-                  <Terminal className="h-5 w-5 text-primary" />
-                  Live GPU Technical Trace
-                </CardTitle>
-                <CardDescription>Real-time monitor of the AI cluster activities</CardDescription>
-              </div>
-              {isProcessing && (
-                <Badge variant="outline" className="animate-pulse bg-primary/10 text-primary border-primary/50">
-                  GPU ACTIVE
-                </Badge>
-              )}
-            </CardHeader>
-            <CardContent>
-              <WorkerLogs gameId={gameId as string} />
-            </CardContent>
-          </Card>
-        </div>
       </div>
-
-      <EditGameTeamsModal 
-        game={game}
-        isOpen={showTeamsModal} 
-        onClose={() => setShowTeamsModal(false)}
-        onUpdated={loadGameData}
-      />
-
-      {showMappingModal && (
-        <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-4 md:p-10">
-          <Card className="w-full h-full flex flex-col border-primary/20 overflow-hidden shadow-2xl">
-            <CardHeader className="flex flex-row items-center justify-between bg-secondary/20 border-b border-white/5 p-4">
-              <div>
-                <CardTitle className="text-xl flex items-center gap-2">
-                  <Database className="w-5 h-5 text-primary" />
-                  Elite Mapping Engine
-                </CardTitle>
-                <CardDescription>AI-to-Human Identity Resolution</CardDescription>
-              </div>
-              <Button variant="ghost" size="icon" onClick={() => setShowMappingModal(false)}>
-                <AlertCircle className="w-5 h-5 rotate-45" />
-              </Button>
-            </CardHeader>
-            <CardContent className="flex-1 overflow-auto p-0">
-              <MappingDashboard 
-                gameId={gameId as string} 
-                aiMappings={aiMappings}
-                homeRoster={homeRoster}
-                awayRoster={awayRoster}
-                homeColor={game?.home_team_color}
-                awayColor={game?.away_team_color}
-                onRefresh={fetchMappingData}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
 
       <ErrorMonitor 
         errors={errors} 
@@ -438,71 +307,5 @@ export default function GameDetail() {
         forceVisible={true}
       />
     </Layout>
-  );
-}
-
-function ModuleCard({ title, status, description, onAction, disabled, isVerified, onVerify }: any) {
-  const getStatusColor = () => {
-    if (status === 'complete') return 'bg-green-500/20 text-green-400 border-green-500/30';
-    if (status === 'processing') return 'bg-primary/20 text-primary border-primary/30 animate-pulse';
-    return 'bg-muted/50 text-muted-foreground border-white/5';
-  };
-
-  return (
-    <Card className={`p-5 transition-all duration-300 border bg-secondary/20 relative ${disabled ? 'opacity-50 grayscale pointer-events-none' : 'hover:border-primary/40'}`}>
-      <div className="flex justify-between items-start mb-3">
-        <h3 className="font-bold text-sm tracking-tight">{title}</h3>
-        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-bold border ${getStatusColor()}`}>
-          {status}
-        </span>
-      </div>
-      <p className="text-xs text-muted-foreground leading-relaxed mb-4">{description}</p>
-      
-      <div className="flex items-center justify-between gap-3 mt-auto">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="h-8 text-[11px] font-bold border-white/10 hover:bg-white/5"
-          onClick={onAction}
-        >
-          {status === 'complete' ? 'Review' : 'Initiate'}
-        </Button>
-
-        <div 
-          className="flex items-center gap-2 cursor-pointer group"
-          onClick={(e) => { e.stopPropagation(); onVerify(); }}
-        >
-          <div className={`w-4 h-4 rounded border transition-colors flex items-center justify-center ${isVerified ? 'bg-primary border-primary' : 'border-white/20 group-hover:border-primary/50'}`}>
-            {isVerified && <Check className="w-3 h-3 text-white" />}
-          </div>
-          <span className={`text-[10px] font-bold uppercase transition-colors ${isVerified ? 'text-primary' : 'text-muted-foreground'}`}>
-            Verify Complete
-          </span>
-        </div>
-      </div>
-    </Card>
-  );
-}
-
-function StageItem({ step, title, status, description }: any) {
-  const isActive = status === 'active';
-  const isCompleted = status === 'completed';
-
-  return (
-    <div className="relative pl-8 border-l border-white/10 space-y-1">
-      <div className={cn(
-        "absolute -left-[9px] top-0 w-4 h-4 rounded-full border-2 flex items-center justify-center",
-        isCompleted ? "bg-green-500 border-green-500" : 
-        isActive ? "bg-primary border-primary animate-pulse" : 
-        "bg-secondary border-muted"
-      )}>
-        {isCompleted && <CheckCircle2 className="w-3 h-3 text-white" />}
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] font-mono text-muted-foreground">{step}</span>
-        <h4 className={cn("text-sm font-semibold", isActive && "text-primary")}>{title}</h4>
-      </div>
-      <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
-    </div>
   );
 }
