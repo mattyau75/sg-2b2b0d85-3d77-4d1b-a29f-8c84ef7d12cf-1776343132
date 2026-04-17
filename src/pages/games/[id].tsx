@@ -31,6 +31,7 @@ import axios from "axios";
 import { logger } from "@/lib/logger";
 import { ErrorMonitor } from "@/components/ErrorMonitor";
 import { useErrorMonitor } from "@/hooks/useErrorMonitor";
+import { WorkerLogs } from "@/components/WorkerLogs";
 
 export default function GameDetail() {
   const router = useRouter();
@@ -381,7 +382,7 @@ export default function GameDetail() {
               )}
             </CardHeader>
             <CardContent>
-              <WorkerLogs gameId={id as string} />
+              <WorkerLogs gameId={gameId as string} />
             </CardContent>
           </Card>
         </div>

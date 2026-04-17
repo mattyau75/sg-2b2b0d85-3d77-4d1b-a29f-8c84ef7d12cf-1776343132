@@ -106,9 +106,9 @@ export default function Dashboard() {
       .on('postgres_changes', { 
         event: 'UPDATE', 
         schema: 'public', 
-        table: 'game_analysis' 
+        table: 'games' 
       }, () => {
-        fetchGames();
+        fetchDashboardData();
       })
       .subscribe();
 
