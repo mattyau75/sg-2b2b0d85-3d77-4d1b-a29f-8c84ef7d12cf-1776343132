@@ -83,6 +83,13 @@ export function BoxScore({ gameId }: BoxScoreProps) {
     return ((made / attempted) * 100).toFixed(1);
   };
 
+  const calculate2PPercentage = (fgMade: number, fgAttempted: number, threeMade: number, threeAttempted: number) => {
+    const twoPtMade = fgMade - threeMade;
+    const twoPtAttempted = fgAttempted - threeAttempted;
+    if (!twoPtAttempted || twoPtAttempted === 0) return "0.0";
+    return ((twoPtMade / twoPtAttempted) * 100).toFixed(1);
+  };
+
   const renderStatsTable = (stats: PlayerStats[]) => {
     if (stats.length === 0) {
       return (
@@ -111,7 +118,9 @@ export function BoxScore({ gameId }: BoxScoreProps) {
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">STL</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">BLK</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">FG%</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">2P%</TableHead>
               <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">3P%</TableHead>
+              <TableHead className="text-[10px] font-black uppercase text-muted-foreground text-center">FT%</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -133,7 +142,13 @@ export function BoxScore({ gameId }: BoxScoreProps) {
                   {calculateFGPercentage(stat.fg_made, stat.fg_attempted)}%
                 </TableCell>
                 <TableCell className="text-center font-mono text-xs">
+                  {calculate2PPercentage(stat.fg_made, stat.fg_attempted, stat.three_pt_made, stat.three_pt_attempted)}%
+                </TableCell>
+                <TableCell className="text-center font-mono text-xs">
                   {calculateFGPercentage(stat.three_pt_made, stat.three_pt_attempted)}%
+                </TableCell>
+                <TableCell className="text-center font-mono text-xs">
+                  {calculateFGPercentage(stat.ft_made, stat.ft_attempted)}%
                 </TableCell>
               </TableRow>
             ))}
