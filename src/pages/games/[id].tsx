@@ -304,7 +304,7 @@ export default function GameDetail() {
         onDismissAll={dismissAll} 
         isOpen={isErrorMonitorOpen}
         onToggle={() => setIsErrorMonitorOpen(!isErrorMonitorOpen)}
-        forceVisible={true}
+        forceVisible={false}
       />
     </Layout>
   );

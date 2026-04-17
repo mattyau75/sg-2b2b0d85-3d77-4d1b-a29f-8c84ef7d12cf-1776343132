@@ -207,18 +207,19 @@ export default function Dashboard() {
             <p className="text-muted-foreground">Elite Performance Snapshot • Automated Scouting Intelligence</p>
           </div>
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className={cn(
-                "gap-2 border-destructive/50 text-destructive hover:bg-destructive/10",
-                errors.length > 0 && "animate-pulse border-destructive"
-              )}
-              onClick={() => setIsErrorMonitorOpen(true)}
-            >
-              <AlertTriangle className="h-4 w-4" />
-              Logs ({errors.length})
-            </Button>
+            {errors.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="gap-2 border-destructive/50 text-destructive hover:bg-destructive/10 relative"
+                onClick={() => setIsErrorMonitorOpen(true)}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive rounded-full text-[8px] font-black text-white flex items-center justify-center">
+                  {errors.length}
+                </span>
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="icon" 
@@ -414,7 +415,7 @@ export default function Dashboard() {
         onDismissAll={dismissAll} 
         isOpen={isErrorMonitorOpen}
         onToggle={() => setIsErrorMonitorOpen(!isErrorMonitorOpen)}
-        forceVisible={true}
+        forceVisible={false}
       />
     </Layout>
   );
