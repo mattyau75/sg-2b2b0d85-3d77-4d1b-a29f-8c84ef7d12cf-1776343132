@@ -123,6 +123,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const responseData = JSON.parse(responseText);
 
+    // Update game status to 'ignited' immediately
+    await supabase
+      .from("games")
+      .update({ 
+        ignition_status: "ignited",
+        processing_status: "analyzing",
+        status_message: "GPU Handshake in progress..." 
+      })
+      .eq("id", gameId);
+
     return res.status(200).json({ 
       success: true, 
       message: "GPU processing initiated", 
