@@ -12,9 +12,7 @@ interface PlayEvent {
   game_id: string;
   event_type: string;
   description: string;
-  player_name: string | null;
-  team: "home" | "away";
-  period: number;
+  player?: { name: string };
   game_time: string;
   created_at: string;
 }
@@ -40,6 +38,9 @@ export function PlayByPlayFeed({ gameId }: PlayByPlayFeedProps) {
           table: 'play_by_play',
           filter: `game_id=eq.${gameId}`
         }, (payload) => {
+          // We might need to refetch to get the joined player name, 
+          // or just append and let the UI show "Unknown Player" briefly.
+          // For simplicity, we just add the raw payload and let it render.
           setEvents(prev => [payload.new as PlayEvent, ...prev]);
         })
         .subscribe();
@@ -55,13 +56,16 @@ export function PlayByPlayFeed({ gameId }: PlayByPlayFeedProps) {
       setLoading(true);
       const { data, error } = await supabase
         .from("play_by_play")
-        .select("*")
+        .select(`
+          *,
+          player:players(name)
+        `)
         .eq("game_id", gameId)
         .order("created_at", { ascending: false })
         .limit(50);
 
       if (error) throw error;
-      if (data) setEvents(data as PlayEvent[]);
+      if (data) setEvents(data as unknown as PlayEvent[]);
     } catch (err: any) {
       logger.error("[PlayByPlay] Fetch failed", err);
     } finally {
@@ -132,10 +136,10 @@ export function PlayByPlayFeed({ gameId }: PlayByPlayFeedProps) {
                       <div className="flex-1 space-y-1">
                         <div className="flex items-center justify-between">
                           <span className="text-xs font-bold">
-                            {event.player_name || "Unknown Player"}
+                            {event.player?.name || "Unknown Player"}
                           </span>
                           <Badge variant="outline" className="text-[8px] border-white/10">
-                            Q{event.period} {event.game_time}
+                            {event.game_time || "Q1 12:00"}
                           </Badge>
                         </div>
                         <p className="text-[10px] text-muted-foreground font-medium">

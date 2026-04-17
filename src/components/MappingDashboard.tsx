@@ -1,44 +1,15 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { 
-  Users, 
-  UserPlus, 
-  Link2, 
-  AlertCircle, 
-  CheckCircle2, 
-  Fingerprint,
-  RotateCcw,
-  Save,
-  Palette,
-  Image as ImageIcon,
-  RefreshCw,
-  Zap,
-  CheckCircle
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { showBanner } from "@/components/DiagnosticBanner";
-import { rosterService } from "@/services/rosterService";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface MappingDashboardProps {
   gameId: string;
-  aiMappings: any[];
-  homeRoster: any[];
-  awayRoster: any[];
-  homeColor?: string;
-  awayColor?: string;
-  onRefresh: () => void;
 }
 
-export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, homeColor, awayColor, onRefresh }: MappingDashboardProps) {
-  const [saving, setSaving] = useState<string | null>(null);
-  const [committing, setCommitting] = useState(false);
+export function MappingDashboard({ gameId }: MappingDashboardProps) {
   const [aiPlayers, setAiPlayers] = useState<any[]>([]);
   const [rosterPlayers, setRosterPlayers] = useState<any[]>([]);
   const [mappings, setMappings] = useState<Record<string, string>>({});
@@ -67,14 +38,23 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
       setHomeTeamId(gameData.home_team_id);
       setAwayTeamId(gameData.away_team_id);
 
-      // Fetch AI-detected players
+      // Fetch AI-detected players (from ai_player_mappings table)
       const { data: aiData, error: aiError } = await supabase
-        .from("player_tracking")
+        .from("ai_player_mappings")
         .select("*")
         .eq("game_id", gameId);
 
       if (aiError) throw aiError;
       setAiPlayers(aiData || []);
+
+      // Build initial mapping state from what is already saved in the DB
+      const mappingMap: Record<string, string> = {};
+      aiData?.forEach(m => {
+        if (m.real_player_id) {
+          mappingMap[m.id] = m.real_player_id;
+        }
+      });
+      setMappings(mappingMap);
 
       // Fetch roster players
       const { data: rosterData, error: rosterError } = await supabase
@@ -85,19 +65,6 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
       if (rosterError) throw rosterError;
       setRosterPlayers(rosterData || []);
 
-      // Fetch existing mappings
-      const { data: mappingData, error: mappingError } = await supabase
-        .from("player_mappings")
-        .select("*")
-        .eq("game_id", gameId);
-
-      if (mappingError) throw mappingError;
-      
-      const mappingMap: Record<string, string> = {};
-      mappingData?.forEach(m => {
-        mappingMap[m.ai_player_id] = m.roster_player_id;
-      });
-      setMappings(mappingMap);
     } catch (err: any) {
       logger.error("[MappingDashboard] Fetch failed", err);
     } finally {
@@ -105,21 +72,22 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
     }
   };
 
-  const handleMapping = async (aiPlayerId: string, rosterPlayerId: string) => {
+  const handleMapping = async (mappingRowId: string, rosterPlayerId: string) => {
     try {
       const { error } = await supabase
-        .from("player_mappings")
-        .upsert({
-          game_id: gameId,
-          ai_player_id: aiPlayerId,
-          roster_player_id: rosterPlayerId
-        });
+        .from("ai_player_mappings")
+        .update({
+          real_player_id: rosterPlayerId,
+          is_manual_override: true,
+          is_manual_match: true
+        })
+        .eq("id", mappingRowId);
 
       if (error) throw error;
       
-      setMappings(prev => ({ ...prev, [aiPlayerId]: rosterPlayerId }));
+      setMappings(prev => ({ ...prev, [mappingRowId]: rosterPlayerId }));
     } catch (err: any) {
-      logger.error("[MappingDashboard] Mapping failed", err);
+      logger.error("[MappingDashboard] Mapping update failed", err);
     }
   };
 
@@ -127,12 +95,12 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
     return rosterPlayers.filter(p => p.team_id === teamId);
   };
 
-  const getAIPlayersByTeam = (team: "home" | "away") => {
-    return aiPlayers.filter(p => p.team === team);
+  const getAIPlayersByTeam = (teamSide: "home" | "away") => {
+    return aiPlayers.filter(p => p.team_side === teamSide);
   };
 
-  const renderMappingList = (team: "home" | "away", teamId: string | null) => {
-    const teamAIPlayers = getAIPlayersByTeam(team);
+  const renderMappingList = (teamSide: "home" | "away", teamId: string | null) => {
+    const teamAIPlayers = getAIPlayersByTeam(teamSide);
     const teamRosterPlayers = getTeamPlayers(teamId);
 
     if (teamAIPlayers.length === 0) {
@@ -149,8 +117,12 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
       <div className="space-y-3">
         {teamAIPlayers.map((aiPlayer) => (
           <div key={aiPlayer.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5 border border-white/5">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0">
-              <span className="text-sm font-black text-primary">#{aiPlayer.jersey_number}</span>
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center border border-primary/20 shrink-0 overflow-hidden relative">
+              {aiPlayer.snapshot_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={aiPlayer.snapshot_url} alt="AI Snapshot" className="w-full h-full object-cover opacity-60" />
+              ) : null}
+              <span className="text-sm font-black text-primary z-10 absolute">#{aiPlayer.jersey_number || '?'}</span>
             </div>
             <div className="flex-1">
               <Select
@@ -158,12 +130,12 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
                 onValueChange={(value) => handleMapping(aiPlayer.id, value)}
               >
                 <SelectTrigger className="h-8 text-xs bg-muted/20 border-white/10">
-                  <SelectValue placeholder="Map to player..." />
+                  <SelectValue placeholder="Map to roster player..." />
                 </SelectTrigger>
                 <SelectContent>
                   {teamRosterPlayers.map((player) => (
                     <SelectItem key={player.id} value={player.id} className="text-xs">
-                      #{player.jersey_number} {player.name}
+                      #{player.number || '?'} {player.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -192,10 +164,10 @@ export function MappingDashboard({ gameId, aiMappings, homeRoster, awayRoster, h
     <Tabs defaultValue="home" className="w-full">
       <TabsList className="w-full grid grid-cols-2 bg-muted/10 border border-white/5">
         <TabsTrigger value="home" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-          Home
+          Home Identity
         </TabsTrigger>
         <TabsTrigger value="away" className="data-[state=active]:bg-primary/10 data-[state=active]:text-primary">
-          Away
+          Away Identity
         </TabsTrigger>
       </TabsList>
       <TabsContent value="home" className="mt-4">

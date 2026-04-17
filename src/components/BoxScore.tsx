@@ -3,17 +3,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Trophy, TrendingUp, Target } from "lucide-react";
+import { Trophy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logger } from "@/lib/logger";
-import { cn } from "@/lib/utils";
 
 interface PlayerStats {
+  id: string;
   player_id: string;
-  player_name: string;
-  jersey_number: string;
-  team: "home" | "away";
-  minutes: number;
+  team_id: string;
+  minutes_played: number;
   points: number;
   rebounds: number;
   assists: number;
@@ -26,7 +24,10 @@ interface PlayerStats {
   ft_made: number;
   ft_attempted: number;
   turnovers: number;
-  fouls: number;
+  player?: {
+    name: string;
+    number: number;
+  };
 }
 
 interface BoxScoreProps {
@@ -47,18 +48,28 @@ export function BoxScore({ gameId }: BoxScoreProps) {
   const fetchBoxScore = async () => {
     try {
       setLoading(true);
+      
+      const { data: gameData } = await supabase
+        .from("games")
+        .select("home_team_id, away_team_id")
+        .eq("id", gameId)
+        .single();
+
       const { data, error } = await supabase
         .from("box_scores")
-        .select("*")
+        .select(`
+          *,
+          player:players(name, number)
+        `)
         .eq("game_id", gameId);
 
       if (error) throw error;
 
-      if (data) {
-        const home = data.filter(p => p.team === "home");
-        const away = data.filter(p => p.team === "away");
-        setHomeStats(home as PlayerStats[]);
-        setAwayStats(away as PlayerStats[]);
+      if (data && gameData) {
+        const home = data.filter(p => p.team_id === gameData.home_team_id);
+        const away = data.filter(p => p.team_id === gameData.away_team_id);
+        setHomeStats(home as unknown as PlayerStats[]);
+        setAwayStats(away as unknown as PlayerStats[]);
       }
     } catch (err: any) {
       logger.error("[BoxScore] Fetch failed", err);
@@ -68,7 +79,7 @@ export function BoxScore({ gameId }: BoxScoreProps) {
   };
 
   const calculateFGPercentage = (made: number, attempted: number) => {
-    if (attempted === 0) return "0.0";
+    if (!attempted || attempted === 0) return "0.0";
     return ((made / attempted) * 100).toFixed(1);
   };
 
@@ -104,23 +115,25 @@ export function BoxScore({ gameId }: BoxScoreProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {stats.map((player, idx) => (
-              <TableRow key={idx} className="border-white/5 hover:bg-white/5 transition-colors">
-                <TableCell className="font-mono text-xs text-muted-foreground">{player.jersey_number}</TableCell>
+            {stats.map((stat) => (
+              <TableRow key={stat.id} className="border-white/5 hover:bg-white/5 transition-colors">
+                <TableCell className="font-mono text-xs text-muted-foreground">
+                  {stat.player?.number || '-'}
+                </TableCell>
                 <TableCell className="font-medium text-sm">
-                  {player.player_name || `Player #${player.jersey_number}`}
+                  {stat.player?.name || 'Unknown Player'}
                 </TableCell>
-                <TableCell className="text-center font-mono text-xs">{player.minutes}</TableCell>
-                <TableCell className="text-center font-bold text-primary">{player.points}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{player.rebounds}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{player.assists}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{player.steals}</TableCell>
-                <TableCell className="text-center font-mono text-xs">{player.blocks}</TableCell>
+                <TableCell className="text-center font-mono text-xs">{stat.minutes_played || 0}</TableCell>
+                <TableCell className="text-center font-bold text-primary">{stat.points || 0}</TableCell>
+                <TableCell className="text-center font-mono text-xs">{stat.rebounds || 0}</TableCell>
+                <TableCell className="text-center font-mono text-xs">{stat.assists || 0}</TableCell>
+                <TableCell className="text-center font-mono text-xs">{stat.steals || 0}</TableCell>
+                <TableCell className="text-center font-mono text-xs">{stat.blocks || 0}</TableCell>
                 <TableCell className="text-center font-mono text-xs">
-                  {calculateFGPercentage(player.fg_made, player.fg_attempted)}%
+                  {calculateFGPercentage(stat.fg_made, stat.fg_attempted)}%
                 </TableCell>
                 <TableCell className="text-center font-mono text-xs">
-                  {calculateFGPercentage(player.three_pt_made, player.three_pt_attempted)}%
+                  {calculateFGPercentage(stat.three_pt_made, stat.three_pt_attempted)}%
                 </TableCell>
               </TableRow>
             ))}
