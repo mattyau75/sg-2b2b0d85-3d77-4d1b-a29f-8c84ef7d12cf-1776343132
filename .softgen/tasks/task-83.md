@@ -13,7 +13,8 @@ position: 83
 The user can login, but Modal (Module 2) returns 401. User wants persistent error notifications and a clear tracking panel.
 
 ## Checklist:
-- [ ] Update DiagnosticBanner to be persistent with a dismiss button
-- [ ] Enhance ErrorMonitor to provide a clear, high-density view of logs
-- [ ] Add a persistent toggle/button for the Error Monitor on the Dashboard
+- [x] Update DiagnosticBanner to be persistent with a dismiss button
+- [x] Enhance ErrorMonitor to provide a clear, high-density view of logs
+- [x] Add a persistent toggle/button for the Error Monitor on the Dashboard
 - [ ] Investigate and fix the Modal 401 error in process-game.ts
+- [ ] Fix TypeScript errors in game details page
