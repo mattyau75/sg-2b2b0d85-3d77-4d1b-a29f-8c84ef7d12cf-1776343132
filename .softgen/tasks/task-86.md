@@ -1,6 +1,6 @@
 ---
 title: Build Box Score and AI Mapping Dashboard
-status: in_progress
+status: done
 priority: high
 type: feature
 tags: [ui, stats, mapping]
