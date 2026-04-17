@@ -7,9 +7,12 @@ const SUPABASE_URL = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
 const SUPABASE_PUBLISHABLE_KEY = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
 
 if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  // Only log error on client-side to prevent server-side noise during build
   if (typeof window !== "undefined") {
     console.error('Missing Supabase environment variables. Check Vercel Settings.');
+  }
+} else {
+  if (typeof window !== "undefined") {
+    console.log('Initializing Supabase client with URL:', SUPABASE_URL);
   }
 }
 
