@@ -18,7 +18,8 @@ import {
   BarChart3,
   RefreshCw,
   Video,
-  Check
+  Check,
+  AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { showBanner } from "@/components/DiagnosticBanner";
@@ -232,18 +233,20 @@ export default function GameDetail() {
           </div>
           
           <div className="flex items-center gap-3">
-            <Button 
-              variant="outline" 
-              size="sm"
-              className={cn(
-                "gap-2 border-destructive/50 text-destructive hover:bg-destructive/10",
-                errors.length > 0 && "animate-pulse border-destructive"
-              )}
-              onClick={() => setIsErrorMonitorOpen(true)}
-            >
-              <AlertCircle className="h-4 w-4" />
-              Logs ({errors.length})
-            </Button>
+            {(errors.length > 0 || isErrorMonitorOpen) && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                className={cn(
+                  "gap-2 border-destructive border-2 text-destructive bg-destructive/5",
+                  errors.length > 0 && "animate-pulse"
+                )}
+                onClick={() => setIsErrorMonitorOpen(true)}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                System Logs ({errors.length})
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => router.back()}>Back to Queue</Button>
             <Button size="sm" className="gap-2" onClick={handleStartProcess} disabled={isProcessing}>
               <PlayCircle className={cn("w-4 h-4", isProcessing && "animate-pulse")} />

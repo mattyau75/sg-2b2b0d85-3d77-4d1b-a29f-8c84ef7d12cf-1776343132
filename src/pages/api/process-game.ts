@@ -173,11 +173,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // DIAGNOSTIC CHECKPOINT 7: Verifying Modal configuration
     logger.info("[ProcessGame] ✅ CHECKPOINT 7: Verifying Modal configuration");
     
-    const modalUrl = process.env.MODAL_USER_URL;
-    // Support both TOKEN and KEY naming conventions, favoring TOKEN
-    const modalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY;
+    // Clean and sanitize env vars (remove potential quotes or spaces from Vercel)
+    const rawModalUrl = process.env.MODAL_USER_URL || "";
+    const modalUrl = rawModalUrl.replace(/['"]+/g, '').trim().replace(/\/+$/, '');
     
-    logger.info("[ProcessGame] Modal config check", {
+    const rawModalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY || "";
+    const modalToken = rawModalToken.replace(/['"]+/g, '').trim();
+    
+    logger.info("[ProcessGame] Modal config check (Sanitized)", {
       hasUrl: !!modalUrl,
       hasToken: !!modalToken,
       source: !!process.env.MODAL_AUTH_TOKEN ? 'MODAL_AUTH_TOKEN' : (!!process.env.MODAL_AUTH_KEY ? 'MODAL_AUTH_KEY' : 'NONE'),
