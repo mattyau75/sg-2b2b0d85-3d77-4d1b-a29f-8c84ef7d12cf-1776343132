@@ -224,88 +224,118 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // DIAGNOSTIC CHECKPOINT 9: Sending request to Modal
     logger.info("[ProcessGame] ✅ CHECKPOINT 9: Dispatching to Modal GPU Worker", {
       endpoint: modalEndpoint,
-      tokenPreview: modalToken ? `${modalToken.substring(0, 5)}...` : 'NONE'
+      authHeaderLength: modalToken?.length,
+      authHeaderPreview: modalToken ? `${modalToken.substring(0, 7)}...` : 'MISSING'
     });
 
-    const response = await fetch(modalEndpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${modalToken}`
-      },
-      body: JSON.stringify(modalPayload),
-    });
-
-    const responseText = await response.text();
-    
-    logger.info("[ProcessGame] Modal response received", { 
-      status: response.status, 
-      statusText: response.statusText,
-      headers: Object.fromEntries(response.headers.entries()),
-      responseText: responseText.substring(0, 500)
-    });
-
-    if (response.status === 401) {
-      logger.error("[ProcessGame] ❌ MODAL AUTHENTICATION FAILED (401)", {
-        message: "The Modal token is likely invalid or expired.",
-        responseText
+    try {
+      const response = await fetch(modalEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${modalToken}`.trim()
+        },
+        body: JSON.stringify(modalPayload),
       });
-      return res.status(401).json({
-        error: "GPU Worker Authentication Failed",
-        checkpoint: "MODAL_AUTH",
-        details: {
-          modalStatus: 401,
-          modalError: responseText,
-          suggestion: "Please check your MODAL_AUTH_TOKEN in Vercel settings."
+
+      const responseText = await response.text();
+      
+      if (response.status === 401) {
+        logger.error("[ProcessGame] ❌ MODAL AUTHENTICATION FAILED (401)", {
+          status: response.status,
+          statusText: response.statusText,
+          responseText: responseText.substring(0, 500)
+        });
+        return res.status(401).json({
+          error: "GPU Worker Authentication Failed",
+          checkpoint: "MODAL_AUTH",
+          details: {
+            modalStatus: 401,
+            suggestion: "Check MODAL_AUTH_TOKEN in Vercel. Ensure no extra quotes or spaces.",
+            modalResponse: responseText
+          }
+        });
+      }
+
+      logger.info("[ProcessGame] Modal response received", { 
+        status: response.status, 
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries()),
+        responseText: responseText.substring(0, 500)
+      });
+
+      // DIAGNOSTIC CHECKPOINT 10: Processing Modal response
+      logger.info("[ProcessGame] ✅ CHECKPOINT 10: Processing Modal response");
+
+      if (!response.ok) {
+        logger.error("[ProcessGame] ❌ CHECKPOINT 10 FAILED: Modal API error", { 
+          status: response.status,
+          statusText: response.statusText,
+          responseBody: responseText,
+          requestPayload: modalPayload
+        });
+        return res.status(500).json({ 
+          error: "GPU Worker dispatch failed",
+          checkpoint: "MODAL_RESPONSE",
+          details: {
+            modalStatus: response.status,
+            modalError: responseText,
+            modalUrl: modalEndpoint,
+            requestSent: modalPayload
+          }
+        });
+      }
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError: any) {
+        logger.warn("[ProcessGame] Could not parse Modal response as JSON", { 
+          error: parseError.message,
+          responseText 
+        });
+        result = { raw: responseText };
+      }
+
+      logger.info("[ProcessGame] ✅ SUCCESS: GPU processing initiated", { gameId, result });
+      
+      return res.status(200).json({ 
+        success: true, 
+        message: "GPU processing initiated", 
+        result,
+        debug: {
+          videoUrl,
+          modalEndpoint,
+          timestamp: logContext.timestamp
         }
       });
-    }
 
-    // DIAGNOSTIC CHECKPOINT 10: Processing Modal response
-    logger.info("[ProcessGame] ✅ CHECKPOINT 10: Processing Modal response");
-
-    if (!response.ok) {
-      logger.error("[ProcessGame] ❌ CHECKPOINT 10 FAILED: Modal API error", { 
-        status: response.status,
-        statusText: response.statusText,
-        responseBody: responseText,
-        requestPayload: modalPayload
+    } catch (fetchError: any) {
+      logger.error("[ProcessGame] ❌ CHECKPOINT 9 FAILED: Modal API request failed", {
+        error: fetchError.message,
+        stack: fetchError.stack,
+        name: fetchError.name,
+        request: {
+          endpoint: modalEndpoint,
+          payload: modalPayload,
+          authHeader: `Bearer ${modalToken}`.trim()
+        }
       });
       return res.status(500).json({ 
         error: "GPU Worker dispatch failed",
-        checkpoint: "MODAL_RESPONSE",
+        checkpoint: "MODAL_REQUEST",
         details: {
-          modalStatus: response.status,
-          modalError: responseText,
-          modalUrl: modalEndpoint,
-          requestSent: modalPayload
+          message: fetchError.message,
+          stack: process.env.NODE_ENV === 'development' ? fetchError.stack : undefined,
+          type: fetchError.name,
+          request: {
+            endpoint: modalEndpoint,
+            payload: modalPayload,
+            authHeader: `Bearer ${modalToken}`.trim()
+          }
         }
       });
     }
-
-    let result;
-    try {
-      result = JSON.parse(responseText);
-    } catch (parseError: any) {
-      logger.warn("[ProcessGame] Could not parse Modal response as JSON", { 
-        error: parseError.message,
-        responseText 
-      });
-      result = { raw: responseText };
-    }
-
-    logger.info("[ProcessGame] ✅ SUCCESS: GPU processing initiated", { gameId, result });
-    
-    return res.status(200).json({ 
-      success: true, 
-      message: "GPU processing initiated", 
-      result,
-      debug: {
-        videoUrl,
-        modalEndpoint,
-        timestamp: logContext.timestamp
-      }
-    });
 
   } catch (err: any) {
     logger.error("[ProcessGame] ❌ UNEXPECTED ERROR at unknown checkpoint", {

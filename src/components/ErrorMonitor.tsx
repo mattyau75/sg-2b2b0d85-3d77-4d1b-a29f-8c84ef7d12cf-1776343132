@@ -25,97 +25,44 @@ interface ErrorMonitorProps {
 }
 
 export function ErrorMonitor({ errors, onDismiss, onDismissAll, isOpen, onToggle }: ErrorMonitorProps) {
-  const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
+  const [isSticky, setIsSticky] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const toggleExpand = (id: string) => {
-    const newExpanded = new Set(expandedErrors);
-    if (newExpanded.has(id)) {
-      newExpanded.delete(id);
-    } else {
-      newExpanded.add(id);
-    }
-    setExpandedErrors(newExpanded);
-  };
-
-  const copyToClipboard = (error: ErrorLog) => {
-    const errorText = `
-ERROR LOG DUMP
-=============
-Timestamp: ${error.timestamp.toISOString()}
-Endpoint: ${error.endpoint}
-Status: ${error.status}
-Error: ${error.error}
-
-Details:
-${JSON.stringify(error.details, null, 2)}
-
-Request Body:
-${JSON.stringify(error.requestBody, null, 2)}
-
-Stack:
-${error.stack || 'No stack trace available'}
-    `.trim();
-    
-    navigator.clipboard.writeText(errorText);
-  };
-
-  if (!isOpen && errors.length === 0) return null;
-
-  if (!isOpen) {
-    return (
-      <Button
-        onClick={onToggle}
-        variant="destructive"
-        className="fixed bottom-4 right-4 z-50 rounded-full h-12 w-12 shadow-2xl flex items-center justify-center p-0"
-      >
-        <div className="relative">
-          <AlertTriangle className="h-6 w-6" />
-          {errors.length > 0 && (
-            <Badge 
-              variant="default" 
-              className="absolute -top-3 -right-3 h-5 w-5 p-0 flex items-center justify-center text-[10px] bg-white text-destructive font-black"
-            >
-              {errors.length}
-            </Badge>
-          )}
-        </div>
-      </Button>
-    );
-  }
+  if (!isOpen && !isSticky) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 w-full max-w-lg animate-in slide-in-from-bottom-4 duration-300">
-      <Card className="border-destructive bg-zinc-950/95 backdrop-blur-xl shadow-2xl overflow-hidden border-2">
-        <div className="bg-destructive p-3 flex items-center justify-between text-white">
+    <div className={cn(
+      "fixed z-[90] transition-all duration-300",
+      isSticky 
+        ? "top-24 right-4 bottom-24 w-96" 
+        : "bottom-4 right-4 w-96 max-h-[600px]"
+    )}>
+      <Card className="h-full bg-zinc-950/90 border-destructive/30 backdrop-blur-xl shadow-2xl flex flex-col overflow-hidden">
+        <CardHeader className="p-4 border-b border-white/5 flex flex-row items-center justify-between space-y-0">
           <div className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" />
-            <h3 className="text-xs font-black uppercase tracking-widest">System Error Monitor</h3>
-            <Badge variant="outline" className="text-[10px] bg-white/20 border-none text-white">
-              {errors.length} Active
-            </Badge>
+            <div className="h-2 w-2 rounded-full bg-red-500 animate-pulse" />
+            <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+              System Logs <Badge variant="destructive" className="text-[10px] h-4 px-1">{errors.length}</Badge>
+            </CardTitle>
           </div>
-          <div className="flex items-center gap-2">
-            {errors.length > 0 && (
-              <Button 
-                variant="ghost" 
-                size="icon" 
-                onClick={onDismissAll}
-                className="h-6 w-6 hover:bg-white/20"
-                title="Clear All"
-              >
-                <Trash2 className="h-3 w-3" />
-              </Button>
-            )}
+          <div className="flex items-center gap-1">
             <Button 
               variant="ghost" 
               size="icon" 
-              onClick={onToggle}
-              className="h-6 w-6 hover:bg-white/20"
+              className={cn("h-7 w-7", isSticky && "bg-white/10")} 
+              onClick={() => setIsSticky(!isSticky)}
+              title={isSticky ? "Unstick panel" : "Stick to side"}
             >
+              <ChevronDown className={cn("h-4 w-4 transition-transform", isSticky && "rotate-180")} />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismissAll} title="Clear all logs">
+              <Copy className="h-3 w-3" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onToggle}>
               <X className="h-4 w-4" />
             </Button>
           </div>
-        </div>
+        </CardHeader>
         
         <ScrollArea className="h-[400px]">
           <CardContent className="p-2 space-y-2">

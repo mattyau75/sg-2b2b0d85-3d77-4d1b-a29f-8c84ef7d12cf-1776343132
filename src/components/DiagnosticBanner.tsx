@@ -66,8 +66,10 @@ export function GlobalBannerContainer() {
   const [banners, setBanners] = useState<GlobalBanner[]>([]);
 
   useEffect(() => {
-    const handleAddBanner = (event: CustomEvent<GlobalBanner>) => {
-      setBanners((prev) => [...prev, event.detail]);
+    const handleAddBanner = (e: any) => {
+      const newBanner = e.detail;
+      // All banners are now persistent by default unless explicitly set otherwise
+      setBanners((prev) => [...prev, { ...newBanner, persistent: true }]);
     };
 
     window.addEventListener("add-banner" as any, handleAddBanner);
@@ -81,13 +83,34 @@ export function GlobalBannerContainer() {
   if (banners.length === 0) return null;
 
   return (
-    <div className="fixed top-20 left-1/2 -translate-x-1/2 z-[100] w-full max-w-2xl flex flex-col gap-2 px-4 pointer-events-none">
+    <div className="fixed top-20 right-4 z-[100] flex flex-col gap-3 w-full max-w-md pointer-events-none">
       {banners.map((banner) => (
-        <div key={banner.id} className="pointer-events-auto">
-          <DiagnosticBanner
-            {...banner}
-            onClose={() => removeBanner(banner.id)}
-          />
+        <div
+          key={banner.id}
+          className={cn(
+            "pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-2xl animate-in slide-in-from-right-8 duration-300",
+            banner.severity === "error" ? "bg-red-500/10 border-red-500/50 text-red-200" :
+            banner.severity === "success" ? "bg-emerald-500/10 border-emerald-500/50 text-emerald-200" :
+            banner.severity === "warning" ? "bg-orange-500/10 border-orange-500/50 text-orange-200" :
+            "bg-blue-500/10 border-blue-500/50 text-blue-200"
+          )}
+        >
+          <div className="mt-0.5">
+            {banner.severity === "error" ? <AlertCircle className="h-5 w-5" /> : 
+             banner.severity === "warning" ? <AlertTriangle className="h-5 w-5" /> :
+             <Info className="h-5 w-5" />}
+          </div>
+          <div className="flex-1 space-y-1">
+            {banner.title && <p className="text-xs font-black uppercase tracking-widest">{banner.title}</p>}
+            <p className="text-sm font-medium leading-relaxed">{banner.message}</p>
+          </div>
+          <button 
+            onClick={() => removeBanner(banner.id)}
+            className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+            title="Dismiss notification"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
       ))}
     </div>
