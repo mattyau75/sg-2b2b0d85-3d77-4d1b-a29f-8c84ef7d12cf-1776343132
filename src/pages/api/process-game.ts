@@ -174,13 +174,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     logger.info("[ProcessGame] ✅ CHECKPOINT 7: Verifying Modal configuration");
     
     const modalUrl = process.env.MODAL_USER_URL;
-    // Support both TOKEN and KEY naming conventions
+    // Support both TOKEN and KEY naming conventions, favoring TOKEN
     const modalToken = process.env.MODAL_AUTH_TOKEN || process.env.MODAL_AUTH_KEY;
     
     logger.info("[ProcessGame] Modal config check", {
       hasUrl: !!modalUrl,
       hasToken: !!modalToken,
-      usedKey: !!process.env.MODAL_AUTH_KEY ? 'MODAL_AUTH_KEY' : 'MODAL_AUTH_TOKEN',
+      source: !!process.env.MODAL_AUTH_TOKEN ? 'MODAL_AUTH_TOKEN' : (!!process.env.MODAL_AUTH_KEY ? 'MODAL_AUTH_KEY' : 'NONE'),
       modalUrl: modalUrl,
       modalUrlLength: modalUrl?.length,
       tokenLength: modalToken?.length,
