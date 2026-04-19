@@ -4,11 +4,11 @@ on:
   push:
     branches:
       - main
-    paths:
-      - 'modal_worker.py'
-      - 'opencv_statgen.py'
-      - '.github/workflows/deploy-modal.yml'
   workflow_dispatch:
+
+# Fixes the Node.js warning and ensures latest environment
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   deploy:
@@ -23,28 +23,29 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Modal CLI
-        run: |
-          pip install modal
+      - name: Install Modal
+        run: pip install modal
 
-      - name: Authenticate with Modal
+      - name: Verify Secrets
+        run: |
+          if [ -z "${{ secrets.MODAL_TOKEN_ID }}" ]; then
+            echo "❌ ERROR: MODAL_TOKEN_ID is missing in GitHub Secrets"
+            exit 1
+          fi
+          if [ -z "${{ secrets.MODAL_TOKEN_SECRET }}" ]; then
+            echo "❌ ERROR: MODAL_TOKEN_SECRET is missing in GitHub Secrets"
+            exit 1
+          fi
+          echo "✅ Secrets found, proceeding..."
+
+      - name: Authenticate and Deploy
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: |
           modal token set --token-id $MODAL_TOKEN_ID --token-secret $MODAL_TOKEN_SECRET
-
-      - name: Deploy GPU Worker to Modal
-        run: |
           modal deploy modal_worker.py
 
-      - name: Deployment Success
+      - name: Success
         if: success()
-        run: |
-          echo "✅ GPU Worker deployed successfully to Modal.com"
-
-      - name: Deployment Failed
-        if: failure()
-        run: |
-          echo "❌ GPU Worker deployment failed"
-          exit 1
+        run: echo "🚀 GPU Worker is LIVE!"
