@@ -7,12 +7,14 @@ from datetime import datetime
 # Modal 2025 Standard: Use App instead of Stub
 app = modal.App("basketball-scout-ai")
 
+# Explicitly include fastapi[standard] as required by the latest Modal SDK
 image = (
     modal.Image.debian_slim()
     .pip_install(
         "supabase==2.5.1",
         "requests",
-        "numpy"
+        "numpy",
+        "fastapi[standard]"
     )
 )
 
