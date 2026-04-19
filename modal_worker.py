@@ -89,7 +89,6 @@ def analyze_game(data: dict):
     timeout=3600,
     secrets=[modal.Secret.from_name("supabase-keys")]
 )
-@app.cls() # Added for better scaling stability
 @modal.fastapi_endpoint(method="POST")
 def analyze(data: dict):
     # Use spawn() for non-blocking execution
