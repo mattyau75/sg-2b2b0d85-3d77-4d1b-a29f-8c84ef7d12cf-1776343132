@@ -58,7 +58,7 @@ def update_progress(supabase, game_id, progress, status_msg):
 
 @app.function(
     image=image,
-    gpu=modal.gpu.A10G(),
+    gpu=modal.GPU.A10G(),
     timeout=3600,
     secrets=[modal.Secret.from_name("supabase-keys")]
 )
