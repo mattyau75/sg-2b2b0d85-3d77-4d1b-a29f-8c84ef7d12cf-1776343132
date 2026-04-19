@@ -1,10 +1,10 @@
-
-# DribbleStats AI Elite: GPU Worker - STABLE VERSION
+# DribbleStats AI Elite: GPU Worker - STABLE VERSION 2026
 import modal
 import os
 import time
 from datetime import datetime
 
+# Modal 2025 Standard: Use App instead of Stub
 app = modal.App("basketball-scout-ai")
 
 image = (
@@ -89,7 +89,9 @@ def analyze_game(data: dict):
     timeout=3600,
     secrets=[modal.Secret.from_name("supabase-keys")]
 )
-@modal.web_endpoint(method="POST")
+@app.cls() # Added for better scaling stability
+@modal.fastapi_endpoint(method="POST")
 def analyze(data: dict):
+    # Use spawn() for non-blocking execution
     analyze_game.spawn(data)
     return {"status": "ignited", "game_id": data.get("game_id")}
