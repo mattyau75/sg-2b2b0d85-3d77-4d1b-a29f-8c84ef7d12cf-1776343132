@@ -1,121 +1,58 @@
 import modal
 import os
-import json
 
-# MODAL_ELITE_WORKER v5.3 - Hybrid Scouting System
-# Standardized for both 'app' and 'stub' deployment patterns
+# MODAL_ELITE_WORKER v5.5 - Direct Fast-Exit Scouting
+# Optimized for speed and direct response without DB handshaking
 
 app = modal.App("basketball-scout-ai")
-stub = app # Compatibility for older Modal CLI versions
+stub = app
 
 image = modal.Image.debian_slim().apt_install(
     "libgl1-mesa-glx",
-    "libglib2.0-0",
-    "libsm6",
-    "libxext6",
-    "libxrender-dev",
-    "libgomp1"
+    "libglib2.0-0"
 ).pip_install(
     "fastapi[standard]",
     "requests",
     "opencv-python-headless",
-    "numpy",
-    "Pillow",
-    "ultralytics>=8.0.0",
-    "torch",
-    "torchvision",
-    "roboflow",
-    "supervision"
-).run_commands(
-    "yolo export model=yolo11n.pt format=onnx"
+    "numpy"
 )
 
-def detect_colors_yolo11m(video_url: str, game_id: str):
+def detect_colors_direct(video_url: str, game_id: str):
     import cv2
     import numpy as np
     import requests
     import base64
     import time
-    from concurrent.futures import ThreadPoolExecutor
-    from ultralytics import YOLO
-
+    
+    print(f"[AI] Direct Color Calibration: {game_id}")
     start_time = time.time()
-    print(f"\n[STAGE 2] Starting Hybrid Color Calibration for Game: {game_id}")
     
     try:
-        # Load Local YOLO for fallback (Person detection)
-        local_model = YOLO("yolo11n.pt")
-        
-        # Configuration for specialized Roboflow Jersey Model
         api_key = os.environ.get("ROBOFLOW_API_KEY", "oyGufxqxrSK33efrhQBb")
         model_id = "basketball-jersey-numbers-ocr/2" 
-        inference_url = f"https://detect.roboflow.com/{model_id}?api_key={api_key}&confidence=25"
+        inference_url = f"https://detect.roboflow.com/{model_id}?api_key={api_key}"
         
         cap = cv2.VideoCapture(video_url)
         if not cap.isOpened():
-            return {"status": "error", "message": f"Failed to open video: {video_url}"}
+            return {"status": "error", "message": "Video source unreachable"}
         
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        sample_sections = [int(total_frames * p) for p in [0.2, 0.4, 0.6, 0.8, 0.9]]
+        # Target the first 60 seconds (Tip-off & First Play)
+        fps = cap.get(cv2.CAP_PROP_FPS) || 30
+        sample_points = [int(fps * s) for s in [2, 10, 25, 45, 60]]
         
-        captured_frames = []
-        for section_start in sample_sections:
-            for offset in range(2): # 2 frames per section = 10 total frames
-                cap.set(cv2.CAP_PROP_POS_FRAMES, section_start + (offset * 15))
-                ret, frame = cap.read()
-                if not ret: continue
-                captured_frames.append(frame)
-        cap.release()
-
-        def extract_dominant_color(crop):
-            if crop.size < 50: return None
-            # Focus on the center of the crop to avoid edges/background
-            ch, cw = crop.shape[:2]
-            center_crop = crop[int(ch*0.3):int(ch*0.7), int(cw*0.3):int(cw*0.7)]
-            if center_crop.size < 20: center_crop = crop
+        all_jersey_colors = []
+        
+        for frame_idx in sample_points:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            if not ret: continue
             
-            pixels = center_crop.reshape(-1, 3).astype(np.float32)
-            criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
-            _, _, centers = cv2.kmeans(pixels, 3, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
-            
-            best_color = None
-            max_score = -1000
-            for center in centers:
-                b, g, r = center
-                brightness = (r + g + b) / 3
-                saturation = max(r, g, b) - min(r, g, b)
-                
-                # VIBRANCY-FIRST SCORING
-                # Heavily prioritize saturated team colors over dull background
-                score = (saturation * 5.0) + (brightness * 0.8)
-                
-                # ELITE COURT & SKIN FILTER
-                # 1. Court Wood/Skin: Orange-ish tan with low-to-mid saturation
-                if (r > 130 and g > 100 and r > g and abs(r - g) < 50):
-                    if saturation < 60: score -= 800 
-                
-                # 2. Neutrals/Shadows: Greyish tones
-                if (abs(r - g) < 15 and abs(g - b) < 15):
-                    if brightness < 180: score -= 600 # Allow bright white jerseys
-                
-                if score > max_score:
-                    max_score = score
-                    best_color = [r, g, b]
-            
-            # Final sanity check: if the best color is still just a "dull" one, return None
-            # This forces the engine to keep looking for better samples
-            if max_score < -200: return None
-            return best_color
-
-        def process_frame(frame):
+            # High-res processing for small jersey detection
             h, w = frame.shape[:2]
             target_w = 1280
             target_h = int(h * (target_w / w))
             frame_resized = cv2.resize(frame, (target_w, target_h))
             
-            frame_colors = []
-            
-            # --- ATTEMPT 1: Specialized Roboflow Jersey Model ---
             _, buffer = cv2.imencode('.jpg', frame_resized)
             img_base64 = base64.b64encode(buffer).decode('utf-8')
             
@@ -126,67 +63,57 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                     timeout=4
                 )
-                roboflow_results = res.json()
+                preds = res.json().get('predictions', [])
                 
-                if roboflow_results.get('predictions'):
-                    for pred in roboflow_results['predictions']:
-                        # ROBOTIC PRECISION: Use center of detection for color
-                        x1 = int(pred['x'] - pred['width'] / 2)
-                        y1 = int(pred['y'] - pred['height'] / 2)
-                        x2 = int(pred['x'] + pred['width'] / 2)
-                        y2 = int(pred['y'] + pred['height'] / 2)
-                        
-                        crop = frame_resized[max(0, y1):min(target_h, y2), max(0, x1):min(target_w, x2)]
-                        color = extract_dominant_color(crop)
-                        if color: frame_colors.append(color)
+                for pred in preds:
+                    # Focus on center of detection to avoid edges
+                    x, y, pw, ph = pred['x'], pred['y'], pred['width'], pred['height']
+                    x1, y1 = int(x - pw/4), int(y - ph/4)
+                    x2, y2 = int(x + pw/4), int(y + ph/4)
+                    
+                    crop = frame_resized[max(0, y1):min(target_h, y2), max(0, x1):min(target_w, x2)]
+                    if crop.size < 20: continue
+                    
+                    # Extract vibrant color
+                    pixels = crop.reshape(-1, 3).astype(np.float32)
+                    _, _, centers = cv2.kmeans(pixels, 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 5, 1.0), 5, cv2.KMEANS_PP_CENTERS)
+                    
+                    for center in centers:
+                        b, g, r = center
+                        sat = max(r, g, b) - min(r, g, b)
+                        # Filter out wood and neutrals
+                        if sat > 40 and not (r > 130 and g > 110 and abs(r-g) < 40):
+                            all_jersey_colors.append([r, g, b])
             except:
-                pass
-
-            # --- ATTEMPT 2: Fallback to Local YOLO Person Detection ---
-            if len(frame_colors) < 2:
-                yolo_results = local_model(frame_resized, classes=[0], conf=0.4, verbose=False)
-                for r in yolo_results:
-                    for box in r.boxes:
-                        bx1, by1, bx2, by2 = box.xyxy[0].cpu().numpy()
-                        # Extract Torso Zone (30% to 60% of height)
-                        ph = by2 - by1
-                        ty1 = int(by1 + (ph * 0.3))
-                        ty2 = int(by1 + (ph * 0.6))
-                        # Center 40% of width to avoid background
-                        pw = bx2 - bx1
-                        tx1 = int(bx1 + (pw * 0.3))
-                        tx2 = int(bx1 + (pw * 0.7))
-                        
-                        crop = frame_resized[max(0, ty1):min(target_h, ty2), max(0, tx1):min(target_w, tx2)]
-                        color = extract_dominant_color(crop)
-                        if color: frame_colors.append(color)
+                continue
             
-            return frame_colors
-
-        all_jersey_colors = []
-        with ThreadPoolExecutor(max_workers=4) as executor:
-            results = list(executor.map(process_frame, captured_frames))
-            for frame_colors in results:
-                all_jersey_colors.extend(frame_colors)
+            # Fast-Exit: If we have enough samples, stop early to prevent timeout
+            if len(all_jersey_colors) >= 8:
+                break
+                
+        cap.release()
         
         if len(all_jersey_colors) < 2:
-            return {"status": "error", "message": "The AI scouting engine could not find enough players in this footage. Please check if the video has clear view of the court."}
+            return {"status": "error", "message": "No clear jerseys found in initial footage"}
             
-        _, labels, centers = cv2.kmeans(np.array(all_jersey_colors, dtype=np.float32), 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), 10, cv2.KMEANS_PP_CENTERS)
-        center_list = sorted(centers.tolist(), key=lambda c: sum(c), reverse=True)
+        # Final Cluster into 2 teams
+        _, _, final_centers = cv2.kmeans(np.array(all_jersey_colors, dtype=np.float32), 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), 10, cv2.KMEANS_PP_CENTERS)
+        
+        # Sort by brightness
+        sorted_centers = sorted(final_centers.tolist(), key=lambda c: sum(c), reverse=True)
         
         elapsed = time.time() - start_time
+        print(f"[AI] Done in {elapsed:.2f}s with {len(all_jersey_colors)} samples")
+        
         return {
             "status": "success",
             "colors": {
-                "home": f"#{int(center_list[0][2]):02x}{int(center_list[0][1]):02x}{int(center_list[0][0]):02x}", 
-                "away": f"#{int(center_list[1][2]):02x}{int(center_list[1][1]):02x}{int(center_list[1][0]):02x}"
-            },
-            "game_id": game_id
+                "home": f"#{int(sorted_centers[0][0]):02x}{int(sorted_centers[0][1]):02x}{int(sorted_centers[0][2]):02x}", 
+                "away": f"#{int(sorted_centers[1][0]):02x}{int(sorted_centers[1][1]):02x}{int(sorted_centers[1][2]):02x}"
+            }
         }
-        
     except Exception as e:
-        return {"status": "error", "message": f"AI Calibration failed: {str(e)}"}
+        return {"status": "error", "message": str(e)}
 
 @app.function(image=image, gpu="A10G", timeout=600)
 @modal.asgi_app()
@@ -198,14 +125,10 @@ def analyze():
     @web_app.post("/")
     async def analyze_endpoint(request: Request):
         data = await request.json()
-        mode = data.get("pipeline_mode")
-        
-        if mode == "color_calibration":
-            result = detect_colors_yolo11m(data.get("video_url"), data.get("game_id"))
-            return JSONResponse(content=result)
-        elif mode == "ping":
+        if data.get("pipeline_mode") == "ping":
             return JSONResponse(content={"status": "warm"})
-            
-        return JSONResponse(content={"status": "error", "message": "Invalid mode"}, status_code=400)
+        
+        result = detect_colors_direct(data.get("video_url"), data.get("game_id"))
+        return JSONResponse(content=result)
     
     return web_app
