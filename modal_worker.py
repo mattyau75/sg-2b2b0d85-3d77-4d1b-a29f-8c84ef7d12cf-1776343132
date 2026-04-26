@@ -37,7 +37,7 @@ def detect_colors_direct(video_url: str, game_id: str):
             return {"status": "error", "message": "Video source unreachable"}
         
         # Target the first 60 seconds (Tip-off & First Play)
-        fps = cap.get(cv2.CAP_PROP_FPS) || 30
+        fps = cap.get(cv2.CAP_PROP_FPS) or 30
         sample_points = [int(fps * s) for s in [2, 10, 25, 45, 60]]
         
         all_jersey_colors = []
