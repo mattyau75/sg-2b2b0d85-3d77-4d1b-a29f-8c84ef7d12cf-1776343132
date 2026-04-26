@@ -65,18 +65,19 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
         model = YOLO('yolo11m.pt')
         print("[MODEL] ✓ YOLOv11m loaded from cache")
         
-        # Stage 2: Color Calibration using Specialized Roboflow Basketball Model
+        # Stage 2: Color Calibration using specialized Jersey OCR Model
         try:
-            # Get API key from environment
-            api_key = os.environ.get("ROBOFLOW_API_KEY", "placeholder_key")
+            # Using the specific high-accuracy jersey model requested
+            api_key = os.environ.get("ROBOFLOW_API_KEY", "oyGufxqxrSK33efrhQBb")
             rf = Roboflow(api_key=api_key) 
-            project = rf.workspace("roboflow-100").project("basketball-players")
+            project = rf.workspace("m-m7itn").project("basketball-jersey-numbers-ocr")
             roboflow_model = project.version(2).model
             use_roboflow = True
-            print("[ROBOFLOW] ✓ Specialized Basketball Model Active")
+            print("[ROBOFLOW] ✓ Specialized Jersey OCR Model Active")
         except Exception as rf_error:
-            print(f"[ROBOFLOW] ⚠️ Using YOLOv11m fallback: {str(rf_error)}")
-            use_roboflow = False
+            print(f"[ROBOFLOW] ❌ Model Activation Failed: {str(rf_error)}")
+            # If Roboflow fails, we must return an error rather than silent bad data
+            return {"status": "error", "message": f"Roboflow activation failed: {str(rf_error)}. Check API key."}
         
         cap = cv2.VideoCapture(video_url)
         if not cap.isOpened():
@@ -163,27 +164,32 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                     torso_crop = frame_resized[max(0, torso_y1):min(target_w, torso_y2), max(0, torso_x1):min(target_w, torso_x2)]
                     if torso_crop.size < 50: continue
                     
-                    # Advanced Color Extraction: K-means with K=5 for higher resolution
+                    # Improved Color Extraction: K-means with K=5
                     pixels = torso_crop.reshape(-1, 3).astype(np.float32)
                     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
                     _, labels, centers = cv2.kmeans(pixels, 5, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
                     
-                    # Heuristic: Pick the color with the highest saturation (Blue) 
-                    # OR highest brightness (White), ignoring "muddy" greys/browns
+                    # NEW: GREY/TAN EXCLUSION FILTER
+                    # We explicitly penalize colors that look like court floor or shadows
                     best_color = None
-                    max_score = -1
+                    max_score = -1000
                     
                     for center in centers:
                         b, g, r = center
-                        # Convert to simple HSV-like metrics
+                        # Brightness and Saturation metrics
                         brightness = (r + g + b) / 3
                         saturation = max(r, g, b) - min(r, g, b)
                         
-                        # Score: Favor high saturation (colors) or very high brightness (white)
-                        # Penalty for "muddy" mid-tones (around 80-120 brightness with low saturation)
-                        score = saturation * 2 + brightness
-                        if brightness < 40: score -= 100 # Ignore shadows
-                        if brightness > 220: score += 50 # Strongly favor white
+                        # THE SCORE:
+                        # +50 for High Saturation (The BLUE team)
+                        # +100 for High Brightness (The WHITE team)
+                        # -200 for 'Muddy' Mid-tones (Court tan/Grey shadows)
+                        score = (saturation * 1.5) + (brightness * 1.2)
+                        
+                        # Penalty for court-like colors (R/G similar, B lower)
+                        if (r > 100 and g > 80 and abs(r - g) < 30): score -= 150 # Court penalty
+                        # Penalty for grey-like colors (all R/G/B very similar)
+                        if (abs(r - g) < 15 and abs(g - b) < 15): score -= 150 # Shadow penalty
                         
                         if score > max_score:
                             max_score = score
