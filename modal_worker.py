@@ -104,7 +104,7 @@ def detect_colors_from_video(video_url: str, game_id: str):
     gpu="A10G",
     timeout=300,
 )
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 def analyze(data: dict):
     """
     HTTP endpoint for color calibration.
