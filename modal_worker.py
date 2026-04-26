@@ -65,16 +65,17 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
         model = YOLO('yolo11m.pt')
         print("[MODEL] ✓ YOLOv11m loaded from cache")
         
-        # Try to load Roboflow basketball model for better jersey detection
-        # Using a public basketball player detection model
+        # Stage 2: Color Calibration using Specialized Roboflow Basketball Model
         try:
-            rf = Roboflow(api_key="placeholder_key")  # Public model access
+            # Get API key from environment
+            api_key = os.environ.get("ROBOFLOW_API_KEY", "placeholder_key")
+            rf = Roboflow(api_key=api_key) 
             project = rf.workspace("roboflow-100").project("basketball-players")
             roboflow_model = project.version(2).model
             use_roboflow = True
-            print("[ROBOFLOW] ✓ Basketball player model loaded")
+            print("[ROBOFLOW] ✓ Specialized Basketball Model Active")
         except Exception as rf_error:
-            print(f"[ROBOFLOW] ⚠️ Using YOLOv11m fallback (Roboflow unavailable: {str(rf_error)})")
+            print(f"[ROBOFLOW] ⚠️ Using YOLOv11m fallback: {str(rf_error)}")
             use_roboflow = False
         
         cap = cv2.VideoCapture(video_url)
@@ -152,24 +153,44 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                     if bbox_h < 50:  # Minimum 50px height
                         continue
                     
-                    # Crop to upper torso (jersey only - top 60%)
-                    torso_y2 = y1 + int(bbox_h * 0.6)
-                    padding_x = int(bbox_w * 0.05)
-                    x1_pad = max(0, x1 - padding_x)
-                    x2_pad = min(target_w, x2 + padding_x)
+                    # Tighter center-biased crop (center 40% width, 15-45% height)
+                    # This targets the upper chest area precisely
+                    torso_y1 = y1 + int(bbox_h * 0.15)
+                    torso_y2 = y1 + int(bbox_h * 0.45)
+                    torso_x1 = x1 + int(bbox_w * 0.3)
+                    torso_x2 = x1 + int(bbox_w * 0.7)
                     
-                    torso_crop = frame_resized[y1:torso_y2, x1_pad:x2_pad]
-                    if torso_crop.size == 0:
-                        continue
+                    torso_crop = frame_resized[max(0, torso_y1):min(target_w, torso_y2), max(0, torso_x1):min(target_w, torso_x2)]
+                    if torso_crop.size < 50: continue
                     
-                    # K-means: Extract dominant color from jersey region
+                    # Advanced Color Extraction: K-means with K=5 for higher resolution
                     pixels = torso_crop.reshape(-1, 3).astype(np.float32)
-                    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-                    _, _, center = cv2.kmeans(pixels, 1, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+                    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
+                    _, labels, centers = cv2.kmeans(pixels, 5, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
                     
-                    b, g, r = center[0]
-                    hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
-                    all_jersey_colors.append(hex_color)
+                    # Heuristic: Pick the color with the highest saturation (Blue) 
+                    # OR highest brightness (White), ignoring "muddy" greys/browns
+                    best_color = None
+                    max_score = -1
+                    
+                    for center in centers:
+                        b, g, r = center
+                        # Convert to simple HSV-like metrics
+                        brightness = (r + g + b) / 3
+                        saturation = max(r, g, b) - min(r, g, b)
+                        
+                        # Score: Favor high saturation (colors) or very high brightness (white)
+                        # Penalty for "muddy" mid-tones (around 80-120 brightness with low saturation)
+                        score = saturation * 2 + brightness
+                        if brightness < 40: score -= 100 # Ignore shadows
+                        if brightness > 220: score += 50 # Strongly favor white
+                        
+                        if score > max_score:
+                            max_score = score
+                            best_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
+                    
+                    if best_color:
+                        all_jersey_colors.append(best_color)
             else:
                 # YOLO fallback (generic person detection)
                 results = model(
