@@ -1,6 +1,13 @@
 import modal
 import os
 import json
+import cv2
+import numpy as np
+import requests
+import base64
+import time
+from concurrent.futures import ThreadPoolExecutor
+from ultralytics import YOLO
 
 # MODAL_ELITE_WORKER v5.3 - Hybrid Scouting System
 # Optimized for panning shots and small-sample personnel detection
@@ -30,13 +37,7 @@ image = modal.Image.debian_slim().apt_install(
 app = modal.App("basketball-scout-ai")
 
 def detect_colors_yolo11m(video_url: str, game_id: str):
-    import cv2
-    import numpy as np
-    import requests
-    import base64
-    from concurrent.futures import ThreadPoolExecutor
-    from ultralytics import YOLO
-    
+    start_time = time.time()
     print(f"\n[STAGE 2] Starting Hybrid Color Calibration for Game: {game_id}")
     
     try:
@@ -164,6 +165,9 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
         
         # Sort by brightness so 'Home' is usually the lighter color (common convention)
         center_list = sorted(centers.tolist(), key=lambda c: sum(c), reverse=True)
+        
+        elapsed = time.time() - start_time
+        print(f"[HYBRID] Calibration complete in {elapsed:.2f}s")
         
         return {
             "status": "success",
