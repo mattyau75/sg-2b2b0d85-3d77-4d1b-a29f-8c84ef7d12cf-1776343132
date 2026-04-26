@@ -142,7 +142,7 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
         print(f"[ERROR] {str(e)}")
         return {"status": "error", "message": f"AI Calibration failed: {str(e)}"}
 
-@app.function(image=image, gpu="A10G", timeout=600, secrets=[modal.Secret.from_name("roboflow-secret")])
+@app.function(image=image, gpu="A10G", timeout=600)
 @modal.asgi_app()
 def analyze():
     from fastapi import FastAPI, Request
