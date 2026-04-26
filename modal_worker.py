@@ -4,6 +4,7 @@ import json
 
 # MODAL_ELITE_WORKER v2.4 - Synchronous Color Detection (Forced Redeploy)
 image = modal.Image.debian_slim().pip_install(
+    "fastapi[standard]",
     "requests", 
     "opencv-python-headless", 
     "numpy",
