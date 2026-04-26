@@ -36,9 +36,10 @@ def detect_colors_direct(video_url: str, game_id: str):
         if not cap.isOpened():
             return {"status": "error", "message": "Video source unreachable"}
         
-        # Target the first 60 seconds (Tip-off & First Play)
+        # Target the first 90 seconds with a High-Density Sweep
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        sample_points = [int(fps * s) for s in [2, 10, 25, 45, 60]]
+        # Check every 6 seconds for better coverage
+        sample_points = [int(fps * s) for s in range(5, 95, 6)]
         
         all_jersey_colors = []
         
@@ -57,8 +58,9 @@ def detect_colors_direct(video_url: str, game_id: str):
             img_base64 = base64.b64encode(buffer).decode('utf-8')
             
             try:
+                # Use a slightly lower threshold for better recall in panning footage
                 res = requests.post(
-                    inference_url,
+                    f"{inference_url}&confidence=30", 
                     data=img_base64,
                     headers={"Content-Type": "application/x-www-form-urlencoded"},
                     timeout=4
@@ -66,29 +68,30 @@ def detect_colors_direct(video_url: str, game_id: str):
                 preds = res.json().get('predictions', [])
                 
                 for pred in preds:
-                    # Focus on center of detection to avoid edges
+                    # Target center of jersey to avoid skin/floor
                     x, y, pw, ph = pred['x'], pred['y'], pred['width'], pred['height']
-                    x1, y1 = int(x - pw/4), int(y - ph/4)
-                    x2, y2 = int(x + pw/4), int(y + ph/4)
+                    x1, y1 = int(x - pw/5), int(y - ph/5)
+                    x2, y2 = int(x + pw/5), int(y + ph/5)
                     
                     crop = frame_resized[max(0, y1):min(target_h, y2), max(0, x1):min(target_w, x2)]
-                    if crop.size < 20: continue
+                    if crop.size < 15: continue
                     
-                    # Extract vibrant color
+                    # Extract dominant color with court filtering
                     pixels = crop.reshape(-1, 3).astype(np.float32)
                     _, _, centers = cv2.kmeans(pixels, 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 5, 1.0), 5, cv2.KMEANS_PP_CENTERS)
                     
                     for center in centers:
                         b, g, r = center
-                        sat = max(r, g, b) - min(r, g, b)
-                        # Filter out wood and neutrals
-                        if sat > 40 and not (r > 130 and g > 110 and abs(r-g) < 40):
+                        saturation = max(r, g, b) - min(r, g, b)
+                        # More inclusive filter: Reject court tan but accept vibrant jerseys
+                        is_court = (r > 130 and g > 100 and abs(r-g) < 45 and saturation < 65)
+                        if not is_court:
                             all_jersey_colors.append([r, g, b])
             except:
                 continue
             
-            # Fast-Exit: If we have enough samples, stop early to prevent timeout
-            if len(all_jersey_colors) >= 8:
+            # Early exit if we have a solid dataset
+            if len(all_jersey_colors) >= 12:
                 break
                 
         cap.release()
