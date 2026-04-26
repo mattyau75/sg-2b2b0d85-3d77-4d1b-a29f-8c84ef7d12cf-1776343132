@@ -106,7 +106,7 @@ def detect_colors_from_video(video_url: str, game_id: str):
     timeout=300,
 )
 @modal.asgi_app()
-def fastapi_app():
+def analyze():
     """
     FastAPI application for color calibration endpoint.
     """
