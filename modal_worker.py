@@ -56,11 +56,11 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
             return {"status": "error", "message": f"Failed to open video: {video_url}"}
         
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        sample_sections = [int(total_frames * p) for p in [0.15, 0.35, 0.55, 0.75, 0.9]]
+        sample_sections = [int(total_frames * p) for p in [0.2, 0.4, 0.6, 0.8, 0.9]]
         
         captured_frames = []
         for section_start in sample_sections:
-            for offset in range(5):
+            for offset in range(2): # 2 frames per section = 10 total frames
                 cap.set(cv2.CAP_PROP_POS_FRAMES, section_start + (offset * 15))
                 ret, frame = cap.read()
                 if not ret: continue
@@ -176,9 +176,14 @@ def analyze():
     @web_app.post("/")
     async def analyze_endpoint(request: Request):
         data = await request.json()
-        if data.get("pipeline_mode") == "color_calibration":
+        mode = data.get("pipeline_mode")
+        
+        if mode == "color_calibration":
             result = detect_colors_yolo11m(data.get("video_url"), data.get("game_id"))
             return JSONResponse(content=result)
+        elif mode == "ping":
+            return JSONResponse(content={"status": "warm"})
+            
         return JSONResponse(content={"status": "error", "message": "Invalid mode"}, status_code=400)
     
     return web_app
