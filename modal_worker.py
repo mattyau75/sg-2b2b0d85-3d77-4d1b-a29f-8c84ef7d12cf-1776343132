@@ -2,7 +2,7 @@ import modal
 import os
 import json
 
-# MODAL_ELITE_WORKER v2.4 - Synchronous Color Detection (Forced Redeploy)
+# MODAL_ELITE_WORKER v2.5 - FastAPI Request Handling
 image = modal.Image.debian_slim().pip_install(
     "fastapi[standard]",
     "requests", 
@@ -105,31 +105,60 @@ def detect_colors_from_video(video_url: str, game_id: str):
     gpu="A10G",
     timeout=300,
 )
-@modal.fastapi_endpoint(method="POST")
-def analyze(data: dict):
+@modal.asgi_app()
+def fastapi_app():
     """
-    HTTP endpoint for color calibration.
-    Synchronously returns color detection results.
+    FastAPI application for color calibration endpoint.
     """
-    game_id = data.get("game_id")
-    video_url = data.get("video_url")
-    pipeline_mode = data.get("pipeline_mode", "color_calibration")
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
     
-    print(f"[ENDPOINT] ========== START ==========")
-    print(f"[ENDPOINT] Mode: {pipeline_mode}")
-    print(f"[ENDPOINT] Game: {game_id}")
-    print(f"[ENDPOINT] Video: {video_url}")
+    web_app = FastAPI()
     
-    if pipeline_mode == "color_calibration":
-        # Run synchronously and return immediately
-        result = detect_colors_from_video(video_url, game_id)
-        print(f"[ENDPOINT] Result: {json.dumps(result, indent=2)}")
-        print(f"[ENDPOINT] ========== END ==========")
-        return result
-    else:
-        print(f"[ENDPOINT] ❌ Unsupported mode: {pipeline_mode}")
-        print(f"[ENDPOINT] ========== END ==========")
-        return {
-            "status": "error",
-            "message": f"Unsupported pipeline mode: {pipeline_mode}"
-        }
+    @web_app.post("/")
+    async def analyze_endpoint(request: Request):
+        """
+        HTTP endpoint for color calibration.
+        Synchronously returns color detection results.
+        """
+        try:
+            data = await request.json()
+            
+            game_id = data.get("game_id")
+            video_url = data.get("video_url")
+            pipeline_mode = data.get("pipeline_mode", "color_calibration")
+            
+            print(f"[ENDPOINT] ========== START ==========")
+            print(f"[ENDPOINT] Mode: {pipeline_mode}")
+            print(f"[ENDPOINT] Game: {game_id}")
+            print(f"[ENDPOINT] Video: {video_url}")
+            
+            if pipeline_mode == "color_calibration":
+                # Run synchronously and return immediately
+                result = detect_colors_from_video(video_url, game_id)
+                print(f"[ENDPOINT] Result: {json.dumps(result, indent=2)}")
+                print(f"[ENDPOINT] ========== END ==========")
+                return JSONResponse(content=result)
+            else:
+                print(f"[ENDPOINT] ❌ Unsupported mode: {pipeline_mode}")
+                print(f"[ENDPOINT] ========== END ==========")
+                return JSONResponse(
+                    content={
+                        "status": "error",
+                        "message": f"Unsupported pipeline mode: {pipeline_mode}"
+                    },
+                    status_code=400
+                )
+        except Exception as e:
+            print(f"[ENDPOINT] ❌ EXCEPTION: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JSONResponse(
+                content={
+                    "status": "error",
+                    "message": str(e)
+                },
+                status_code=500
+            )
+    
+    return web_app
