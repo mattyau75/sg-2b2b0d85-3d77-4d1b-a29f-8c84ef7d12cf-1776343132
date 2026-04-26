@@ -32,24 +32,16 @@ app = modal.App("basketball-scout-ai")
 def detect_colors_yolo11m(video_url: str, game_id: str):
     import cv2
     import numpy as np
-    from roboflow import Roboflow
+    import requests
+    import base64
     
     print(f"\n[STAGE 2] Starting Color Calibration for Game: {game_id}")
     
     try:
-        # Load Roboflow with provided Private API Key
-        # Fallback to the user's provided key if env var is missing
+        # Configuration
         api_key = os.environ.get("ROBOFLOW_API_KEY", "oyGufxqxrSK33efrhQBb")
-        rf = Roboflow(api_key=api_key)
-        
-        # Lock in the correct Public Universe project paths
-        # Workspace: roboflow-j7lti | Project: basketball-jersey-numbers-ocr
-        try:
-            project = rf.workspace("roboflow-j7lti").project("basketball-jersey-numbers-ocr")
-            roboflow_model = project.version(2).model
-            print("[ROBOFLOW] ✓ Specialized Jersey OCR Model (v2) Active")
-        except Exception as load_error:
-            return {"status": "error", "message": f"Could not load Roboflow project: {str(load_error)}"}
+        model_id = "basketball-jersey-numbers-ocr/2" # Public model on Universe
+        inference_url = f"https://detect.roboflow.com/{model_id}?api_key={api_key}"
         
         cap = cv2.VideoCapture(video_url)
         if not cap.isOpened():
@@ -69,13 +61,24 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
             # High-res processing (1280px) is critical for small jersey detection
             h, w = frame.shape[:2]
             target_w = 1280
-            scale = target_w / w
-            frame_resized = cv2.resize(frame, (target_w, int(h * scale)))
+            target_h = int(h * (target_w / w))
+            frame_resized = cv2.resize(frame, (target_w, target_h))
             
-            # Predict using Roboflow Jersey Model
-            temp_path = f"/tmp/frame_{frame_idx}.jpg"
-            cv2.imwrite(temp_path, frame_resized)
-            results = roboflow_model.predict(temp_path, confidence=35).json()
+            # Predict using Roboflow Direct Inference API
+            _, buffer = cv2.imencode('.jpg', frame_resized)
+            img_base64 = base64.b64encode(buffer).decode('utf-8')
+            
+            try:
+                # Direct HTTP call bypasses workspace 404 issues
+                res = requests.post(
+                    inference_url,
+                    data=img_base64,
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+                results = res.json()
+            except Exception as api_err:
+                print(f"[ROBOFLOW] API Error: {str(api_err)}")
+                continue
             
             if not results.get('predictions'): continue
             
@@ -87,7 +90,7 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                 y2 = int(pred['y'] + pred['height'] / 2)
                 
                 # Crop focusing on the jersey fabric
-                crop = frame_resized[max(0, y1):min(target_w, y2), max(0, x1):min(target_w, x2)]
+                crop = frame_resized[max(0, y1):min(target_h, y2), max(0, x1):min(target_w, x2)]
                 if crop.size < 50: continue
                 
                 # K-means to isolate dominant color while excluding wood/grey
