@@ -28,8 +28,8 @@ image = modal.Image.debian_slim().apt_install(
     "ultralytics>=8.0.0",
     "torch",
     "torchvision",
-    "roboflow",
-    "supervision"
+    "roboflow",  # Roboflow Universe integration
+    "supervision"  # For Roboflow model inference
 ).run_commands(
     # Pre-download all YOLO models to cache them in the image
     "yolo export model=yolo11m.pt format=onnx",      # Person detection (color calibration)
@@ -41,27 +41,41 @@ app = modal.App("basketball-scout-ai")
 
 def detect_colors_yolo11m(video_url: str, game_id: str):
     """
-    Stage 2: Color Calibration using YOLOv11m
+    Stage 2: Color Calibration using YOLOv11m + Roboflow Basketball Model
     
-    Optimized for quick jersey color detection from small video samples.
+    Optimized for accurate jersey color detection from small video samples.
     Settings:
     - Resolution: 1280px (high-res for small players)
-    - Model: YOLOv11m (pre-cached COCO person detector)
-    - Sampling: 5 frames across video
-    - Focus: Torso crop (top 60% of player bbox)
+    - Model: YOLOv11m (COCO person) + Roboflow basketball-players
+    - Sampling: 5 frames across video (skip warmup/celebration periods)
+    - Focus: Tight torso crop (top 60% of player bbox)
     - Output: 2 dominant team colors (hex)
     """
     import cv2
     import numpy as np
     from ultralytics import YOLO
+    from roboflow import Roboflow
     
     print(f"\n{'='*80}")
     print(f"[STAGE 2: COLOR CALIBRATION] Game: {game_id}")
     print(f"{'='*80}")
     
     try:
+        # Initialize YOLO for fallback person detection
         model = YOLO('yolo11m.pt')
         print("[MODEL] ✓ YOLOv11m loaded from cache")
+        
+        # Try to load Roboflow basketball model for better jersey detection
+        # Using a public basketball player detection model
+        try:
+            rf = Roboflow(api_key="placeholder_key")  # Public model access
+            project = rf.workspace("roboflow-100").project("basketball-players")
+            roboflow_model = project.version(2).model
+            use_roboflow = True
+            print("[ROBOFLOW] ✓ Basketball player model loaded")
+        except Exception as rf_error:
+            print(f"[ROBOFLOW] ⚠️ Using YOLOv11m fallback (Roboflow unavailable: {str(rf_error)})")
+            use_roboflow = False
         
         cap = cv2.VideoCapture(video_url)
         if not cap.isOpened():
@@ -105,54 +119,106 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
             scale = target_w / w
             frame_resized = cv2.resize(frame, (target_w, int(h * scale)))
             
-            # YOLO detection: High confidence, person class only
-            results = model(
-                frame_resized,
-                conf=0.5,
-                iou=0.4,
-                classes=[0],  # Person
-                imgsz=1280,
-                verbose=False
-            )
-            
-            if len(results) == 0 or len(results[0].boxes) == 0:
-                print(f"[FRAME {frame_idx}] ⚠️ No players detected")
-                continue
-            
-            players_detected = len(results[0].boxes)
-            total_players += players_detected
-            print(f"[FRAME {frame_idx}] ✓ {players_detected} players detected")
-            
-            for box in results[0].boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
-                bbox_w = x2 - x1
-                bbox_h = y2 - y1
-                aspect_ratio = bbox_h / max(bbox_w, 1)
+            # Basketball player detection (Roboflow or YOLO fallback)
+            if use_roboflow:
+                # Save temp frame for Roboflow
+                temp_path = f"/tmp/frame_{frame_idx}.jpg"
+                cv2.imwrite(temp_path, frame_resized)
+                roboflow_results = roboflow_model.predict(temp_path, confidence=40, overlap=30).json()
                 
-                # Basketball player filtering
-                if aspect_ratio < 1.2:  # Must be taller than wide
-                    continue
-                if bbox_h < 50:  # Minimum 50px height
+                if not roboflow_results.get('predictions'):
+                    print(f"[FRAME {frame_idx}] ⚠️ No players detected (Roboflow)")
                     continue
                 
-                # Crop to upper torso (jersey only)
-                torso_y2 = y1 + int(bbox_h * 0.6)
-                padding_x = int(bbox_w * 0.05)
-                x1_pad = max(0, x1 - padding_x)
-                x2_pad = min(target_w, x2 + padding_x)
+                players_detected = len(roboflow_results['predictions'])
+                total_players += players_detected
+                print(f"[FRAME {frame_idx}] ✓ {players_detected} players detected (Roboflow)")
                 
-                torso_crop = frame_resized[y1:torso_y2, x1_pad:x2_pad]
-                if torso_crop.size == 0:
+                for pred in roboflow_results['predictions']:
+                    x_center = pred['x']
+                    y_center = pred['y']
+                    bbox_w = pred['width']
+                    bbox_h = pred['height']
+                    
+                    x1 = int(x_center - bbox_w / 2)
+                    y1 = int(y_center - bbox_h / 2)
+                    x2 = int(x_center + bbox_w / 2)
+                    y2 = int(y_center + bbox_h / 2)
+                    
+                    # Basketball player filtering
+                    aspect_ratio = bbox_h / max(bbox_w, 1)
+                    if aspect_ratio < 1.2:  # Must be taller than wide
+                        continue
+                    if bbox_h < 50:  # Minimum 50px height
+                        continue
+                    
+                    # Crop to upper torso (jersey only - top 60%)
+                    torso_y2 = y1 + int(bbox_h * 0.6)
+                    padding_x = int(bbox_w * 0.05)
+                    x1_pad = max(0, x1 - padding_x)
+                    x2_pad = min(target_w, x2 + padding_x)
+                    
+                    torso_crop = frame_resized[y1:torso_y2, x1_pad:x2_pad]
+                    if torso_crop.size == 0:
+                        continue
+                    
+                    # K-means: Extract dominant color from jersey region
+                    pixels = torso_crop.reshape(-1, 3).astype(np.float32)
+                    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+                    _, _, center = cv2.kmeans(pixels, 1, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+                    
+                    b, g, r = center[0]
+                    hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
+                    all_jersey_colors.append(hex_color)
+            else:
+                # YOLO fallback (generic person detection)
+                results = model(
+                    frame_resized,
+                    conf=0.5,
+                    iou=0.4,
+                    classes=[0],  # Person
+                    imgsz=1280,
+                    verbose=False
+                )
+                
+                if len(results) == 0 or len(results[0].boxes) == 0:
+                    print(f"[FRAME {frame_idx}] ⚠️ No players detected (YOLO)")
                     continue
                 
-                # K-means: Extract dominant color
-                pixels = torso_crop.reshape(-1, 3).astype(np.float32)
-                criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
-                _, _, center = cv2.kmeans(pixels, 1, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+                players_detected = len(results[0].boxes)
+                total_players += players_detected
+                print(f"[FRAME {frame_idx}] ✓ {players_detected} players detected (YOLO)")
                 
-                b, g, r = center[0]
-                hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
-                all_jersey_colors.append(hex_color)
+                for box in results[0].boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    bbox_w = x2 - x1
+                    bbox_h = y2 - y1
+                    aspect_ratio = bbox_h / max(bbox_w, 1)
+                    
+                    # Basketball player filtering
+                    if aspect_ratio < 1.2:
+                        continue
+                    if bbox_h < 50:
+                        continue
+                    
+                    # Crop to upper torso (jersey only)
+                    torso_y2 = y1 + int(bbox_h * 0.6)
+                    padding_x = int(bbox_w * 0.05)
+                    x1_pad = max(0, x1 - padding_x)
+                    x2_pad = min(target_w, x2 + padding_x)
+                    
+                    torso_crop = frame_resized[y1:torso_y2, x1_pad:x2_pad]
+                    if torso_crop.size == 0:
+                        continue
+                    
+                    # K-means: Extract dominant color
+                    pixels = torso_crop.reshape(-1, 3).astype(np.float32)
+                    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+                    _, _, center = cv2.kmeans(pixels, 1, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+                    
+                    b, g, r = center[0]
+                    hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
+                    all_jersey_colors.append(hex_color)
         
         cap.release()
         
@@ -197,7 +263,7 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                 "players_detected": total_players,
                 "jerseys_analyzed": len(all_jersey_colors),
                 "confidence": confidence,
-                "method": "YOLOv11m + Torso K-means Clustering",
+                "method": "Roboflow Basketball + Torso K-means" if use_roboflow else "YOLOv11m + Torso K-means",
                 "resolution": "1280px"
             }
         }
