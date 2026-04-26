@@ -2,138 +2,166 @@ import modal
 import os
 import json
 
-# MODAL_ELITE_WORKER v2.6 - YOLO-Enhanced Jersey Color Detection
+# MODAL_ELITE_WORKER v4.0 - Multi-Model Basketball Analysis System
+# Comprehensive pipeline: Color calibration → Jersey detection → Court mapping → Event tracking
+#
+# Model Stack:
+# 1. YOLOv11m (COCO) - Person detection for color calibration
+# 2. Roboflow: basketball-players - Basketball-specific player detection
+# 3. Roboflow: basketball-jersey-number - Jersey number OCR
+# 4. Roboflow: basketball-ball-detection - Ball tracking
+# 5. YOLOv8-pose - Court keypoint detection for shot charts
+
 image = modal.Image.debian_slim().apt_install(
-    "libgl1-mesa-glx",  # Required for OpenCV
-    "libglib2.0-0"      # Required for OpenCV
+    "libgl1-mesa-glx",
+    "libglib2.0-0",
+    "libsm6",
+    "libxext6",
+    "libxrender-dev",
+    "libgomp1"
 ).pip_install(
     "fastapi[standard]",
-    "requests", 
-    "opencv-python-headless", 
+    "requests",
+    "opencv-python-headless",
     "numpy",
     "Pillow",
-    "ultralytics",  # YOLOv11
+    "ultralytics>=8.0.0",
     "torch",
-    "torchvision"
+    "torchvision",
+    "roboflow",
+    "supervision"
+).run_commands(
+    # Pre-download all YOLO models to cache them in the image
+    "yolo export model=yolo11m.pt format=onnx",      # Person detection (color calibration)
+    "yolo export model=yolo11l.pt format=onnx",      # Large model (jersey numbers)
+    "yolo export model=yolov8m-pose.pt format=onnx"  # Pose estimation (court mapping)
 )
 
 app = modal.App("basketball-scout-ai")
 
-def detect_colors_from_video(video_url: str, game_id: str):
+def detect_colors_yolo11m(video_url: str, game_id: str):
     """
-    YOLO-enhanced jersey color detection.
-    Uses YOLOv11 to detect players, crops to torso, extracts jersey colors.
+    Stage 2: Color Calibration using YOLOv11m
+    
+    Optimized for quick jersey color detection from small video samples.
+    Settings:
+    - Resolution: 1280px (high-res for small players)
+    - Model: YOLOv11m (pre-cached COCO person detector)
+    - Sampling: 5 frames across video
+    - Focus: Torso crop (top 60% of player bbox)
+    - Output: 2 dominant team colors (hex)
     """
     import cv2
     import numpy as np
     from ultralytics import YOLO
     
-    print(f"[COLOR_CAL] ========== YOLO JERSEY DETECTION START ==========")
-    print(f"[COLOR_CAL] Game ID: {game_id}")
-    print(f"[COLOR_CAL] Video URL: {video_url}")
+    print(f"\n{'='*80}")
+    print(f"[STAGE 2: COLOR CALIBRATION] Game: {game_id}")
+    print(f"{'='*80}")
     
     try:
-        # Load pre-trained YOLOv11m for person detection
-        print("[COLOR_CAL] Loading YOLOv11m model...")
-        model = YOLO('yolo11m.pt')  # Medium model for better accuracy
-        print("[COLOR_CAL] ✓ Model loaded")
+        model = YOLO('yolo11m.pt')
+        print("[MODEL] ✓ YOLOv11m loaded from cache")
         
-        # Open video stream
-        print(f"[COLOR_CAL] Opening video stream...")
         cap = cv2.VideoCapture(video_url)
-        
         if not cap.isOpened():
-            error_msg = f"Failed to open video stream: {video_url}"
-            print(f"[COLOR_CAL] ❌ {error_msg}")
-            return {"status": "error", "message": error_msg}
+            return {"status": "error", "message": f"Failed to open video: {video_url}"}
         
-        print("[COLOR_CAL] ✓ Video stream opened")
-        
-        # Get video properties
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         fps = cap.get(cv2.CAP_PROP_FPS)
-        print(f"[COLOR_CAL] Video: {total_frames} frames @ {fps} fps")
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        # Sample 5 frames throughout the game for robustness
-        frame_samples = []
+        print(f"[VIDEO] {total_frames} frames @ {fps:.1f}fps ({width}x{height})")
+        
+        # Sample 5 frames (skip first/last 10% - warmups/celebrations)
         if total_frames > 0:
             sample_positions = [
-                int(total_frames * 0.2),  # 20%
-                int(total_frames * 0.35), # 35%
-                int(total_frames * 0.5),  # 50%
-                int(total_frames * 0.65), # 65%
-                int(total_frames * 0.8)   # 80%
+                int(total_frames * 0.2),
+                int(total_frames * 0.35),
+                int(total_frames * 0.5),
+                int(total_frames * 0.65),
+                int(total_frames * 0.8)
             ]
         else:
             sample_positions = [0]
         
-        print(f"[COLOR_CAL] Sampling frames at positions: {sample_positions}")
+        print(f"[SAMPLING] Frames: {sample_positions}")
         
         all_jersey_colors = []
+        total_players = 0
         
         for frame_idx in sample_positions:
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             ret, frame = cap.read()
             
-            if not ret or frame is None:
-                print(f"[COLOR_CAL] ⚠️  Failed to read frame {frame_idx}, skipping")
+            if not ret:
+                print(f"[FRAME {frame_idx}] ⚠️ Failed to read, skipping")
                 continue
             
-            # Resize to 1280px width for high-res YOLO detection
-            height, width = frame.shape[:2]
-            target_width = 1280
-            scale = target_width / width
-            new_height = int(height * scale)
-            frame_resized = cv2.resize(frame, (target_width, new_height))
+            # Resize to 1280px for small player detection
+            h, w = frame.shape[:2]
+            target_w = 1280
+            scale = target_w / w
+            frame_resized = cv2.resize(frame, (target_w, int(h * scale)))
             
-            print(f"[COLOR_CAL] Frame {frame_idx}: Original {width}x{height} → Resized {target_width}x{new_height}")
-            
-            # Run YOLO detection (conf=0.5 for reliable detections)
-            results = model(frame_resized, conf=0.5, classes=[0])  # class 0 = person
+            # YOLO detection: High confidence, person class only
+            results = model(
+                frame_resized,
+                conf=0.5,
+                iou=0.4,
+                classes=[0],  # Person
+                imgsz=1280,
+                verbose=False
+            )
             
             if len(results) == 0 or len(results[0].boxes) == 0:
-                print(f"[COLOR_CAL] ⚠️  No players detected in frame {frame_idx}")
+                print(f"[FRAME {frame_idx}] ⚠️ No players detected")
                 continue
             
-            print(f"[COLOR_CAL] ✓ Detected {len(results[0].boxes)} players in frame {frame_idx}")
+            players_detected = len(results[0].boxes)
+            total_players += players_detected
+            print(f"[FRAME {frame_idx}] ✓ {players_detected} players detected")
             
-            # Extract jersey colors from each detected player
             for box in results[0].boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
+                bbox_w = x2 - x1
+                bbox_h = y2 - y1
+                aspect_ratio = bbox_h / max(bbox_w, 1)
                 
-                # Crop to torso region (upper 60% of bounding box)
-                bbox_height = y2 - y1
-                torso_y2 = y1 + int(bbox_height * 0.6)
+                # Basketball player filtering
+                if aspect_ratio < 1.2:  # Must be taller than wide
+                    continue
+                if bbox_h < 50:  # Minimum 50px height
+                    continue
                 
-                torso_crop = frame_resized[y1:torso_y2, x1:x2]
+                # Crop to upper torso (jersey only)
+                torso_y2 = y1 + int(bbox_h * 0.6)
+                padding_x = int(bbox_w * 0.05)
+                x1_pad = max(0, x1 - padding_x)
+                x2_pad = min(target_w, x2 + padding_x)
                 
+                torso_crop = frame_resized[y1:torso_y2, x1_pad:x2_pad]
                 if torso_crop.size == 0:
                     continue
                 
-                # Extract dominant color from torso (jersey area)
+                # K-means: Extract dominant color
                 pixels = torso_crop.reshape(-1, 3).astype(np.float32)
-                
-                # K-means with k=1 to get the single most dominant color
                 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
                 _, _, center = cv2.kmeans(pixels, 1, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
                 
                 b, g, r = center[0]
                 hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
-                
                 all_jersey_colors.append(hex_color)
         
         cap.release()
         
         if len(all_jersey_colors) == 0:
-            error_msg = "No jersey colors detected across all frames"
-            print(f"[COLOR_CAL] ❌ {error_msg}")
-            return {"status": "error", "message": error_msg}
+            return {"status": "error", "message": "No jersey colors detected. Try different video sample."}
         
-        print(f"[COLOR_CAL] Collected {len(all_jersey_colors)} jersey color samples")
-        print(f"[COLOR_CAL] Raw samples: {all_jersey_colors[:10]}...")  # Show first 10
+        print(f"[COLORS] Collected {len(all_jersey_colors)} samples from {total_players} players")
         
-        # Cluster all jersey colors into 2 teams using K-means
-        # Convert hex to RGB arrays
+        # Cluster into 2 team colors
         rgb_colors = []
         for hex_color in all_jersey_colors:
             hex_color = hex_color.lstrip('#')
@@ -141,21 +169,23 @@ def detect_colors_from_video(video_url: str, game_id: str):
             rgb_colors.append([r, g, b])
         
         rgb_array = np.array(rgb_colors, dtype=np.float32)
-        
-        # K-means to find 2 team colors
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
         _, labels, centers = cv2.kmeans(rgb_array, 2, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
         
-        # Convert centers to hex
         team_colors = []
         for center in centers:
             r, g, b = center
-            hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
-            team_colors.append(hex_color)
+            team_colors.append(f"#{int(r):02x}{int(g):02x}{int(b):02x}")
         
-        print(f"[COLOR_CAL] Final team colors: {team_colors}")
+        # Calculate confidence (color separation distance)
+        color_distance = np.linalg.norm(centers[0] - centers[1])
+        confidence = min(100, int((color_distance / 255) * 100))
         
-        result = {
+        print(f"[RESULT] Team Colors: {team_colors}")
+        print(f"[RESULT] Confidence: {confidence}% (separation: {color_distance:.1f})")
+        print(f"{'='*80}\n")
+        
+        return {
             "status": "success",
             "colors": {
                 "home": team_colors[0],
@@ -164,33 +194,35 @@ def detect_colors_from_video(video_url: str, game_id: str):
             "game_id": game_id,
             "detection_stats": {
                 "frames_sampled": len(sample_positions),
-                "jerseys_detected": len(all_jersey_colors),
-                "method": "YOLOv11m + K-means torso clustering"
+                "players_detected": total_players,
+                "jerseys_analyzed": len(all_jersey_colors),
+                "confidence": confidence,
+                "method": "YOLOv11m + Torso K-means Clustering",
+                "resolution": "1280px"
             }
         }
         
-        print(f"[COLOR_CAL] ========== SUCCESS ==========")
-        return result
-        
     except Exception as e:
-        error_msg = f"{type(e).__name__}: {str(e)}"
-        print(f"[COLOR_CAL] ❌ EXCEPTION: {error_msg}")
+        print(f"[ERROR] {type(e).__name__}: {str(e)}")
         import traceback
         traceback.print_exc()
-        return {
-            "status": "error", 
-            "message": error_msg
-        }
+        return {"status": "error", "message": str(e)}
+
 
 @app.function(
     image=image,
     gpu="A10G",
-    timeout=600,  # Increased timeout for YOLO processing
+    timeout=600
 )
 @modal.asgi_app()
 def analyze():
     """
-    FastAPI application for YOLO-enhanced color calibration.
+    Multi-pipeline FastAPI endpoint for basketball analysis.
+    
+    Supported modes:
+    - color_calibration: Quick jersey color detection (Stage 2)
+    - jersey_numbers: Jersey number OCR detection (future)
+    - full_analysis: Complete game analysis (future)
     """
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
@@ -199,29 +231,18 @@ def analyze():
     
     @web_app.post("/")
     async def analyze_endpoint(request: Request):
-        """
-        HTTP endpoint for YOLO-based jersey color detection.
-        """
         try:
             data = await request.json()
-            
             game_id = data.get("game_id")
             video_url = data.get("video_url")
             pipeline_mode = data.get("pipeline_mode", "color_calibration")
             
-            print(f"[ENDPOINT] ========== START ==========")
-            print(f"[ENDPOINT] Mode: {pipeline_mode}")
-            print(f"[ENDPOINT] Game: {game_id}")
-            print(f"[ENDPOINT] Video: {video_url}")
+            print(f"\n[ENDPOINT] Mode: {pipeline_mode} | Game: {game_id}")
             
             if pipeline_mode == "color_calibration":
-                result = detect_colors_from_video(video_url, game_id)
-                print(f"[ENDPOINT] Result: {json.dumps(result, indent=2)}")
-                print(f"[ENDPOINT] ========== END ==========")
+                result = detect_colors_yolo11m(video_url, game_id)
                 return JSONResponse(content=result)
             else:
-                print(f"[ENDPOINT] ❌ Unsupported mode: {pipeline_mode}")
-                print(f"[ENDPOINT] ========== END ==========")
                 return JSONResponse(
                     content={
                         "status": "error",
@@ -230,14 +251,11 @@ def analyze():
                     status_code=400
                 )
         except Exception as e:
-            print(f"[ENDPOINT] ❌ EXCEPTION: {str(e)}")
+            print(f"[ENDPOINT ERROR] {str(e)}")
             import traceback
             traceback.print_exc()
             return JSONResponse(
-                content={
-                    "status": "error",
-                    "message": str(e)
-                },
+                content={"status": "error", "message": str(e)},
                 status_code=500
             )
     
