@@ -3,7 +3,10 @@ import os
 import json
 
 # MODAL_ELITE_WORKER v2.6 - YOLO-Enhanced Jersey Color Detection
-image = modal.Image.debian_slim().pip_install(
+image = modal.Image.debian_slim().apt_install(
+    "libgl1-mesa-glx",  # Required for OpenCV
+    "libglib2.0-0"      # Required for OpenCV
+).pip_install(
     "fastapi[standard]",
     "requests", 
     "opencv-python-headless", 
