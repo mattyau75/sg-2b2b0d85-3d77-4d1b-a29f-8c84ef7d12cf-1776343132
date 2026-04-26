@@ -1,98 +1,134 @@
-# DribbleStats AI Elite: GPU Worker - STABLE VERSION 2026
 import modal
 import os
-import time
-from datetime import datetime
+import json
 
-# Modal 2025 Standard: Use App instead of Stub
+# MODAL_ELITE_WORKER v2.4 - Synchronous Color Detection (Forced Redeploy)
+image = modal.Image.debian_slim().pip_install(
+    "requests", 
+    "opencv-python-headless", 
+    "numpy",
+    "Pillow"
+)
+
 app = modal.App("basketball-scout-ai")
 
-# Explicitly include fastapi[standard] as required by the latest Modal SDK
-image = (
-    modal.Image.debian_slim()
-    .pip_install(
-        "supabase==2.5.1",
-        "requests",
-        "numpy",
-        "fastapi[standard]"
-    )
-)
-
-def log_to_trace(supabase, game_id, message, severity="info", module="GPU-ENGINE"):
-    try:
-        if not supabase: return
-        supabase.table("game_events").insert({
-            "game_id": game_id,
-            "event_type": "gpu_pulse",
-            "severity": severity,
-            "module_id": module,
-            "payload": {"message": str(message)},
-            "timestamp_ms": int(time.time() * 1000)
-        }).execute()
-    except: pass
-
-def update_progress(supabase, game_id, progress, status_msg):
-    try:
-        if not supabase: return
-        supabase.table("game_analysis").upsert({
-            "game_id": game_id,
-            "progress_percentage": progress,
-            "status_message": status_msg,
-            "status": "analyzing" if progress < 100 else "completed",
-            "updated_at": datetime.utcnow().isoformat()
-        }, on_conflict=["game_id"]).execute()
-        
-        supabase.table("games").update({
-            "progress_percentage": progress,
-            "status": "analyzing" if progress < 100 else "completed"
-        }).eq("id", game_id).execute()
-    except: pass
-
-@app.function(
-    image=image,
-    gpu="A10G",
-    timeout=3600,
-    secrets=[modal.Secret.from_name("supabase-keys")]
-)
-def analyze_game(data: dict):
-    from supabase import create_client
-    game_id = data.get("game_id")
-    video_url = data.get("video_url")
-    supabase_url = os.environ.get("SUPABASE_URL")
-    supabase_key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
-
-    if not all([game_id, video_url, supabase_url, supabase_key]):
-        return {"status": "error", "message": "Missing credentials"}
-
-    supabase = create_client(supabase_url, supabase_key)
+def detect_colors_from_video(video_url: str, game_id: str):
+    """
+    Synchronous color detection - returns colors immediately.
+    NO async processing, NO Supabase writes.
+    """
+    import cv2
+    import numpy as np
+    
+    print(f"[COLOR_CAL] Starting color detection for game {game_id}")
+    print(f"[COLOR_CAL] Video URL: {video_url}")
     
     try:
-        log_to_trace(supabase, game_id, "🚀 GPU CLUSTER HANDSHAKE: Connection Established.", "info", "GPU-CORE")
-        update_progress(supabase, game_id, 5, "Initializing AI Vision Engine...")
+        print(f"[COLOR_CAL] Opening video stream...")
+        cap = cv2.VideoCapture(video_url)
         
-        for i in range(10, 101, 10):
-            status_msg = "Detecting players and tracking jersey numbers..."
-            if i > 40: status_msg = "Calibrating team colors and mapping entities..."
-            if i > 70: status_msg = "Finalizing spatial mapping and event generation..."
-            if i == 100: status_msg = "✅ Analysis Complete. Syncing results..."
-            
-            log_to_trace(supabase, game_id, f"Processing: {status_msg}", "info")
-            update_progress(supabase, game_id, i, status_msg)
-            time.sleep(2)
-
-        return {"status": "success", "game_id": game_id}
+        if not cap.isOpened():
+            error_msg = f"Failed to open video stream: {video_url}"
+            print(f"[COLOR_CAL] ❌ {error_msg}")
+            return {
+                "status": "error",
+                "message": error_msg
+            }
+        
+        print("[COLOR_CAL] ✓ Video stream opened")
+        
+        # Get video properties
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        print(f"[COLOR_CAL] Video: {total_frames} frames @ {fps} fps")
+        
+        # Skip to middle of video
+        if total_frames > 0:
+            target_frame = total_frames // 2
+            cap.set(cv2.CAP_PROP_POS_FRAMES, target_frame)
+            print(f"[COLOR_CAL] Seeking to frame {target_frame}")
+        
+        ret, frame = cap.read()
+        cap.release()
+        
+        if not ret or frame is None:
+            error_msg = "Failed to extract frame from video"
+            print(f"[COLOR_CAL] ❌ {error_msg}")
+            return {
+                "status": "error",
+                "message": error_msg
+            }
+        
+        print(f"[COLOR_CAL] ✓ Extracted frame: {frame.shape}")
+        
+        # K-means clustering to find 2 dominant colors
+        print("[COLOR_CAL] Running K-means clustering...")
+        pixels = frame.reshape(-1, 3).astype(np.float32)
+        criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.2)
+        _, labels, centers = cv2.kmeans(pixels, 2, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
+        
+        print(f"[COLOR_CAL] ✓ K-means complete")
+        
+        # Convert BGR to RGB and then to hex
+        colors = []
+        for i, center in enumerate(centers):
+            b, g, r = center
+            hex_color = f"#{int(r):02x}{int(g):02x}{int(b):02x}"
+            colors.append(hex_color)
+            print(f"[COLOR_CAL] Color {i+1}: {hex_color}")
+        
+        result = {
+            "status": "success",
+            "colors": {
+                "home": colors[0],
+                "away": colors[1]
+            },
+            "game_id": game_id
+        }
+        
+        print(f"[COLOR_CAL] ✅ SUCCESS")
+        return result
+        
     except Exception as e:
-        update_progress(supabase, game_id, 0, f"Error: {str(e)}")
-        return {"status": "error", "message": str(e)}
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        print(f"[COLOR_CAL] ❌ EXCEPTION: {error_msg}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "status": "error", 
+            "message": error_msg
+        }
 
 @app.function(
     image=image,
     gpu="A10G",
-    timeout=3600,
-    secrets=[modal.Secret.from_name("supabase-keys")]
+    timeout=300,
 )
-@modal.fastapi_endpoint(method="POST")
+@modal.web_endpoint(method="POST")
 def analyze(data: dict):
-    # Use spawn() for non-blocking execution
-    analyze_game.spawn(data)
-    return {"status": "ignited", "game_id": data.get("game_id")}
+    """
+    HTTP endpoint for color calibration.
+    Synchronously returns color detection results.
+    """
+    game_id = data.get("game_id")
+    video_url = data.get("video_url")
+    pipeline_mode = data.get("pipeline_mode", "color_calibration")
+    
+    print(f"[ENDPOINT] ========== START ==========")
+    print(f"[ENDPOINT] Mode: {pipeline_mode}")
+    print(f"[ENDPOINT] Game: {game_id}")
+    print(f"[ENDPOINT] Video: {video_url}")
+    
+    if pipeline_mode == "color_calibration":
+        # Run synchronously and return immediately
+        result = detect_colors_from_video(video_url, game_id)
+        print(f"[ENDPOINT] Result: {json.dumps(result, indent=2)}")
+        print(f"[ENDPOINT] ========== END ==========")
+        return result
+    else:
+        print(f"[ENDPOINT] ❌ Unsupported mode: {pipeline_mode}")
+        print(f"[ENDPOINT] ========== END ==========")
+        return {
+            "status": "error",
+            "message": f"Unsupported pipeline mode: {pipeline_mode}"
+        }
