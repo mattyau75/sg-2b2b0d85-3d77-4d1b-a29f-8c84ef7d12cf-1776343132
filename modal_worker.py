@@ -69,7 +69,12 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
 
         def extract_dominant_color(crop):
             if crop.size < 50: return None
-            pixels = crop.reshape(-1, 3).astype(np.float32)
+            # Focus on the center of the crop to avoid edges/background
+            ch, cw = crop.shape[:2]
+            center_crop = crop[int(ch*0.3):int(ch*0.7), int(cw*0.3):int(cw*0.7)]
+            if center_crop.size < 20: center_crop = crop
+            
+            pixels = center_crop.reshape(-1, 3).astype(np.float32)
             criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
             _, _, centers = cv2.kmeans(pixels, 3, None, criteria, 10, cv2.KMEANS_PP_CENTERS)
             
@@ -80,16 +85,26 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                 brightness = (r + g + b) / 3
                 saturation = max(r, g, b) - min(r, g, b)
                 
-                # ADVANCED SCORING
-                score = (saturation * 4.0) + (brightness * 0.5)
+                # VIBRANCY-FIRST SCORING
+                # Heavily prioritize saturated team colors over dull background
+                score = (saturation * 5.0) + (brightness * 0.8)
                 
-                # HEAVY PENALTIES for non-jersey artifacts
-                if (r > 140 and g > 110 and abs(r - g) < 45): score -= 500
-                if (abs(r - g) < 12 and abs(g - b) < 12): score -= 400
+                # ELITE COURT & SKIN FILTER
+                # 1. Court Wood/Skin: Orange-ish tan with low-to-mid saturation
+                if (r > 130 and g > 100 and r > g and abs(r - g) < 50):
+                    if saturation < 60: score -= 800 
+                
+                # 2. Neutrals/Shadows: Greyish tones
+                if (abs(r - g) < 15 and abs(g - b) < 15):
+                    if brightness < 180: score -= 600 # Allow bright white jerseys
                 
                 if score > max_score:
                     max_score = score
                     best_color = [r, g, b]
+            
+            # Final sanity check: if the best color is still just a "dull" one, return None
+            # This forces the engine to keep looking for better samples
+            if max_score < -200: return None
             return best_color
 
         def process_frame(frame):
@@ -115,6 +130,7 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                 
                 if roboflow_results.get('predictions'):
                     for pred in roboflow_results['predictions']:
+                        # ROBOTIC PRECISION: Use center of detection for color
                         x1 = int(pred['x'] - pred['width'] / 2)
                         y1 = int(pred['y'] - pred['height'] / 2)
                         x2 = int(pred['x'] + pred['width'] / 2)
@@ -132,10 +148,16 @@ def detect_colors_yolo11m(video_url: str, game_id: str):
                 for r in yolo_results:
                     for box in r.boxes:
                         bx1, by1, bx2, by2 = box.xyxy[0].cpu().numpy()
+                        # Extract Torso Zone (30% to 60% of height)
                         ph = by2 - by1
-                        ty1 = int(by1 + (ph * 0.2))
-                        ty2 = int(by1 + (ph * 0.5))
-                        crop = frame_resized[max(0, ty1):min(target_h, ty2), max(0, int(bx1)):min(target_w, int(bx2))]
+                        ty1 = int(by1 + (ph * 0.3))
+                        ty2 = int(by1 + (ph * 0.6))
+                        # Center 40% of width to avoid background
+                        pw = bx2 - bx1
+                        tx1 = int(bx1 + (pw * 0.3))
+                        tx2 = int(bx1 + (pw * 0.7))
+                        
+                        crop = frame_resized[max(0, ty1):min(target_h, ty2), max(0, tx1):min(target_w, tx2)]
                         color = extract_dominant_color(crop)
                         if color: frame_colors.append(color)
             
