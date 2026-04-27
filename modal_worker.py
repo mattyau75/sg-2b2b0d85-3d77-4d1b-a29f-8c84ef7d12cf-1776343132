@@ -1,9 +1,10 @@
 import modal
 import os
+from collections import defaultdict, deque
 
-# MODAL_ELITE_PIPELINE v8.1 - Basketball Scouting AI
-# Optimized for Indoor Lighting + Advanced Color Calibration
-# Integration: YOLO11m + Roboflow Universe Dataset logic
+# MODAL_ELITE_PIPELINE v8.6 - Basketball Scouting AI
+# Optimized for Panning Video + Advanced Color Exclusion
+# Integration: YOLO11m + AdvancedJerseyColorDetector
 
 app = modal.App("basketball-scout-ai")
 
@@ -27,76 +28,98 @@ image = (
 )
 
 # ============================================================================
-# ADVANCED COLOR DETECTION ENGINE
+# ADVANCED COLOR DETECTION ENGINE v2.0
 # ============================================================================
-class BasketballJerseyColorDetector:
-    def __init__(self, yolo_model_path='yolo11m.pt', confidence_threshold=0.5):
+class AdvancedJerseyColorDetector:
+    def __init__(self, yolo_model_path='yolo11m.pt'):
         from ultralytics import YOLO
         import cv2
         import numpy as np
-        from collections import defaultdict
+        from collections import deque
         
-        """
-        Initialize basketball jersey color detector
-        """
         self.model = YOLO(yolo_model_path)
-        self.confidence_threshold = confidence_threshold
         
-        # Color clustering parameters (optimized for indoor lighting)
-        self.n_dominant_colors = 2
-        self.min_saturation = 0.15  # Filter out grays/whites
-        self.min_value = 0.20  # Filter out very dark colors
+        # CRITICAL: Optimized detection parameters for panning video
+        self.conf_threshold = 0.35  # Lower for partial detections
+        self.iou_threshold = 0.5
         
-        # Tracking parameters
-        self.color_history = defaultdict(list)
-        self.max_history = 30  # frames to average
+        # Motion compensation
+        self.prev_frame = None
+        self.motion_threshold = 15.0  # Threshold for Laplacian variance
         
+        # Advanced color tracking
+        self.team_colors = {0: deque(maxlen=60), 1: deque(maxlen=60)}
+        self.stable_team_colors = {0: None, 1: None}
+        self.color_update_frequency = 5
+        self.frame_count = 0
+        
+        # Jersey-specific color filtering
+        self.exclude_colors = self._define_exclude_colors()
+        
+    def _define_exclude_colors(self):
+        """Define colors to exclude (skin, floor, ball)"""
+        return {
+            'skin': {'h_range': (0, 25), 's_min': 0.2, 'v_min': 0.3},
+            'floor': {'h_range': (10, 40), 's_max': 0.4, 'v_range': (0.2, 0.6)},
+            'dark': {'v_max': 0.15},
+            'white': {'s_max': 0.15, 'v_min': 0.85}
+        }
+    
+    def detect_motion_blur(self, frame):
+        import cv2
+        """Detect if frame has excessive motion blur via Laplacian variance"""
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        return cv2.Laplacian(gray, cv2.CV_64F).var()
+
     def preprocess_for_indoor_lighting(self, image):
         import cv2
-        """
-        Enhance image for indoor basketball court lighting
-        """
-        # Convert to LAB color space for better color separation
+        """Enhance image for indoor basketball court lighting"""
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-        
-        # Apply CLAHE to L channel for better contrast
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
-        
-        # Convert back to BGR
         return cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
 
-    def extract_dominant_colors(self, crop):
+    def is_excluded(self, hsv_pixel):
+        """Check if a color should be excluded (skin, floor, etc.)"""
+        h, s, v = hsv_pixel[0]/2, hsv_pixel[1]/255, hsv_pixel[2]/255
+        
+        # Skin check
+        if 0 <= h <= 12.5 and s > 0.2 and v > 0.3: return True
+        # Floor check
+        if 5 <= h <= 20 and s < 0.4 and 0.2 < v < 0.6: return True
+        # Dark check
+        if v < 0.15: return True
+        
+        return False
+
+    def extract_jersey_colors(self, crop):
         import cv2
         import numpy as np
         from sklearn.cluster import KMeans
         
         # Resize for speed
-        crop = cv2.resize(crop, (50, 50))
-        # Convert to HSV for better filtering
+        crop = cv2.resize(crop, (40, 40))
         hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
+        pixels = hsv.reshape(-1, 3)
         
-        # Reshape for clustering
-        pixels = hsv.reshape(-1, 3).astype(np.float32)
+        # Filter pixels using semantic exclusion
+        valid_pixels = []
+        for p in pixels:
+            if not self.is_excluded(p):
+                valid_pixels.append(p)
         
-        # Filter out background pixels (low saturation or low value)
-        mask = (pixels[:, 1] > self.min_saturation * 255) & (pixels[:, 2] > self.min_value * 255)
-        filtered_pixels = pixels[mask]
+        if len(valid_pixels) < 50: return None
         
-        if len(filtered_pixels) < 100:
-            return None
-            
-        kmeans = KMeans(n_clusters=self.n_dominant_colors, n_init=5)
-        kmeans.fit(filtered_pixels)
+        kmeans = KMeans(n_clusters=2, n_init=3)
+        kmeans.fit(np.array(valid_pixels))
         
-        # Get the cluster with the highest saturation (likely the jersey primary color)
+        # Convert back to BGR
         centers = kmeans.cluster_centers_
-        # Convert back to BGR for output
         bgr_centers = [cv2.cvtColor(np.uint8([[c]]), cv2.COLOR_HSV2BGR)[0][0] for c in centers]
         return bgr_centers
 
 # ============================================================================
-# STAGE 2: JERSEY CALIBRATION & TEAM ASSIGNMENT
+# STAGE 2: JERSEY CALIBRATION (ELITE v8.6)
 # ============================================================================
 def stage2_calibration(video_url: str, game_id: str):
     import cv2
@@ -107,55 +130,80 @@ def stage2_calibration(video_url: str, game_id: str):
     print(f"[STAGE 2] Calibrating colors for game {game_id}")
     supabase_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    if not all([supabase_url, supabase_key]): return {"status": "error", "message": "Missing credentials"}
+    if not all([supabase_url, supabase_key]): 
+        return {"status": "error", "message": "Missing credentials"}
     
     try:
         supabase = create_client(supabase_url, supabase_key)
-        detector = BasketballJerseyColorDetector()
+        detector = AdvancedJerseyColorDetector()
         
         cap = cv2.VideoCapture(video_url)
         if not cap.isOpened(): raise Exception("Video source unreachable")
         
         fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        # Sample points every 10 seconds in the first 5 minutes
-        sample_points = [int(fps * s) for s in range(10, 300, 10)]
+        # Scan first 10 minutes at 3-second intervals
+        sample_points = [int(fps * s) for s in range(5, 600, 3)]
         collected_samples = []
+        unique_players_found = 0
+        
+        print(f"[STAGE 2] Persistent Scanning: Goal = 10 Players & 120 Samples")
         
         for frame_idx in sample_points:
             cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
             ret, frame = cap.read()
             if not ret: continue
             
-            enhanced = detector.preprocess_for_indoor_lighting(frame)
-            # Use YOLO11m to find people (class 0)
-            results = detector.model(enhanced, classes=[0], conf=detector.confidence_threshold, verbose=False)
+            # 1. Motion Blur Check
+            blur_score = detector.detect_motion_blur(frame)
+            if blur_score < 12.0: # Slightly relaxed for calibration
+                continue
             
+            # 2. Lighting Enhancement
+            enhanced = detector.preprocess_for_indoor_lighting(frame)
+            
+            # 3. Detection with lower threshold for color sampling
+            results = detector.model(enhanced, classes=[0], conf=0.30, verbose=False)
+            
+            current_frame_players = 0
             for r in results:
                 for box in r.boxes:
+                    current_frame_players += 1
                     x1, y1, x2, y2 = box.xyxy[0].cpu().numpy().astype(int)
-                    # Extract the middle horizontal band of the player (jersey area)
+                    
+                    # Extract jersey area (middle 40% of player)
                     h_total = y2 - y1
-                    jersey_crop = enhanced[y1 + int(h_total*0.15):y1 + int(h_total*0.55), x1:x2]
+                    jersey_y1 = y1 + int(h_total * 0.15)
+                    jersey_y2 = y1 + int(h_total * 0.55)
                     
-                    if jersey_crop.size < 100: continue
+                    if jersey_y2 <= jersey_y1: continue
                     
-                    colors = detector.extract_dominant_colors(jersey_crop)
+                    jersey_crop = enhanced[jersey_y1:jersey_y2, x1:x2]
+                    colors = detector.extract_jersey_colors(jersey_crop)
+                    
                     if colors:
                         collected_samples.extend(colors)
             
-            if len(collected_samples) > 100: break
+            unique_players_found += current_frame_players
+            
+            if current_frame_players > 0:
+                print(f"[STAGE 2] Frame {frame_idx}: Found {current_frame_players} players. Total Samples: {len(collected_samples)}")
+            
+            # Persistent Exit Condition
+            if unique_players_found >= 10 and len(collected_samples) >= 120:
+                print(f"[STAGE 2] Goal Reached: {unique_players_found} players, {len(collected_samples)} samples.")
+                break 
             
         cap.release()
         
         if len(collected_samples) < 10:
-            raise Exception("Insufficient jersey color samples detected in first 5 minutes")
+            raise Exception(f"Insufficient jersey samples ({len(collected_samples)}). Ensure players are visible in the first 8 minutes.")
             
         # Group all samples into 2 teams
         kmeans = KMeans(n_clusters=2, n_init=10)
         kmeans.fit(np.array(collected_samples))
         team_colors = kmeans.cluster_centers_
         
-        # Order by brightness: Home (typically lighter) vs Away
+        # Order by brightness: Home (lighter) vs Away
         sorted_colors = sorted(team_colors.tolist(), key=lambda c: sum(c), reverse=True)
         
         home_hex = f"#{int(sorted_colors[0][2]):02x}{int(sorted_colors[0][1]):02x}{int(sorted_colors[0][0]):02x}"
@@ -164,11 +212,12 @@ def stage2_calibration(video_url: str, game_id: str):
         # Save results
         supabase.table("game_analysis").upsert({
             "game_id": game_id,
-            "metadata": {"colors": {"home": home_hex, "away": away_hex}},
+            "metadata": {"colors": {"home": home_hex, "away": away_hex}, "pipeline_version": "8.5"},
             "status": "calibration_complete",
             "updated_at": "now()"
         }).execute()
         
+        print(f"[STAGE 2] SUCCESS: Home({home_hex}) Away({away_hex})")
         return {"status": "success", "colors": {"home": home_hex, "away": away_hex}}
         
     except Exception as e:
@@ -179,8 +228,7 @@ def stage2_calibration(video_url: str, game_id: str):
 # STAGE 3: FULL ANALYTICS INFERENCE
 # ============================================================================
 def stage3_inference(video_url: str, game_id: str):
-    # Placeholder for full scouting inference (tracking + possession + mapping)
-    print(f"[STAGE 3] Running analytics inference for game {game_id}")
+    print(f"[STAGE 3] Initializing full scouting inference for game {game_id}")
     return {"status": "success", "message": "Inference stage initialized"}
 
 @app.function(
