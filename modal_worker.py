@@ -6,23 +6,18 @@ import traceback
 app = modal.App("basketball-scout-ai")
 
 # Capture deployment-time environment variables
-# This runs locally on the GitHub runner during 'modal deploy'
-SUPABASE_URL = os.environ.get("SB_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or ""
-SUPABASE_KEY = os.environ.get("SB_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or ""
-RB_KEY = os.environ.get("RB_KEY") or os.environ.get("ROBOFLOW_API_KEY") or ""
+# Look for 'M_' prefix (sanitized) then fall back to original
+SUPABASE_URL = os.environ.get("M_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or ""
+SUPABASE_KEY = os.environ.get("M_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or ""
+RB_KEY = os.environ.get("M_RB") or os.environ.get("ROBOFLOW_API_KEY") or ""
 
-# Use direct print for deployment-time debugging
-print(f"--- DEPLOYMENT DIAGNOSTICS ---")
-print(f"URL Captured: {'YES' if SUPABASE_URL else 'NO'} (Length: {len(SUPABASE_URL)})")
-print(f"Key Captured: {'YES' if SUPABASE_KEY else 'NO'} (Length: {len(SUPABASE_KEY)})")
+# Direct print for deployment-time debugging
+print(f"--- MODAL VAULT CONNECTION ---")
+print(f"Using Secret: basketball-scout-secrets")
 print(f"-----------------------------")
 
 app_secrets = [
-    modal.Secret.from_dict({
-        "NEXT_PUBLIC_SUPABASE_URL": SUPABASE_URL,
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY": SUPABASE_KEY,
-        "ROBOFLOW_API_KEY": RB_KEY,
-    })
+    modal.Secret.from_name("basketball-scout-secrets")
 ]
 
 image = (
