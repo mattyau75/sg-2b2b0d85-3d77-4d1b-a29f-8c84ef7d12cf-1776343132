@@ -6,7 +6,7 @@ from collections import defaultdict, deque
 # Optimized for Panning Video + Advanced Color Exclusion
 # Integration: YOLO11m + AdvancedJerseyColorDetector
 
-app = modal.App("basketball-scout-ai")
+app = modal.App("basketball-scouting-ai")
 
 # Persistent volume for weights and caching
 volume = modal.Volume.from_name("basketball-cache", create_if_missing=True)
@@ -26,6 +26,15 @@ image = (
         "roboflow"
     )
 )
+
+# Mount secrets for the worker
+secrets = [
+    modal.Secret.from_dict({
+        "NEXT_PUBLIC_SUPABASE_URL": os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "",
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or "",
+        "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY") or "",
+    })
+]
 
 # ============================================================================
 # ADVANCED COLOR DETECTION ENGINE v2.0
@@ -269,17 +278,13 @@ def stage3_inference(video_url: str, game_id: str):
     return {"status": "success", "message": "Inference stage initialized"}
 
 @app.function(
-    image=image, gpu="A10G", timeout=3600, volumes={"/data": volume},
-    secrets=[
-        modal.Secret.from_dict({
-            "NEXT_PUBLIC_SUPABASE_URL": os.environ.get("NEXT_PUBLIC_SUPABASE_URL", ""),
-            "NEXT_PUBLIC_SUPABASE_ANON_KEY": os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""),
-            "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY", "")
-        })
-    ]
+    image=image,
+    gpu="any",
+    timeout=600,
+    secrets=secrets
 )
 @modal.asgi_app()
-def process():
+def web():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
     import traceback
@@ -287,12 +292,22 @@ def process():
     web_app = FastAPI()
     
     @web_app.post("/")
-    async def endpoint(request: Request):
+    async def handle_request(request: Request):
         try:
-            data = await request.json()
-            game_id = data.get("game_id") or data.get("gameId")
-            video_url = data.get("video_url") or data.get("videoUrl")
-            mode = data.get("pipeline_mode")
+            body = await request.json()
+            stage = body.get("stage")
+            
+            # Diagnostic: Verify credentials presence before starting
+            s_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+            s_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
+            
+            if not s_url or not s_key:
+                print(f"[FATAL] GPU Environment missing credentials. URL: {'Present' if s_url else 'MISSING'}, Key: {'Present' if s_key else 'MISSING'}")
+                return JSONResponse({"status": "error", "message": "GPU Environment Credentials Missing"}, 500)
+            
+            game_id = body.get("game_id") or body.get("gameId")
+            video_url = body.get("video_url") or body.get("videoUrl")
+            mode = body.get("pipeline_mode")
             
             if mode == "ping": return JSONResponse(content={"status": "warm"})
             if not all([game_id, video_url]): return JSONResponse({"error": "Missing params"}, 400)
