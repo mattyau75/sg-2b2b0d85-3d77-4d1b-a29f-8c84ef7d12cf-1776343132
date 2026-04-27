@@ -6,6 +6,10 @@ import traceback
 app = modal.App("basketball-scout-ai")
 
 # Mount secrets for the worker
+print(f"[DEPLOYMENT] Constructing Modal Secrets...")
+print(f"[DEPLOYMENT] URL Length: {len(os.environ.get('NEXT_PUBLIC_SUPABASE_URL', ''))}")
+print(f"[DEPLOYMENT] Key Length: {len(os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY', ''))}")
+
 secrets = [
     modal.Secret.from_dict({
         "NEXT_PUBLIC_SUPABASE_URL": os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "",
@@ -291,9 +295,20 @@ def process():
             s_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
             s_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
             
+            # Log to Modal Console (internal)
+            print(f"[DIAGNOSTIC] Stage: {stage}")
+            print(f"[DIAGNOSTIC] URL Check: {'FOUND' if s_url else 'MISSING'}")
+            print(f"[DIAGNOSTIC] Key Check: {'FOUND' if s_key else 'MISSING'}")
+            
             if not s_url or not s_key:
-                print(f"[FATAL] GPU Environment missing credentials. URL: {'Present' if s_url else 'MISSING'}, Key: {'Present' if s_key else 'MISSING'}")
-                return JSONResponse({"status": "error", "message": "GPU Environment Credentials Missing"}, 500)
+                return JSONResponse({
+                    "status": "error", 
+                    "message": "GPU Environment Credentials Missing",
+                    "diagnostics": {
+                        "url_found": bool(s_url),
+                        "key_found": bool(s_key)
+                    }
+                }, status_code=500)
             
             game_id = body.get("game_id") or body.get("gameId")
             video_url = body.get("video_url") or body.get("videoUrl")
