@@ -249,11 +249,10 @@ def stage3_inference(video_url: str, game_id: str):
 @app.function(
     image=image, gpu="A10G", timeout=3600, volumes={"/data": volume},
     secrets=[
-        modal.Secret.from_name("basketball-scout-secrets"),
         modal.Secret.from_dict({
             "NEXT_PUBLIC_SUPABASE_URL": os.environ.get("NEXT_PUBLIC_SUPABASE_URL", ""),
             "NEXT_PUBLIC_SUPABASE_ANON_KEY": os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""),
-            "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY", "")
+            "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY", "oyGufxqxrSK33efrhQBb")
         })
     ]
 )
