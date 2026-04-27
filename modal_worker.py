@@ -5,16 +5,20 @@ import traceback
 # MODAL_ELITE_PIPELINE v8.7 - Basketball Scouting AI
 app = modal.App("basketball-scout-ai")
 
-# Mount secrets for the worker
-print(f"[DEPLOYMENT] Constructing Modal Secrets...")
-print(f"[DEPLOYMENT] URL Length: {len(os.environ.get('NEXT_PUBLIC_SUPABASE_URL', ''))}")
-print(f"[DEPLOYMENT] Key Length: {len(os.environ.get('NEXT_PUBLIC_SUPABASE_ANON_KEY', ''))}")
+# Capture deployment-time environment variables
+# Look for prefixed and non-prefixed versions
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or os.environ.get("SUPABASE_URL") or ""
+SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_ANON_KEY") or ""
+RB_KEY = os.environ.get("ROBOFLOW_API_KEY") or ""
 
-secrets = [
+print(f"[DEPLOYMENT_CHECK] URL Length: {len(SUPABASE_URL)}")
+print(f"[DEPLOYMENT_CHECK] Key Length: {len(SUPABASE_KEY)}")
+
+app_secrets = [
     modal.Secret.from_dict({
-        "NEXT_PUBLIC_SUPABASE_URL": os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or "",
-        "NEXT_PUBLIC_SUPABASE_ANON_KEY": os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or "",
-        "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY") or "",
+        "NEXT_PUBLIC_SUPABASE_URL": SUPABASE_URL,
+        "NEXT_PUBLIC_SUPABASE_ANON_KEY": SUPABASE_KEY,
+        "ROBOFLOW_API_KEY": RB_KEY,
     })
 ]
 
@@ -276,7 +280,7 @@ def stage3_inference(video_url: str, game_id: str):
     image=image,
     gpu="any",
     timeout=600,
-    secrets=secrets
+    secrets=app_secrets
 )
 @modal.asgi_app()
 def process():
