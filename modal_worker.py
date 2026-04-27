@@ -396,7 +396,7 @@ def stage3_inference(video_url: str, game_id: str):
     timeout=3600,
     volumes={"/data": volume}
 )
-@modal.web_app()
+@modal.asgi_app()
 def process():
     """Main entry point for the modular basketball pipeline"""
     from fastapi import FastAPI, Request
