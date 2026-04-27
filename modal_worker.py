@@ -150,7 +150,13 @@ def stage2_calibration(video_url: str, game_id: str):
         }).eq("game_id", game_id).eq("stage", "stage2_calibration").execute()
         
         print(f"[STAGE 2] Complete: {home_hex} (Home), {away_hex} (Away)")
-        return {"status": "success", "home_color": home_hex, "away_color": away_hex}
+        return {
+            "status": "success", 
+            "colors": {
+                "home": home_hex, 
+                "away": away_hex
+            }
+        }
         
     except Exception as e:
         supabase.table("processing_queue").update({
@@ -390,8 +396,9 @@ def stage3_inference(video_url: str, game_id: str):
     timeout=3600,
     volumes={"/data": volume}
 )
-@modal.asgi_app()
+@modal.web_app()
 def process():
+    """Main entry point for the modular basketball pipeline"""
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
     
