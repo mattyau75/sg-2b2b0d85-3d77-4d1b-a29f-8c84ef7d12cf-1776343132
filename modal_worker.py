@@ -37,134 +37,156 @@ def stage2_calibration(video_url: str, game_id: str):
     
     print(f"[STAGE 2] Calibrating colors for game {game_id}")
     
-    # Supabase connection
+    # Supabase connection validation
     supabase_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    supabase = create_client(supabase_url, supabase_key)
     
-    # Update processing queue
-    supabase.table("processing_queue").upsert({
-        "game_id": game_id,
-        "stage": "stage2_calibration",
-        "status": "in_progress",
-        "started_at": "now()"
-    }).execute()
-    
+    if not supabase_url or not supabase_key:
+        print("[STAGE 2] ERROR: Missing Supabase credentials in Modal environment")
+        return {"status": "error", "message": "Missing Supabase credentials in worker environment"}
+
     try:
-        # Roboflow Jersey Detection
+        supabase = create_client(supabase_url, supabase_key)
+        
+        # Roboflow key validation
         api_key = os.environ.get("ROBOFLOW_API_KEY", "oyGufxqxrSK33efrhQBb")
-        model_id = "basketball-jersey-numbers-ocr/2"
-        inference_url = f"https://detect.roboflow.com/{model_id}?api_key={api_key}"
-        
-        cap = cv2.VideoCapture(video_url)
-        if not cap.isOpened():
-            raise Exception("Video source unreachable")
-        
-        # Sample first 5 minutes (300 seconds) - every 10 seconds
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        sample_points = [int(fps * s) for s in range(5, 305, 10)]
-        
-        all_jersey_colors = []
-        
-        for frame_idx in sample_points:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
-            ret, frame = cap.read()
-            if not ret: continue
-            
-            # High-res processing
-            h, w = frame.shape[:2]
-            target_w = 1280
-            target_h = int(h * (target_w / w))
-            frame_resized = cv2.resize(frame, (target_w, target_h))
-            
-            _, buffer = cv2.imencode('.jpg', frame_resized)
-            img_base64 = base64.b64encode(buffer).decode('utf-8')
-            
-            try:
-                res = requests.post(
-                    f"{inference_url}&confidence=15",
-                    data=img_base64,
-                    headers={"Content-Type": "application/x-www-form-urlencoded"},
-                    timeout=4
-                )
-                preds = res.json().get('predictions', [])
-                
-                for pred in preds:
-                    x, y, pw, ph = pred['x'], pred['y'], pred['width'], pred['height']
-                    x1, y1 = int(x - pw/5), int(y - ph/5)
-                    x2, y2 = int(x + pw/5), int(y + ph/5)
-                    
-                    crop = frame_resized[max(0, y1):min(target_h, y2), max(0, x1):min(target_w, x2)]
-                    if crop.size < 15: continue
-                    
-                    pixels = crop.reshape(-1, 3).astype(np.float32)
-                    _, _, centers = cv2.kmeans(pixels, 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 5, 1.0), 5, cv2.KMEANS_PP_CENTERS)
-                    
-                    for center in centers:
-                        b, g, r = center
-                        saturation = max(r, g, b) - min(r, g, b)
-                        is_court = (r > 130 and g > 100 and abs(r-g) < 45 and saturation < 65)
-                        if not is_court:
-                            all_jersey_colors.append([r, g, b])
-            except:
-                continue
-            
-            if len(all_jersey_colors) >= 30:
-                break
-        
-        cap.release()
-        
-        if len(all_jersey_colors) < 2:
-            raise Exception("Insufficient jersey samples detected")
-        
-        # K-Means clustering into 2 teams
-        _, _, final_centers = cv2.kmeans(
-            np.array(all_jersey_colors, dtype=np.float32), 
-            2, 
-            None, 
-            (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), 
-            10, 
-            cv2.KMEANS_PP_CENTERS
-        )
-        
-        sorted_centers = sorted(final_centers.tolist(), key=lambda c: sum(c), reverse=True)
-        
-        home_hex = f"#{int(sorted_centers[0][0]):02x}{int(sorted_centers[0][1]):02x}{int(sorted_centers[0][2]):02x}"
-        away_hex = f"#{int(sorted_centers[1][0]):02x}{int(sorted_centers[1][1]):02x}{int(sorted_centers[1][2]):02x}"
-        
-        # Write to game_config
-        supabase.table("game_config").upsert({
+        if not api_key:
+             print("[STAGE 2] ERROR: Missing ROBOFLOW_API_KEY")
+             return {"status": "error", "message": "Missing Roboflow API Key"}
+
+        # Update processing queue
+        supabase.table("processing_queue").upsert({
             "game_id": game_id,
-            "home_color_hex": home_hex,
-            "away_color_hex": away_hex,
-            "home_color_samples": [c for c in all_jersey_colors if np.linalg.norm(np.array(c) - sorted_centers[0]) < 50],
-            "away_color_samples": [c for c in all_jersey_colors if np.linalg.norm(np.array(c) - sorted_centers[1]) < 50],
-            "calibration_method": "auto"
+            "stage": "stage2_calibration",
+            "status": "in_progress",
+            "started_at": "now()"
         }).execute()
         
-        # Mark stage as completed
-        supabase.table("processing_queue").update({
-            "status": "completed",
-            "completed_at": "now()",
-            "metadata": {"home_color": home_hex, "away_color": away_hex}
-        }).eq("game_id", game_id).eq("stage", "stage2_calibration").execute()
-        
-        print(f"[STAGE 2] Complete: {home_hex} (Home), {away_hex} (Away)")
-        return {
-            "status": "success", 
-            "colors": {
-                "home": home_hex, 
-                "away": away_hex
+        try:
+            # Roboflow Jersey Detection
+            model_id = "basketball-jersey-numbers-ocr/2"
+            inference_url = f"https://detect.roboflow.com/{model_id}?api_key={api_key}"
+            
+            cap = cv2.VideoCapture(video_url)
+            if not cap.isOpened():
+                raise Exception("Video source unreachable")
+            
+            # Sample first 5 minutes (300 seconds) - every 10 seconds
+            fps = cap.get(cv2.CAP_PROP_FPS) or 30
+            sample_points = [int(fps * s) for s in range(5, 305, 10)]
+            
+            all_jersey_colors = []
+            
+            for frame_idx in sample_points:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if not ret: continue
+                
+                # High-res processing
+                h, w = frame.shape[:2]
+                target_w = 1280
+                target_h = int(h * (target_w / w))
+                frame_resized = cv2.resize(frame, (target_w, target_h))
+                
+                _, buffer = cv2.imencode('.jpg', frame_resized)
+                img_base64 = base64.b64encode(buffer).decode('utf-8')
+                
+                try:
+                    res = requests.post(
+                        f"{inference_url}&confidence=15",
+                        data=img_base64,
+                        headers={"Content-Type": "application/x-www-form-urlencoded"},
+                        timeout=4
+                    )
+                    preds = res.json().get('predictions', [])
+                    
+                    for pred in preds:
+                        x, y, pw, ph = pred['x'], pred['y'], pred['width'], pred['height']
+                        x1, y1 = int(x - pw/5), int(y - ph/5)
+                        x2, y2 = int(x + pw/5), int(y + ph/5)
+                        
+                        crop = frame_resized[max(0, y1):min(target_h, y2), max(0, x1):min(target_w, x2)]
+                        if crop.size < 15: continue
+                        
+                        pixels = crop.reshape(-1, 3).astype(np.float32)
+                        _, _, centers = cv2.kmeans(pixels, 2, None, (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 5, 1.0), 5, cv2.KMEANS_PP_CENTERS)
+                        
+                        for center in centers:
+                            b, g, r = center
+                            saturation = max(r, g, b) - min(r, g, b)
+                            is_court = (r > 130 and g > 100 and abs(r-g) < 45 and saturation < 65)
+                            if not is_court:
+                                all_jersey_colors.append([r, g, b])
+                except:
+                    continue
+                
+                if len(all_jersey_colors) >= 30:
+                    break
+            
+            cap.release()
+            
+            if len(all_jersey_colors) < 2:
+                raise Exception("Insufficient jersey samples detected")
+            
+            # K-Means clustering into 2 teams
+            _, _, final_centers = cv2.kmeans(
+                np.array(all_jersey_colors, dtype=np.float32), 
+                2, 
+                None, 
+                (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0), 
+                10, 
+                cv2.KMEANS_PP_CENTERS
+            )
+            
+            sorted_centers = sorted(final_centers.tolist(), key=lambda c: sum(c), reverse=True)
+            
+            home_hex = f"#{int(sorted_centers[0][0]):02x}{int(sorted_centers[0][1]):02x}{int(sorted_centers[0][2]):02x}"
+            away_hex = f"#{int(sorted_centers[1][0]):02x}{int(sorted_centers[1][1]):02x}{int(sorted_centers[1][2]):02x}"
+            
+            # Write to game_config
+            supabase.table("game_config").upsert({
+                "game_id": game_id,
+                "home_color_hex": home_hex,
+                "away_color_hex": away_hex,
+                "home_color_samples": [c for c in all_jersey_colors if np.linalg.norm(np.array(c) - sorted_centers[0]) < 50],
+                "away_color_samples": [c for c in all_jersey_colors if np.linalg.norm(np.array(c) - sorted_centers[1]) < 50],
+                "calibration_method": "auto"
+            }).execute()
+            
+            # Mark stage as completed
+            supabase.table("processing_queue").update({
+                "status": "completed",
+                "completed_at": "now()",
+                "metadata": {"home_color": home_hex, "away_color": away_hex}
+            }).eq("game_id", game_id).eq("stage", "stage2_calibration").execute()
+            
+            print(f"[STAGE 2] Complete: {home_hex} (Home), {away_hex} (Away)")
+            return {
+                "status": "success", 
+                "colors": {
+                    "home": home_hex, 
+                    "away": away_hex
+                }
             }
-        }
-        
-    except Exception as e:
-        supabase.table("processing_queue").update({
-            "status": "failed",
-            "completed_at": "now()",
-            "error_message": str(e)
-        }).eq("game_id", game_id).eq("stage", "stage2_calibration").execute()
-        return {"status": "error", "message": str(e)}
+            
+        except Exception as e:
+            print(f"[STAGE 2] FATAL ERROR: {str(e)}")
+            # Log to both queue and events for visibility
+            try:
+                supabase.table("processing_queue").update({
+                    "status": "failed",
+                    "completed_at": "now()",
+                    "error_message": str(e)
+                }).eq("game_id", game_id).eq("stage", "stage2_calibration").execute()
+                
+                supabase.table("game_events").insert({
+                    "game_id": game_id,
+                    "event_type": "gpu_worker_error",
+                    "severity": "error",
+                    "payload": {"message": str(e), "stage": "stage2_calibration"}
+                }).execute()
+            except: pass
+            return {"status": "error", "message": str(e)}
 
 
 # ============================================================================
@@ -394,32 +416,62 @@ def stage3_inference(video_url: str, game_id: str):
     image=image, 
     gpu="A10G", 
     timeout=3600,
-    volumes={"/data": volume}
+    volumes={"/data": volume},
+    secrets=[
+        modal.Secret.from_name("basketball-scout-secrets"),
+        modal.Secret.from_dict({
+            "NEXT_PUBLIC_SUPABASE_URL": os.environ.get("NEXT_PUBLIC_SUPABASE_URL", ""),
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY": os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", ""),
+            "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY", "oyGufxqxrSK33efrhQBb")
+        })
+    ]
 )
 @modal.asgi_app()
 def process():
     """Main entry point for the modular basketball pipeline"""
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
+    import traceback
     
     web_app = FastAPI()
     
     @web_app.post("/")
     async def endpoint(request: Request):
-        data = await request.json()
-        mode = data.get("pipeline_mode")
-        
-        if mode == "ping":
-            return JSONResponse(content={"status": "warm"})
-        
-        if mode == "stage2_calibration":
-            result = stage2_calibration(data.get("video_url"), data.get("game_id"))
-            return JSONResponse(content=result)
-        
-        if mode == "stage3_inference":
-            result = stage3_inference(data.get("video_url"), data.get("game_id"))
-            return JSONResponse(content=result)
-        
-        return JSONResponse(content={"status": "error", "message": "Invalid mode"}, status_code=400)
+        try:
+            data = await request.json()
+            # Handle both camelCase (frontend) and snake_case (standard)
+            game_id = data.get("game_id") or data.get("gameId")
+            video_url = data.get("video_url") or data.get("videoUrl")
+            mode = data.get("pipeline_mode")
+            
+            if mode == "ping":
+                return JSONResponse(content={"status": "warm"})
+            
+            if not game_id or not video_url:
+                return JSONResponse(
+                    status_code=400,
+                    content={"status": "error", "message": "Missing game_id or video_url", "received": list(data.keys())}
+                )
+            
+            if mode == "stage2_calibration" or mode == "color_calibration":
+                result = stage2_calibration(video_url, game_id)
+                return JSONResponse(content=result)
+            
+            if mode == "stage3_inference" or mode == "analyze":
+                result = stage3_inference(video_url, game_id)
+                return JSONResponse(content=result)
+            
+            return JSONResponse(content={"status": "error", "message": "Invalid mode"}, status_code=400)
+        except Exception as e:
+            print(f"[CRITICAL ERROR] {str(e)}")
+            print(traceback.format_exc())
+            return JSONResponse(
+                status_code=500,
+                content={
+                    "status": "error",
+                    "message": str(e),
+                    "traceback": traceback.format_exc()
+                }
+            )
     
     return web_app
