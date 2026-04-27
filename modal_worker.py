@@ -137,6 +137,15 @@ def stage2_calibration(video_url: str, game_id: str):
     
     try:
         supabase = create_client(supabase_url, supabase_key)
+        
+        # Log start to UI
+        supabase.table("game_events").insert({
+            "game_id": game_id,
+            "event_type": "gpu_trace",
+            "severity": "info",
+            "payload": {"message": f"GPU Worker v8.7: Initiating sequential scan of {video_url}"}
+        }).execute()
+
         detector = AdvancedJerseyColorDetector()
         
         cap = cv2.VideoCapture(video_url)
@@ -204,7 +213,15 @@ def stage2_calibration(video_url: str, game_id: str):
             
             unique_players_found += current_frame_players
             if current_frame_players > 0:
-                print(f"[STAGE 2] Frame {frame_idx}: Found {current_frame_players} players. Total Samples: {len(collected_samples)}")
+                msg = f"Frame {frame_idx}: Detected {current_frame_players} players. Total color samples: {len(collected_samples)}"
+                print(f"[STAGE 2] {msg}")
+                # Stream progress to UI
+                supabase.table("game_events").insert({
+                    "game_id": game_id,
+                    "event_type": "gpu_trace",
+                    "severity": "info",
+                    "payload": {"message": msg, "progress_pct": int((frame_idx / max_scan_frames) * 100)}
+                }).execute()
             
             # Exit condition
             if unique_players_found >= 10 and len(collected_samples) >= 120:
