@@ -1,31 +1,9 @@
 import modal
 import os
-from collections import defaultdict, deque
+import traceback
 
 # MODAL_ELITE_PIPELINE v8.7 - Basketball Scouting AI
-# Optimized for Panning Video + Advanced Color Exclusion
-# Integration: YOLO11m + AdvancedJerseyColorDetector
-
-app = modal.App("basketball-scouting-ai")
-
-# Persistent volume for weights and caching
-volume = modal.Volume.from_name("basketball-cache", create_if_missing=True)
-
-# Image with scikit-learn and advanced CV libraries
-image = (
-    modal.Image.from_registry("ultralytics/ultralytics:latest")
-    .apt_install("libgl1", "libglib2.0-0")
-    .pip_install(
-        "fastapi[standard]",
-        "requests",
-        "opencv-python-headless",
-        "numpy",
-        "supabase",
-        "boto3",
-        "scikit-learn",
-        "roboflow"
-    )
-)
+app = modal.App("basketball-scout-ai")
 
 # Mount secrets for the worker
 secrets = [
@@ -35,6 +13,19 @@ secrets = [
         "ROBOFLOW_API_KEY": os.environ.get("ROBOFLOW_API_KEY") or "",
     })
 ]
+
+image = (
+    modal.Image.debian_slim()
+    .pip_install(
+        "ultralytics",
+        "opencv-python-headless",
+        "supabase",
+        "numpy",
+        "scikit-learn",
+        "fastapi",
+        "uvicorn"
+    )
+)
 
 # ============================================================================
 # ADVANCED COLOR DETECTION ENGINE v2.0
@@ -284,10 +275,9 @@ def stage3_inference(video_url: str, game_id: str):
     secrets=secrets
 )
 @modal.asgi_app()
-def web():
+def process():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
-    import traceback
     
     web_app = FastAPI()
     
