@@ -2,7 +2,7 @@ import modal
 import os
 from collections import defaultdict, deque
 
-# MODAL_ELITE_PIPELINE v8.6 - Basketball Scouting AI
+# MODAL_ELITE_PIPELINE v8.7 - Basketball Scouting AI
 # Optimized for Panning Video + Advanced Color Exclusion
 # Integration: YOLO11m + AdvancedJerseyColorDetector
 
@@ -119,7 +119,7 @@ class AdvancedJerseyColorDetector:
         return bgr_centers
 
 # ============================================================================
-# STAGE 2: JERSEY CALIBRATION (ELITE v8.6)
+# STAGE 2: JERSEY CALIBRATION (ELITE v8.7)
 # ============================================================================
 def stage2_calibration(video_url: str, game_id: str):
     import cv2
@@ -128,6 +128,8 @@ def stage2_calibration(video_url: str, game_id: str):
     from sklearn.cluster import KMeans
     
     print(f"[STAGE 2] Calibrating colors for game {game_id}")
+    print(f"[STAGE 2] Target URL: {video_url}")
+    
     supabase_url = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
     if not all([supabase_url, supabase_key]): 
@@ -138,30 +140,46 @@ def stage2_calibration(video_url: str, game_id: str):
         detector = AdvancedJerseyColorDetector()
         
         cap = cv2.VideoCapture(video_url)
-        if not cap.isOpened(): raise Exception("Video source unreachable")
+        if not cap.isOpened():
+            print(f"[STAGE 2] ERROR: OpenCV could not open video stream.")
+            raise Exception("Video source unreachable or format unsupported. Check R2 public access.")
         
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30
-        # Scan first 10 minutes at 3-second intervals
-        sample_points = [int(fps * s) for s in range(5, 600, 3)]
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
+        height = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+        print(f"[STAGE 2] Stream Properties: {width}x{height} @ {fps} FPS")
+        
+        if fps <= 0: fps = 30
+        
         collected_samples = []
         unique_players_found = 0
+        frame_idx = 0
+        max_scan_frames = int(fps * 600) # Scan up to 10 minutes
+        skip_interval = int(fps * 3)    # Sample every 3 seconds
         
-        print(f"[STAGE 2] Persistent Scanning: Goal = 10 Players & 120 Samples")
+        print(f"[STAGE 2] Starting Sequential Scan (Sequential is more stable for streams)")
         
-        for frame_idx in sample_points:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+        while frame_idx < max_scan_frames:
             ret, frame = cap.read()
-            if not ret: continue
+            if not ret:
+                print(f"[STAGE 2] Stream ended or read error at frame {frame_idx}")
+                break
+                
+            # Only process every Nth frame
+            if frame_idx % skip_interval != 0:
+                frame_idx += 1
+                continue
             
             # 1. Motion Blur Check
             blur_score = detector.detect_motion_blur(frame)
-            if blur_score < 12.0: # Slightly relaxed for calibration
+            if blur_score < 12.0:
+                frame_idx += 1
                 continue
             
             # 2. Lighting Enhancement
             enhanced = detector.preprocess_for_indoor_lighting(frame)
             
-            # 3. Detection with lower threshold for color sampling
+            # 3. Detection
             results = detector.model(enhanced, classes=[0], conf=0.30, verbose=False)
             
             current_frame_players = 0
@@ -177,21 +195,23 @@ def stage2_calibration(video_url: str, game_id: str):
                     
                     if jersey_y2 <= jersey_y1: continue
                     
-                    jersey_crop = enhanced[jersey_y1:jersey_y2, x1:x2]
-                    colors = detector.extract_jersey_colors(jersey_crop)
+                    jersey_crop = enhanced[max(0, jersey_y1):min(frame.shape[0], jersey_y2), max(0, x1):min(frame.shape[1], x2)]
+                    if jersey_crop.size == 0: continue
                     
+                    colors = detector.extract_jersey_colors(jersey_crop)
                     if colors:
                         collected_samples.extend(colors)
             
             unique_players_found += current_frame_players
-            
             if current_frame_players > 0:
                 print(f"[STAGE 2] Frame {frame_idx}: Found {current_frame_players} players. Total Samples: {len(collected_samples)}")
             
-            # Persistent Exit Condition
+            # Exit condition
             if unique_players_found >= 10 and len(collected_samples) >= 120:
                 print(f"[STAGE 2] Goal Reached: {unique_players_found} players, {len(collected_samples)} samples.")
                 break 
+                
+            frame_idx += 1
             
         cap.release()
         
@@ -212,7 +232,7 @@ def stage2_calibration(video_url: str, game_id: str):
         # Save results
         supabase.table("game_analysis").upsert({
             "game_id": game_id,
-            "metadata": {"colors": {"home": home_hex, "away": away_hex}, "pipeline_version": "8.5"},
+            "metadata": {"colors": {"home": home_hex, "away": away_hex}, "pipeline_version": "8.7"},
             "status": "calibration_complete",
             "updated_at": "now()"
         }).execute()
