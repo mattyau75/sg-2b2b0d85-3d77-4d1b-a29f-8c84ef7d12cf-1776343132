@@ -6,13 +6,16 @@ import traceback
 app = modal.App("basketball-scout-ai")
 
 # Capture deployment-time environment variables
-# Look for prefixed and non-prefixed versions
-SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or os.environ.get("SUPABASE_URL") or ""
-SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or os.environ.get("SUPABASE_ANON_KEY") or ""
-RB_KEY = os.environ.get("ROBOFLOW_API_KEY") or ""
+# This runs locally on the GitHub runner during 'modal deploy'
+SUPABASE_URL = os.environ.get("SB_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or ""
+SUPABASE_KEY = os.environ.get("SB_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or ""
+RB_KEY = os.environ.get("RB_KEY") or os.environ.get("ROBOFLOW_API_KEY") or ""
 
-print(f"[DEPLOYMENT_CHECK] URL Length: {len(SUPABASE_URL)}")
-print(f"[DEPLOYMENT_CHECK] Key Length: {len(SUPABASE_KEY)}")
+# Use direct print for deployment-time debugging
+print(f"--- DEPLOYMENT DIAGNOSTICS ---")
+print(f"URL Captured: {'YES' if SUPABASE_URL else 'NO'} (Length: {len(SUPABASE_URL)})")
+print(f"Key Captured: {'YES' if SUPABASE_KEY else 'NO'} (Length: {len(SUPABASE_KEY)})")
+print(f"-----------------------------")
 
 app_secrets = [
     modal.Secret.from_dict({
