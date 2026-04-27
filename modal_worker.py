@@ -13,7 +13,7 @@ volume = modal.Volume.from_name("basketball-cache", create_if_missing=True)
 # Container image with YOLO11m pre-installed
 image = (
     modal.Image.from_registry("ultralytics/ultralytics:latest")
-    .apt_install("libgl1-mesa-glx", "libglib2.0-0")
+    .apt_install("libgl1", "libglib2.0-0")
     .pip_install(
         "fastapi[standard]",
         "requests",
