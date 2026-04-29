@@ -4,7 +4,7 @@ import time
 import traceback
 import logging
 
-# MODAL_ELITE_PIPELINE v8.95 - Final Domain Sync
+# MODAL_ELITE_PIPELINE v8.97 - Hybrid R2 + SSD
 # Integrated SSD Volume processing and Public R2 Bridge
 
 # Configure logging
@@ -34,7 +34,7 @@ volume = modal.Volume.from_name("video-workspace", create_if_missing=True)
     timeout=600,
     volumes={"/workspace": volume}
 )
-async def calibrate_colors(game_id: str, video_url: str):
+async def calibrate_colors_internal(game_id: str, video_url: str):
     import aiohttp
     import os
     
@@ -94,7 +94,6 @@ async def process_video_local(video_path: str, game_id: str):
     sample_size = min(30, frame_count)
     
     # Simple dominant color logic for scouting
-    # In a real elite pipeline, this would involve jersey isolation
     colors = []
     
     for i in range(sample_size):
@@ -129,6 +128,11 @@ def process():
     
     web_app = FastAPI()
     
+    @web_app.get("/")
+    async def root():
+        return {"status": "online", "version": "8.97"}
+    
+    @web_app.post("/")
     @web_app.post("/calibrate")
     async def calibrate(request: Request):
         try:
@@ -137,10 +141,12 @@ def process():
             video_url = body.get("video_url")
             
             if not game_id or not video_url:
+                logger.error(f"[WEB] Missing payload: {body}")
                 return JSONResponse({"status": "error", "message": "Missing payload"}, 400)
             
+            logger.info(f"[WEB] Triggering GPU for {game_id}")
             # Trigger the GPU function
-            result = await calibrate_colors.remote.aio(game_id, video_url)
+            result = await calibrate_colors_internal.remote.aio(game_id, video_url)
             return JSONResponse(result)
             
         except Exception as e:
