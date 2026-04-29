@@ -4,8 +4,8 @@ import time
 import traceback
 import logging
 
-# MODAL_ELITE_PIPELINE v8.98 - Auth Hardened
-# Robust R2 transfer with Fallback Strategies
+# MODAL_ELITE_PIPELINE v8.99 - Async Volume Optimized
+# Standardized high-performance GPU workflow
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -46,7 +46,6 @@ async def calibrate_colors_internal(game_id: str, video_url: str):
         
         # Robust Download Strategy
         async with aiohttp.ClientSession() as session:
-            # Try with clean headers first
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
                 'Accept': 'video/mp4,application/octet-stream'
@@ -64,21 +63,28 @@ async def calibrate_colors_internal(game_id: str, video_url: str):
                     f.write(content)
                 logger.info(f"[DOWNLOAD] Completed: {len(content)} bytes")
 
-        volume.commit()
-        logger.info("[SSD] Workspace committed")
+        # Use async commit to avoid blocking
+        await volume.commit.aio()
+        logger.info("[SSD] Workspace committed asynchronously")
 
         # Process
         logger.info("[PROCESS] Starting Color Detection")
         result = await process_video_local(local_path, game_id)
         
         # Cleanup
-        os.remove(local_path)
-        volume.commit()
+        if os.path.exists(local_path):
+            os.remove(local_path)
+            await volume.commit.aio()
+            logger.info("[CLEANUP] Workspace purged and committed")
         
         return result
 
     except Exception as e:
         logger.error(f"[FATAL] {str(e)}")
+        # Attempt cleanup even on failure
+        if 'local_path' in locals() and os.path.exists(local_path):
+            os.remove(local_path)
+            await volume.commit.aio()
         raise Exception(f"GPU Pipeline Error: {str(e)}")
 
 async def process_video_local(video_path: str, game_id: str):
