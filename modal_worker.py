@@ -3,7 +3,7 @@ import os
 import time
 import traceback
 
-# MODAL_ELITE_PIPELINE v8.9 - High-Performance DNS-Bypass & SSD Caching
+# MODAL_ELITE_PIPELINE v8.91 - High-Performance DNS-Bypass & SSD Caching
 # Purpose: Fix [Errno -2] by using Public R2 and persist video on GPU SSD.
 
 # Initialize the Modal Volume for 24-hour video caching
