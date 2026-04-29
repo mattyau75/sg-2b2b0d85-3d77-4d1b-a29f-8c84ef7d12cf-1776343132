@@ -3,11 +3,11 @@ import os
 import time
 import traceback
 
-# MODAL_ELITE_PIPELINE v8.91 - High-Performance DNS-Bypass & SSD Caching
-# Purpose: Fix [Errno -2] by using Public R2 and persist video on GPU SSD.
+# MODAL_ELITE_PIPELINE v8.93 - Hybrid R2 + Workspace Volume
+# Purpose: Use local SSD volumes to bypass DNS/timeout issues.
 
-# Initialize the Modal Volume for 24-hour video caching
-volume = modal.Volume.from_name("scout-video-cache", create_if_missing=True)
+# Initialize the Modal Volume for high-performance video processing
+volume = modal.Volume.from_name("video-workspace", create_if_missing=True)
 
 # Define the Image with all necessary scout dependencies
 image = modal.Image.debian_slim(python_version="3.11").pip_install(
@@ -16,41 +16,45 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install(
     "numpy",
     "supabase",
     "python-dotenv",
-    "pydantic"
+    "pydantic",
+    "fastapi",
+    "uvicorn"
 )
 
 app = modal.App("basketball-scout-ai", image=image)
 
-def download_to_cache(url: str, cache_path: str):
-    """Download video from Public R2 to the persistent Modal Volume if it doesn't exist"""
+def download_to_workspace(url: str, game_id: str):
+    """Download video from Public R2 to the local Modal /workspace/"""
     import requests 
     
-    if os.path.exists(cache_path):
-        print(f"⚡ GPU Cache Hit: {cache_path}")
-        return True
+    local_path = f"/workspace/{game_id}.mp4"
     
-    print(f"📥 GPU Cache Miss. Downloading from Public Bridge: {url}")
+    # Check if already exists in workspace
+    if os.path.exists(local_path):
+        print(f"⚡ Local Workspace Hit: {local_path}")
+        return local_path
+    
+    print(f"📥 Pulling to Workspace: {url}")
     try:
-        # High-performance download for public R2 links
         response = requests.get(url, stream=True, timeout=180, allow_redirects=True)
         response.raise_for_status()
         
-        os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-        with open(cache_path, 'wb') as f:
+        os.makedirs("/workspace", exist_ok=True)
+        with open(local_path, 'wb') as f:
             for chunk in response.iter_content(chunk_size=1024*1024): 
                 if chunk:
                     f.write(chunk)
         
-        # Commit to volume to ensure cross-container persistence
+        # Ensure persistence across the cluster
         volume.commit()
-        print(f"✅ Video cached on SSD: {cache_path}")
-        return True
+        print(f"✅ Video ready at {local_path}")
+        return local_path
     except Exception as e:
-        print(f"❌ Cache download failed: {str(e)}")
-        return False
+        print(f"❌ Workspace pull failed: {str(e)}")
+        return None
 
 @app.function(
-    volumes={"/cache": volume},
+    volumes={"/workspace": volume},
     timeout=600,
     cpu=2.0,
     memory=4096,
@@ -65,8 +69,8 @@ def process():
 
     @web_app.post("/")
     async def handle_request(request: Request):
+        local_video_path = None
         try:
-            # We import heavy libs inside the handler to prevent GitHub Action parsing errors
             import numpy as np
             import cv2
             from supabase import create_client
@@ -78,36 +82,30 @@ def process():
             supabase_key = data.get("supabase_key")
             pipeline_mode = data.get("pipeline_mode", "stage2_calibration")
 
-            print(f"🚀 AI Pipeline Initiated: {pipeline_mode} for Game {game_id}")
-            print(f"🔗 Signal URL: {video_url}")
+            print(f"🚀 AI Hybrid Pipeline: {pipeline_mode} for Game {game_id}")
 
-            # Define the local cache path on the Modal Volume
-            video_filename = video_url.split('/')[-1].split('?')[0]
-            local_video_path = f"/cache/videos/{video_filename}"
-
-            # Step 1: Ensure video is on the GPU SSD
-            if not download_to_cache(video_url, local_video_path):
+            # Step 1: Download to Local SSD Workspace
+            local_video_path = download_to_workspace(video_url, game_id)
+            if not local_video_path:
                 return JSONResponse({
                     "status": "error", 
-                    "message": "Failed to pull video to GPU cache. Check Public R2 URL."
+                    "message": "Failed to pull video to local GPU workspace."
                 }, 500)
 
-            # Initialize Supabase for status updates
+            # Initialize Supabase
             supabase = create_client(supabase_url, supabase_key)
 
             if pipeline_mode == 'stage2_calibration':
-                # AI COLOR CALIBRATION LOGIC v8.9
-                print("🎨 Running Color Calibration...")
+                print("🎨 Running Local Color Calibration...")
                 
-                # We use the local_video_path from the SSD instead of the URL
+                # Process from LOCAL disk
                 cap = cv2.VideoCapture(local_video_path)
                 if not cap.isOpened():
-                    raise Exception("Failed to open local video from GPU cache")
+                    raise Exception("Failed to open local video from workspace")
                 
-                # Mock processing for proof-of-concept; in v9.0 this triggers full YOLO scan
-                time.sleep(5)
+                # Mock processing logic
+                time.sleep(3)
                 
-                # Update game status in Supabase
                 supabase.table('games').update({
                     "analysis_status": "ready",
                     "calibration_data": {
@@ -119,13 +117,25 @@ def process():
                 }).eq('id', game_id).execute()
 
                 cap.release()
-                return JSONResponse({"status": "success", "message": "Calibration Complete", "cached": True})
+                
+                # Cleanup local workspace to save space
+                if os.path.exists(local_video_path):
+                    os.remove(local_video_path)
+                    volume.commit()
+                
+                return JSONResponse({"status": "success", "message": "Calibration Complete", "processed_locally": True})
 
-            return JSONResponse({"status": "success", "message": "Handshake Complete", "cached": True})
+            return JSONResponse({"status": "success", "message": "Handshake Complete"})
 
         except Exception as e:
             error_trace = traceback.format_exc()
             print(f"❌ GPU ERROR: {error_trace}")
+            
+            # Cleanup on error
+            if local_video_path and os.path.exists(local_video_path):
+                os.remove(local_video_path)
+                volume.commit()
+                
             return JSONResponse({"status": "error", "message": str(e)}, 500)
             
     return web_app
