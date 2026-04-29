@@ -2,13 +2,12 @@ import modal
 import os
 import traceback
 
-# MODAL_ELITE_PIPELINE v8.7 - Basketball Scouting AI
+# MODAL_ELITE_PIPELINE v8.8 - Standardized Naming Sync
 app = modal.App("basketball-scout-ai")
 
-# Capture deployment-time environment variables
-# Look for 'M_' prefix (sanitized) then fall back to original
-SUPABASE_URL = os.environ.get("M_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL") or ""
-SUPABASE_KEY = os.environ.get("M_KEY") or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY") or ""
+# Capture deployment-time environment variables strictly
+SUPABASE_URL = os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
+SUPABASE_KEY = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
 RB_KEY = os.environ.get("M_RB") or os.environ.get("ROBOFLOW_API_KEY") or ""
 
 # Direct print for deployment-time debugging
@@ -21,7 +20,8 @@ app_secrets = [
 ]
 
 image = (
-    modal.Image.debian_slim()
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libgl1", "libglib2.0-0", "ffmpeg", "libsm6", "libxext6")
     .pip_install(
         "ultralytics",
         "opencv-python-headless",
@@ -312,8 +312,8 @@ def process():
                     }
                 }, status_code=500)
             
-            game_id = body.get("game_id") or body.get("gameId")
-            video_url = body.get("video_url") or body.get("videoUrl")
+            game_id = body.get("game_id")
+            video_url = body.get("video_url")
             mode = body.get("pipeline_mode")
             
             if mode == "ping": return JSONResponse(content={"status": "warm"})
