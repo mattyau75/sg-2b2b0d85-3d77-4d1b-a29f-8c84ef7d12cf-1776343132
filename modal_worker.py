@@ -4,7 +4,7 @@ import time
 import traceback
 import logging
 
-# MODAL_ELITE_PIPELINE v8.99 - Async Volume Optimized
+# MODAL_ELITE_PIPELINE v9.00 - Production Stable
 # Standardized high-performance GPU workflow
 
 # Configure logging
@@ -63,7 +63,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str):
                     f.write(content)
                 logger.info(f"[DOWNLOAD] Completed: {len(content)} bytes")
 
-        # Use async commit to avoid blocking
+        # Use async commit
         await volume.commit.aio()
         logger.info("[SSD] Workspace committed asynchronously")
 
@@ -81,7 +81,6 @@ async def calibrate_colors_internal(game_id: str, video_url: str):
 
     except Exception as e:
         logger.error(f"[FATAL] {str(e)}")
-        # Attempt cleanup even on failure
         if 'local_path' in locals() and os.path.exists(local_path):
             os.remove(local_path)
             await volume.commit.aio()
@@ -121,6 +120,7 @@ def process():
     
     web_app = FastAPI()
     
+    # Catch-all root handlers to prevent 404/Redirect HTML errors
     @web_app.post("/")
     @web_app.post("/calibrate")
     async def calibrate(request: Request):
