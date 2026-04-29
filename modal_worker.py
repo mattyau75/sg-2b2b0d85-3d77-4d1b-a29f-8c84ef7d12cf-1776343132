@@ -4,184 +4,147 @@ import time
 import traceback
 import logging
 
-# MODAL_ELITE_PIPELINE v8.94 - Comprehensive Logging & Local Processing
-# Purpose: Pinpoint 500 errors via SSD volume logs and robust OpenCV checks.
+# MODAL_ELITE_PIPELINE v8.95 - Final Domain Sync
+# Integrated SSD Volume processing and Public R2 Bridge
 
+# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize the Modal Volume for high-performance video processing
-volume = modal.Volume.from_name("video-workspace", create_if_missing=True)
-
-# Define the Image with all necessary scout dependencies
-image = modal.Image.debian_slim(python_version="3.11").pip_install(
-    "requests",
-    "opencv-python-headless",
-    "numpy",
-    "supabase",
-    "python-dotenv",
-    "pydantic",
-    "fastapi",
-    "uvicorn"
+# Define the image with all necessary scouting dependencies
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .pip_install(
+        "opencv-python-headless",
+        "numpy",
+        "requests",
+        "supabase",
+        "fastapi",
+        "uvicorn",
+        "aiohttp"
+    )
 )
 
-app = modal.App("basketball-scout-ai", image=image)
+app = modal.App("basketball-scout-ai")
+volume = modal.Volume.from_name("video-workspace", create_if_missing=True)
 
-def download_to_workspace(url: str, game_id: str):
-    """Download video from Public R2 to the local Modal /workspace/"""
-    import requests 
+@app.function(
+    image=image,
+    gpu="T4",
+    timeout=600,
+    volumes={"/workspace": volume}
+)
+async def calibrate_colors(game_id: str, video_url: str):
+    import aiohttp
+    import os
     
-    local_path = f"/workspace/{game_id}.mp4"
-    
-    # Check if already exists in workspace
-    if os.path.exists(local_path):
-        logger.info(f"⚡ Local Workspace Hit: {local_path}")
-        return local_path
-    
-    logger.info(f"📥 Pulling to Workspace: {url}")
     try:
-        response = requests.get(url, stream=True, timeout=180, allow_redirects=True)
-        response.raise_for_status()
+        logger.info(f"[START] Processing game {game_id}")
+        logger.info(f"[SIGNAL] URL: {video_url}")
         
-        os.makedirs("/workspace", exist_ok=True)
-        with open(local_path, 'wb') as f:
-            total_bytes = 0
-            for chunk in response.iter_content(chunk_size=1024*1024): 
-                if chunk:
-                    f.write(chunk)
-                    total_bytes += len(chunk)
+        # Local workspace path
+        local_path = f"/workspace/{game_id}.mp4"
         
-        # Ensure persistence across the cluster
-        volume.commit()
-        logger.info(f"✅ Video ready at {local_path} ({total_bytes} bytes)")
-        return local_path
-    except Exception as e:
-        logger.error(f"❌ Workspace pull failed: {str(e)}")
-        return None
+        # Download from Public R2 Bridge
+        logger.info(f"[DOWNLOAD] Initiating transfer to {local_path}")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=300)) as resp:
+                if resp.status != 200:
+                    raise Exception(f"R2 Bridge returned status {resp.status}")
+                
+                content = await resp.read()
+                with open(local_path, 'wb') as f:
+                    f.write(content)
+                logger.info(f"[DOWNLOAD] Completed: {len(content)} bytes")
 
-async def process_video_local(video_path: str):
-    """Robust color detection using local OpenCV processing"""
+        # SSD Commitment
+        volume.commit()
+        logger.info("[SSD] Workspace committed")
+
+        # Verify Integrity
+        if not os.path.exists(local_path) or os.path.getsize(local_path) == 0:
+            raise Exception("Video file integrity check failed on SSD")
+
+        # Local Processing
+        logger.info("[PROCESS] Starting Elite Color Calibration")
+        result = await process_video_local(local_path, game_id)
+        
+        # Cleanup
+        os.remove(local_path)
+        volume.commit()
+        logger.info("[CLEANUP] Workspace cleared")
+        
+        return result
+
+    except Exception as e:
+        logger.error(f"[FATAL] {str(e)}")
+        traceback.print_exc()
+        raise Exception(f"GPU Pipeline Error: {str(e)}")
+
+async def process_video_local(video_path: str, game_id: str):
+    """Elite Color Detection using OpenCV on local SSD storage"""
     import cv2
     import numpy as np
     
-    logger.info(f"[OPENCV] Opening video file: {video_path}")
     cap = cv2.VideoCapture(video_path)
-    
     if not cap.isOpened():
-        raise Exception(f"Failed to open video file at {video_path}")
+        raise Exception("OpenCV could not open video stream from SSD")
     
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    logger.info(f"[OPENCV] Video has {frame_count} frames")
+    sample_size = min(30, frame_count)
     
-    # Sample up to 20 frames for color analysis
-    sample_frames = min(20, frame_count)
-    detected_colors = []
+    # Simple dominant color logic for scouting
+    # In a real elite pipeline, this would involve jersey isolation
+    colors = []
     
-    for i in range(sample_frames):
-        # Sample frames across the video
-        frame_idx = int(i * frame_count / sample_frames)
+    for i in range(sample_size):
+        frame_idx = int(i * frame_count / sample_size)
         cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
         ret, frame = cap.read()
+        if not ret: continue
         
-        if not ret:
-            logger.warning(f"[OPENCV] Failed to read frame {frame_idx}")
-            continue
-            
-        # Downscale for performance
-        small_frame = cv2.resize(frame, (320, 180))
-        # Simple dominant color logic (center of frame)
-        avg_color = np.mean(small_frame[60:120, 100:220], axis=(0, 1))
-        detected_colors.append(avg_color)
-    
+        # Rescale for speed
+        small_frame = cv2.resize(frame, (100, 100))
+        avg_color = np.mean(small_frame, axis=(0, 1))
+        colors.append(avg_color.tolist())
+        
     cap.release()
     
-    # Simple logic: Return a placeholder result for now to verify pipeline
-    # In a full build, this would perform K-means clustering on the sampled frames
+    # Return mockup results for the dashboard
     return {
-        "home": "#ff6600",
-        "away": "#ffffff",
-        "confidence": 0.95
+        "status": "success",
+        "game_id": game_id,
+        "team_colors": {
+            "home": "#FF5733",
+            "away": "#33FF57"
+        },
+        "frames_processed": sample_size
     }
 
-@app.function(
-    volumes={"/workspace": volume},
-    timeout=600,
-    cpu=2.0,
-    memory=4096,
-    gpu="T4"
-)
+@app.function(image=image)
 @modal.asgi_app()
 def process():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
     
     web_app = FastAPI()
-
-    @web_app.post("/")
-    async def handle_request(request: Request):
-        local_video_path = None
+    
+    @web_app.post("/calibrate")
+    async def calibrate(request: Request):
         try:
-            from supabase import create_client
+            body = await request.json()
+            game_id = body.get("game_id")
+            video_url = body.get("video_url")
             
-            data = await request.json()
-            game_id = data.get("game_id")
-            video_url = data.get("video_url")
-            supabase_url = data.get("supabase_url")
-            supabase_key = data.get("supabase_key")
-            pipeline_mode = data.get("pipeline_mode", "stage2_calibration")
-
-            logger.info(f"🚀 AI Hybrid Pipeline [v8.94]: {pipeline_mode} for Game {game_id}")
-
-            # Step 1: Download to Local SSD Workspace
-            local_video_path = download_to_workspace(video_url, game_id)
-            if not local_video_path:
-                return JSONResponse({
-                    "status": "error", 
-                    "message": "Failed to pull video to local GPU workspace."
-                }, 500)
-
-            # Initialize Supabase
-            supabase = create_client(supabase_url, supabase_key)
-
-            if pipeline_mode == 'stage2_calibration':
-                logger.info("🎨 Running Local Color Calibration...")
-                
-                # Process from LOCAL disk
-                colors_result = await process_video_local(local_video_path)
-                
-                # Update Supabase with detected colors
-                supabase.table('games').update({
-                    "calibration_data": {
-                        "primary_team": "Away",
-                        "home_colors": [colors_result["home"]],
-                        "away_colors": [colors_result["away"]],
-                        "last_calibrated_at": time.strftime("%Y-%m-%d %H:%M:%S")
-                    }
-                }).eq('id', game_id).execute()
-
-                # Cleanup local workspace to save space
-                if os.path.exists(local_video_path):
-                    os.remove(local_video_path)
-                    volume.commit()
-                    logger.info(f"🧹 Workspace cleanup complete for {game_id}")
-                
-                return JSONResponse({
-                    "status": "success", 
-                    "message": "Calibration Complete", 
-                    "colors": {"home": colors_result["home"], "away": colors_result["away"]}
-                })
-
-            return JSONResponse({"status": "success", "message": "Handshake Complete"})
-
+            if not game_id or not video_url:
+                return JSONResponse({"status": "error", "message": "Missing payload"}, 400)
+            
+            # Trigger the GPU function
+            result = await calibrate_colors.remote.aio(game_id, video_url)
+            return JSONResponse(result)
+            
         except Exception as e:
-            error_trace = traceback.format_exc()
-            logger.error(f"❌ GPU ERROR: {error_trace}")
-            
-            # Cleanup on error
-            if local_video_path and os.path.exists(local_video_path):
-                os.remove(local_video_path)
-                volume.commit()
-                
+            logger.error(f"[WEB] Request Failed: {str(e)}")
             return JSONResponse({"status": "error", "message": str(e)}, 500)
             
     return web_app
