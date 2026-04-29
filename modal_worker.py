@@ -2,9 +2,6 @@ import modal
 import os
 import time
 import traceback
-import requests
-import cv2
-import numpy as np
 
 # MODAL_ELITE_PIPELINE v8.8 - High-Performance Caching & Elite Scouting
 # This volume provides persistent SSD storage on the GPU for 24h video caching
@@ -34,6 +31,8 @@ image = (
 
 def download_to_cache(url: str, cache_path: str):
     """Download video from R2 to the persistent Modal Volume if it doesn't exist"""
+    import requests # Imported inside function to avoid deployment errors
+    
     if os.path.exists(cache_path):
         print(f"⚡ GPU Cache Hit: {cache_path}")
         return True
@@ -68,10 +67,12 @@ class AdvancedJerseyColorDetector:
         self.model = YOLO(yolo_model_path)
         
     def detect_motion_blur(self, frame):
+        import cv2 # Imported inside to avoid deployment errors
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         return cv2.Laplacian(gray, cv2.CV_64F).var()
 
     def preprocess_for_indoor_lighting(self, image):
+        import cv2
         lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
         clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
         lab[:, :, 0] = clahe.apply(lab[:, :, 0])
@@ -85,6 +86,8 @@ class AdvancedJerseyColorDetector:
         return False
 
     def extract_jersey_colors(self, crop):
+        import cv2
+        import numpy as np
         from sklearn.cluster import KMeans
         crop = cv2.resize(crop, (40, 40))
         hsv = cv2.cvtColor(crop, cv2.COLOR_BGR2HSV)
@@ -102,6 +105,8 @@ class AdvancedJerseyColorDetector:
 # STAGE 2: JERSEY CALIBRATION (ELITE v8.8)
 # ============================================================================
 def stage2_calibration(video_source: str, game_id: str):
+    import cv2
+    import numpy as np
     from supabase import create_client
     from sklearn.cluster import KMeans
     
