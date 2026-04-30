@@ -2,10 +2,9 @@ import modal
 import os
 import logging
 import asyncio
-import numpy as np
 
-# MODAL_ELITE_PIPELINE v9.04 - Production Hardened
-# Precision K-Means color detection for Elite Basketball Scouting
+# MODAL_ELITE_PIPELINE v9.05 - Deployment Optimized
+# Moved heavy imports inside functions to allow deployment without local dependencies
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -35,6 +34,7 @@ volume = modal.Volume.from_name("video-workspace", create_if_missing=True)
 async def calibrate_colors_internal(game_id: str, video_url: str):
     import aiohttp
     import cv2
+    import numpy as np
     from sklearn.cluster import KMeans
     
     local_path = f"/workspace/{game_id}.mp4"
@@ -99,36 +99,28 @@ async def calibrate_colors_internal(game_id: str, video_url: str):
             return "#{:02x}{:02x}{:02x}".format(int(bgr[2]), int(bgr[1]), int(bgr[0]))
 
         # 4. ELITE JERSEY HEURISTIC
-        # Identify Jersey clusters by filtering out the court (Yellow/Orange/Tan) 
-        # and shadows/referees (Grays/Blacks).
-        
         processed_colors = []
         for center in centers:
             r, g, b = center[2], center[1], center[0]
-            # Simple saturation/hue check to avoid common court colors
             is_court = (r > 150 and g > 120 and b < 100) # Tan/Yellowish
             is_muted = (max(r,g,b) - min(r,g,b)) < 15   # Gray/Neutral
             
             if not is_court and not is_muted:
                 processed_colors.append(center)
 
-        # If heuristic filters everything, fall back to extremes
         if len(processed_colors) < 2:
             luminosities = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in centers]
             sorted_idx = np.argsort(luminosities)
             away_color = bgr_to_hex(centers[sorted_idx[0]])
             home_color = bgr_to_hex(centers[sorted_idx[-1]])
         else:
-            # Pick the two most distinct colors remaining
-            # Sort by luminosity for Home/Away convention
-            luminosities = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in processed_colors]
+            luminosities = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for processed_color in processed_colors]
             sorted_idx = np.argsort(luminosities)
             away_color = bgr_to_hex(processed_colors[sorted_idx[0]])
             home_color = bgr_to_hex(processed_colors[sorted_idx[-1]])
         
         logger.info(f"[SUCCESS] Signatures Extracted. Home: {home_color}, Away: {away_color}")
         
-        # Cleanup
         if os.path.exists(local_path):
             os.remove(local_path)
             await volume.commit.aio()
@@ -170,7 +162,6 @@ def process():
                     status_code=400
                 )
             
-            # Async execution
             result = await calibrate_colors_internal.remote.aio(game_id, video_url)
             
             if result.get("status") == "error":
