@@ -3,8 +3,8 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v9.09 - CIE Lab Precision Engine
-# Optimized for high-density player recognition in panning 1080p indoor footage
+# MODAL_ELITE_PIPELINE v9.10 - YOLO11m Object-Gated Vision
+# High-precision player isolation for elite jersey signature extraction
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ image = (
         "scikit-learn",
         "fastapi",
         "uvicorn",
+        "ultralytics",
         "supabase"
     )
 )
@@ -35,6 +36,7 @@ volume = modal.Volume.from_name("video-workspace", create_if_missing=True)
 async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
     import cv2
     import numpy as np
+    from ultralytics import YOLO
     from sklearn.cluster import KMeans
     from supabase import create_client, Client
     import aiohttp
@@ -44,9 +46,9 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[START] CIE Lab Vision Analysis: {game_id}")
+        logger.info(f"[START] YOLO11m Object-Gated Scan: {game_id}")
         
-        # 1. STREAMING DOWNLOAD (Prevents OOM)
+        # 1. STREAMING DOWNLOAD
         async with aiohttp.ClientSession() as session:
             async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=600)) as resp:
                 if resp.status not in [200, 206]:
@@ -57,71 +59,92 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         
         await volume.commit.aio()
 
+        # 2. LOAD YOLO11m
+        # Using yolo11m (medium) for optimal accuracy/speed balance on 1080p
+        model = YOLO("yolo11m.pt") 
+        
         cap = cv2.VideoCapture(local_path)
         if not cap.isOpened(): raise Exception("FFmpeg/Codec Error")
 
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Sample across the first 5 minutes
-        sample_indices = np.linspace(500, min(9000, frame_count - 1), 25).astype(int)
+        # Sample 20 frames from the first 3 minutes where lineups are clear
+        sample_indices = np.linspace(300, min(5400, frame_count - 1), 20).astype(int)
         
-        player_pixels = []
+        player_crops_pixels = []
+        
         for idx in sample_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
             ret, frame = cap.read()
             if not ret: continue
             
-            # 2. LIGHTING NORMALIZATION
-            lab = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-            l, a, b = cv2.split(lab)
-            clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-            cl = clahe.apply(l)
-            limg = cv2.merge((cl,a,b))
-            frame_norm = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-
-            # 3. ROI GATING (Player Belt)
-            h, w = frame_norm.shape[:2]
-            roi = frame_norm[int(h*0.35):int(h*0.65), int(w*0.1):int(w*0.9)]
+            # 3. YOLO DETECTION
+            # Only detect 'person' (class 0)
+            results = model(frame, classes=[0], conf=0.45, verbose=False)
             
-            # 4. COURT TONE REJECTION (HSV)
-            hsv = cv2.cvtColor(roi, cv2.COLOR_BGR2HSV)
-            # Filter court tans, yellows, and browns
-            lower_court = np.array([5, 30, 30])
-            upper_court = np.array([35, 255, 255])
-            mask = cv2.inRange(hsv, lower_court, upper_court)
-            
-            # Isolate players
-            player_only = cv2.bitwise_and(roi, roi, mask=cv2.bitwise_not(mask))
-            
-            # Resize for speed and filter zero pixels
-            small = cv2.resize(player_only, (80, 80))
-            pixels = small.reshape(-1, 3)
-            # Remove black background from masking
-            pixels = pixels[np.any(pixels != [0, 0, 0], axis=1)]
-            player_pixels.append(pixels)
+            for result in results:
+                boxes = result.boxes
+                for box in boxes:
+                    # Get bounding box coordinates
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    
+                    # Extract the player crop
+                    # Focus on the 'jersey zone' (upper 60% of the player box)
+                    player_h = y2 - y1
+                    jersey_y2 = y1 + int(player_h * 0.6)
+                    crop = frame[y1:jersey_y2, x1:x2]
+                    
+                    if crop.size == 0: continue
+                    
+                    # 4. LIGHTING NORMALIZATION (CIE Lab)
+                    lab = cv2.cvtColor(crop, cv2.COLOR_BGR2LAB)
+                    l, a, b = cv2.split(lab)
+                    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                    cl = clahe.apply(l)
+                    limg = cv2.merge((cl,a,b))
+                    crop_norm = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+                    
+                    # Resize to a small patch for K-Means efficiency
+                    small_crop = cv2.resize(crop_norm, (40, 40))
+                    pixels = small_crop.reshape(-1, 3)
+                    player_crops_pixels.append(pixels)
 
         cap.release()
         
-        if not player_pixels: raise Exception("Vision: Zero player pixels detected after court masking")
+        if not player_crops_pixels: 
+            raise Exception("Vision: YOLO found 0 players. Check video quality or URL.")
 
-        pixel_stack = np.vstack(player_pixels)
+        pixel_stack = np.vstack(player_crops_pixels)
         
-        # 5. K-MEANS CLUSTERING (8 clusters for high granularity)
-        kmeans = KMeans(n_clusters=8, n_init=10)
+        # 5. K-MEANS CLUSTERING (12 clusters for finer separation)
+        kmeans = KMeans(n_clusters=12, n_init=10)
         kmeans.fit(pixel_stack)
         centers = kmeans.cluster_centers_
         
+        def is_skin_tone(bgr):
+            # Convert to HSV for better skin detection
+            hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+            h, s, v = hsv
+            # Standard skin tone range in HSV
+            return (0 <= h <= 25) and (20 <= s <= 150)
+
+        # Filter out skin tones before picking light/dark
+        non_skin_centers = [c for c in centers if not is_skin_tone(c)]
+        
+        # Fallback if all look like skin (shouldn't happen with jerseys)
+        target_centers = non_skin_centers if non_skin_centers else centers
+
         def bgr_to_hex(bgr):
             return "#{:02x}{:02x}{:02x}".format(int(bgr[2]), int(bgr[1]), int(bgr[0]))
 
-        # Sort by Perceptual Luminosity (Home = Light, Away = Dark)
-        luminosities = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in centers]
+        # Sort by Perceptual Luminosity
+        luminosities = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in target_centers]
         sorted_idx = np.argsort(luminosities)
         
-        # We pick the most distinct high/low values that aren't gray
-        home_hex = bgr_to_hex(centers[sorted_idx[-1]]) # Lightest
-        away_hex = bgr_to_hex(centers[sorted_idx[0]])  # Darkest
+        # Pick the most distinct light and dark non-skin colors
+        home_hex = bgr_to_hex(target_centers[sorted_idx[-1]]) # Lightest
+        away_hex = bgr_to_hex(target_centers[sorted_idx[0]])  # Darkest
         
-        # 6. ELITE SYNC
+        # 6. PERSIST RESULTS
         now = datetime.utcnow().isoformat()
         
         # Update Games Table (Main Detail Page)
@@ -142,17 +165,17 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         # Update Analysis Status
         supabase.table("game_analysis").update({
             "status": "calibration_ready",
-            "metadata": {"colors": {"home": home_hex, "away": away_hex}, "scan_version": "9.09"}
+            "metadata": {"colors": {"home": home_hex, "away": away_hex}, "scan_version": "11m-9.10"}
         }).eq("game_id", game_id).execute()
 
-        logger.info(f"[SUCCESS] Lab Signatures Locked: {home_hex} / {away_hex}")
+        logger.info(f"[SUCCESS] YOLO11m Signatures Locked: {home_hex} / {away_hex}")
         
         if os.path.exists(local_path):
             os.remove(local_path)
             await volume.commit.aio()
 
     except Exception as e:
-        logger.exception("[FATAL] GPU Pipeline Failure")
+        logger.exception("[FATAL] YOLO Pipeline Failure")
         supabase.table("game_analysis").update({
             "status": "error",
             "status_message": f"Vision Error: {str(e)}"
@@ -184,7 +207,7 @@ def process():
                 game_id, video_url, supabase_url, supabase_key
             )
             
-            return JSONResponse(content={"status": "processing", "message": "CIE Lab Ignition successful."}, status_code=202)
+            return JSONResponse(content={"status": "processing", "message": "YOLO11m Ignition successful."}, status_code=202)
         except Exception as e:
             return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
             
