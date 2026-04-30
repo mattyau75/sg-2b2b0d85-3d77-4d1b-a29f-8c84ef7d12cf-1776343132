@@ -4,7 +4,7 @@ import time
 import traceback
 import logging
 
-# MODAL_ELITE_PIPELINE v9.00 - Production Stable
+# MODAL_ELITE_PIPELINE v9.01 - Production Stable
 # Standardized high-performance GPU workflow
 
 # Configure logging
