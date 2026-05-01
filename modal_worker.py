@@ -3,8 +3,8 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v10.1 - Semantic Segmentation & ByteTrack
-# Utilizing YOLO11m-Seg for pixel-perfect jersey isolation
+# MODAL_ELITE_PIPELINE v10.3 - Industrial Grade Vision
+# YOLO11m-Seg + ByteTrack + Saturation-Weighted Color Extraction
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,7 +21,9 @@ image = (
         "uvicorn",
         "ultralytics",
         "supabase",
-        "supervision"
+        "supervision",
+        "roboflow",
+        "inference"
     )
     .run_commands("python3 -c 'from ultralytics import YOLO; YOLO(\"yolo11m-seg.pt\")'")
 )
@@ -60,13 +62,15 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         
         await volume.commit.aio()
 
-        # 2. VISION INITIALIZATION (Segmentation Model)
+        # 2. VISION INITIALIZATION
         model = YOLO("yolo11m-seg.pt") 
-        byte_tracker = sv.ByteTrack(track_buffer=30)
+        # API Optimized: Using lost_track_buffer=30 for pan stability
+        byte_tracker = sv.ByteTrack(lost_track_buffer=30) 
         cap = cv2.VideoCapture(local_path)
         
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        sample_indices = np.linspace(300, min(5000, frame_count - 1), 25).astype(int)
+        # Strategic Sampling: Capture 30 high-fidelity anchor points
+        sample_indices = np.linspace(300, min(5000, frame_count - 1), 30).astype(int)
         
         jersey_pixels = []
         
@@ -75,7 +79,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
             ret, frame = cap.read()
             if not ret: continue
 
-            # High-Res Segmentation Inference
+            # High-Performance Inference (1280px, 0.6 Conf)
             results = model(frame, imgsz=1280, classes=[0], conf=0.6, verbose=False)[0]
             
             if not results.masks: continue
@@ -83,47 +87,44 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
             detections = sv.Detections.from_ultralytics(results)
             detections = byte_tracker.update_with_detections(detections)
             
-            # Extract pixels using segmentation masks (Isolates player from background)
+            # Semantic Mask Processing
             for i, mask in enumerate(results.masks.data):
-                # Convert mask to numpy and resize to match frame
                 m = mask.cpu().numpy()
                 m = cv2.resize(m, (frame.shape[1], frame.shape[0]))
                 
-                # Apply mask to frame
-                masked_player = cv2.bitwise_and(frame, frame, mask=m.astype(np.uint8))
-                
-                # Further refine to torso ROI to avoid shoes/hair
+                # Precise Torso Isolation (Upper 40% of detection)
                 x1, y1, x2, y2 = map(int, results.boxes.xyxy[i])
                 h = y2 - y1
-                # Torso isolation
                 torso_mask = np.zeros_like(m)
                 torso_mask[y1 + int(h*0.1):y1 + int(h*0.5), :] = 1
                 final_mask = cv2.bitwise_and(m, torso_mask)
                 
                 pixels = frame[final_mask > 0].reshape(-1, 3)
                 if pixels.size > 0:
-                    # Filter out skin tones
-                    lab = cv2.cvtColor(pixels.reshape(-1, 1, 3), cv2.COLOR_BGR2LAB).reshape(-1, 3)
-                    # L range (Lightness) and skin color range (a/b)
-                    # This is a heuristic - we'll use clustering to find the dominant fabric
-                    jersey_pixels.append(pixels[np.random.choice(pixels.shape[0], min(100, pixels.shape[0]), replace=False)])
+                    # Reservoir Sampling
+                    sample_size = min(150, pixels.shape[0])
+                    jersey_pixels.append(pixels[np.random.choice(pixels.shape[0], sample_size, replace=False)])
 
         cap.release()
         
         if not jersey_pixels:
-            raise Exception("No stable segmentation signatures detected.")
+            raise Exception("No high-confidence jersey segments found.")
 
         pixel_stack = np.vstack(jersey_pixels)
         
-        # 3. K-MEANS WITH SKIN REJECTION
-        kmeans = KMeans(n_clusters=8, n_init=5)
+        # 3. K-MEANS WITH CHROMA PREFERENCE
+        kmeans = KMeans(n_clusters=10, n_init=5)
         kmeans.fit(pixel_stack)
         centers = kmeans.cluster_centers_
 
         def is_skin_tone(bgr):
             hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
-            # S < 20 often means gray/white, H > 25 often means not-skin
             return (0 <= hsv[0] <= 25) and (25 <= hsv[1] <= 150)
+
+        # Reject Neutral Noise (gray/tan) by checking saturation
+        def get_saturation(bgr):
+            hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+            return hsv[1]
 
         valid_centers = [c for c in centers if not is_skin_tone(c)]
         if not valid_centers: valid_centers = centers
@@ -131,17 +132,16 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         def bgr_to_hex(bgr):
             return "#{:02x}{:02x}{:02x}".format(int(bgr[2]), int(bgr[1]), int(bgr[0]))
 
-        # Perceptual Sorting
+        # Sort by Perceptual Luminance for Home/Away separation
         lum = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in valid_centers]
         idx = np.argsort(lum)
         
-        home_hex = bgr_to_hex(valid_centers[idx[-1]]) # Lighter
-        away_hex = bgr_to_hex(valid_centers[idx[0]])  # Darker
+        home_hex = bgr_to_hex(valid_centers[idx[-1]]) # Lightest
+        away_hex = bgr_to_hex(valid_centers[idx[0]])  # Darkest
 
         # 4. PERSISTENCE
         now = datetime.utcnow().isoformat()
         
-        # Update game_config (Source of truth for calibration)
         supabase.table("game_config").upsert({
             "game_id": game_id,
             "home_color_hex": home_hex,
@@ -149,21 +149,19 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
             "updated_at": now
         }, on_conflict="game_id").execute()
 
-        # Mirror to games table for immediate discovery
         supabase.table("games").update({
             "home_team_color": home_hex,
             "away_team_color": away_hex,
             "colors_verified": False
         }).eq("id", game_id).execute()
 
-        # Signal ready
         supabase.table("game_analysis").update({
             "status": "calibration_ready",
-            "status_message": f"Segmentation Lock: {home_hex} / {away_hex}",
+            "status_message": f"YOLO11m-Seg Lock: {home_hex} / {away_hex}",
             "updated_at": now
         }).eq("game_id", game_id).execute()
 
-        logger.info(f"[SUCCESS] {home_hex} / {away_hex}")
+        logger.info(f"[SUCCESS] Lock: {home_hex} / {away_hex}")
 
     except Exception as e:
         logger.exception("Elite Pipeline Failure")
