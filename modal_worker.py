@@ -3,17 +3,12 @@ import os
 import logging
 import asyncio
 from datetime import datetime
-import cv2
-import numpy as np
-from sklearn.cluster import KMeans
-from supabase import create_client, Client
-from ultralytics import YOLO
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-# Set up logging for better debugging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# MODAL_ELITE_PIPELINE v13.8 - CORS Bridge Fix
+# Fixed CORS preflight issue for OPTIONS requests
 
-# Define the Modal image with dependencies
 image = (
     modal.Image.debian_slim()
     .pip_install(
@@ -23,26 +18,42 @@ image = (
         "scikit-learn",
         "ultralytics",
         "httpx",
-        "fastapi[standard]",
+        "fastapi[standard]"
     )
 )
 
-app = modal.App("basketball-scout-ai-process-v13.7")
+app = modal.App("basketball-scout-ai-process")
 volume = modal.Volume.from_name("scout-weights", create_if_missing=True)
+
+# Create FastAPI app with CORS middleware
+fastapi_app = FastAPI()
+
+# Configure CORS to allow all origins (adjust as needed for production)
+fastapi_app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # In production, specify your frontend domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.function(image=image, gpu="T4", volumes={"/workspace": volume}, timeout=600)
 async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
+    from supabase import create_client, Client
+    import cv2
+    import numpy as np
+    from sklearn.cluster import KMeans
+    
     supabase: Client = create_client(supabase_url, supabase_key)
-    logger.info(f"[v13.7] Calibration Started for game_id: {game_id}")
+    print(f"[v13.8] Calibration Started: {game_id}")
     
     try:
-        # Update status in Supabase
         supabase.table("game_analysis").update({
             "status": "analyzing_colors",
-            "status_message": "v13.7: Identifying team signatures...",
+            "status_message": "v13.8: Identifying team signatures...",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
-        
+
         cap = cv2.VideoCapture(video_url)
         if not cap.isOpened():
             raise Exception("Could not open video stream")
@@ -54,12 +65,13 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         for idx in sample_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
-            if ret:
-                h, w, _ = frame.shape
-                roi = frame[h//3:2*h//3, w//4:3*w//4]
-                small = cv2.resize(roi, (50, 50))
-                pixels = small.reshape(-1, 3)
-                all_pixels.append(pixels)
+            if not ret: continue
+            
+            h, w, _ = frame.shape
+            roi = frame[h//3:2*h//3, w//4:3*w//4]
+            small = cv2.resize(roi, (50, 50))
+            pixels = small.reshape(-1, 3)
+            all_pixels.append(pixels)
         
         cap.release()
         
@@ -72,105 +84,14 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         
         signatures = []
         for c in colors:
-            hex_val = f'#{c[2]:02x}{c[1]:02x}{c[0]:02x}'
+            hex_val = '#{:02x}{:02x}{:02x}'.format(c[2], c[1], c[0])
             signatures.append({
-                "hex": hex_val,
-                "rgb": [int(c[2]), int(c[1]), int(c[0])],
+                "hex": hex_val, 
+                "rgb": [int(c[2]), int(c[1]), int(c[0])], 
                 "confidence": 0.95
             })
-            logger.info(f"[v13.7] Detected Signature: {hex_val}")
-        
+            print(f"[v13.8] Detected Signature: {hex_val}")
+
         supabase.table("game_analysis").update({
             "status": "color_calibration_complete",
-            "status_message": "v13.7: Color recognition verified.",
-            "metadata": {"detected_signatures": signatures, "v": "13.7"},
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("game_id", game_id).execute()
-    
-    except Exception as e:
-        logger.error(f"[v13.7] Calibration Error: {str(e)}")
-        supabase.table("game_analysis").update({
-            "status": "error",
-            "status_message": f"Error: {str(e)}",
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("game_id", game_id).execute()
-        raise  # Re-raise to propagate the error for Modal to handle
-
-@app.function(image=image, gpu="T4", volumes={"/workspace": volume}, timeout=3600)
-async def process_game_analysis_internal(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
-    supabase: Client = create_client(supabase_url, supabase_key)
-    logger.info(f"[v13.7] Elite Engine Started for game_id: {game_id}")
-    
-    try:
-        model = YOLO("/workspace/yolo11m.pt" if os.path.exists("/workspace/yolo11m.pt") else "yolo11m.pt")
-        cap = cv2.VideoCapture(video_url)
-        
-        mapping_data = {}
-        frame_idx = 0
-        
-        while cap.isOpened() and frame_idx < 300:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            if frame_idx % 5 == 0:
-                results = model.track(frame, persist=True, verbose=False)
-                if results[0].boxes.id is not None:
-                    ids = results[0].boxes.id.cpu().numpy().astype(int)
-                    for track_id in ids:
-                        if track_id not in mapping_data:
-                            mapping_data[track_id] = {
-                                "game_id": game_id,
-                                "ai_track_id": str(track_id),
-                                "confidence": 0.9
-                            }
-            frame_idx += 1
-        
-        cap.release()
-        
-        if mapping_data:
-            supabase.table("ai_player_mappings").upsert(list(mapping_data.values())).execute()
-        
-        supabase.table("game_analysis").update({
-            "status": "complete",
-            "status_message": "v13.7: Analysis Complete.",
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("game_id", game_id).execute()
-    
-    except Exception as e:
-        logger.error(f"[v13.7] Process Error: {str(e)}")
-        supabase.table("game_analysis").update({
-            "status": "error",
-            "status_message": str(e),
-            "updated_at": datetime.utcnow().isoformat()
-        }).eq("game_id", game_id).execute()
-        raise
-
-@app.function(image=image)
-@modal.asgi_app()  # Use this for FastAPI endpoints in Modal
-def fastapi_app():
-    import fastapi
-    app = fastapi.FastAPI()
-    
-    def calibrate_endpoint(item: dict):
-        game_id = item.get("game_id")
-        video_url = item.get("video_url")
-        s_url = item.get("supabase_url") or item.get("supabaseUrl")
-        s_key = item.get("supabase_key") or item.get("supabaseKey")
-        
-        asyncio.create_task(calibrate_colors_internal.remote(game_id, video_url, s_url, s_key))
-        return {"status": "processing", "v": "13.7"}
-    
-    app.post("/calibrate")(calibrate_endpoint)
-    
-    def process_endpoint(item: dict):
-        game_id = item.get("game_id")
-        video_url = item.get("video_url")
-        s_url = item.get("supabase_url") or item.get("supabaseUrl")
-        s_key = item.get("supabase_key") or item.get("supabaseKey")
-        
-        asyncio.create_task(process_game_analysis_internal.remote(game_id, video_url, s_url, s_key))
-        return {"status": "processing", "v": "13.7"}
-    
-    app.post("/process")(process_endpoint)
-    
-    return app
+            "status_message
