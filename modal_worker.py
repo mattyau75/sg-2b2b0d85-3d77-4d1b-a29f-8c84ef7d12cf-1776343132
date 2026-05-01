@@ -3,8 +3,8 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v9.11 - Torso-Gated Vision
-# High-precision jersey isolation focusing on the torso ROI
+# MODAL_ELITE_PIPELINE v9.12 - Syntax Fix & Performance Optimization
+# Pre-baking YOLO11m into the image to eliminate download latency
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -22,6 +22,8 @@ image = (
         "ultralytics",
         "supabase"
     )
+    # Pre-download the model into the image for speed
+    .run_commands("python3 -c 'from ultralytics import YOLO; YOLO(\"yolo11m.pt\")'")
 )
 
 app = modal.App("basketball-scout-ai")
@@ -51,18 +53,24 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         import aiohttp
         async with aiohttp.ClientSession() as session:
             async with session.get(video_url) as resp:
+                if resp.status not in [200, 206]:
+                    raise Exception(f"Video host returned {resp.status}")
                 with open(local_path, 'wb') as f:
                     async for chunk in resp.content.iter_chunked(1024 * 1024):
                         f.write(chunk)
         
         await volume.commit.aio()
 
-        # 2. YOLO DETECTION (v11m)
+        # 2. YOLO DETECTION (v11m) - Now instant because it's pre-baked
         model = YOLO("yolo11m.pt") 
         cap = cv2.VideoCapture(local_path)
         
         player_crops_pixels = []
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        if frame_count <= 0:
+            raise Exception("Could not read frame count from video.")
+
+        # Sample 15 frames distributed through the first 3000 frames (approx 1.5 mins)
         sample_indices = np.linspace(300, min(3000, frame_count - 1), 15).astype(int)
 
         for idx in sample_indices:
@@ -76,9 +84,9 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
                     x1, y1, x2, y2 = map(int, box)
                     
                     # TORSO-GATING: Focus on the upper-middle of the player box
-                    # This excludes hair (top 10%) and legs/shoes (bottom 40%)
                     h = y2 - y1
                     w = x2 - x1
+                    # Isolate jersey area, excluding hair and legs
                     crop = frame[y1 + int(h*0.1):y1 + int(h*0.6), x1 + int(w*0.2):x1 + int(w*0.8)]
                     
                     if crop.size > 0:
@@ -108,6 +116,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
         def is_skin_tone(bgr):
             hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+            # Standard skin tone range
             return (0 <= hsv[0] <= 25) and (20 <= hsv[1] <= 150)
 
         # Filter out skin and court-floor browns
@@ -121,10 +130,10 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         lum = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in valid_centers]
         idx = np.argsort(lum)
         
-        home_hex = bgr_to_hex(valid_centers[idx[-1]]) # Lightest (White)
-        away_hex = bgr_to_hex(valid_centers[idx[0]])  # Darkest (Navy)
+        home_hex = bgr_to_hex(valid_centers[idx[-1]]) # Lightest
+        away_hex = bgr_to_hex(valid_centers[idx[0]])  # Darkest
 
-        # 4. ATOMIC PERSISTENCE (Syncing tables)
+        # 4. ATOMIC PERSISTENCE
         now = datetime.utcnow().isoformat()
         
         # Update config FIRST
@@ -135,11 +144,11 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
             "updated_at": now
         }, on_conflict="game_id").execute()
 
-        # Update main games table
+        # Update main games table - FIXED SYNTAX (False not false)
         supabase.table("games").update({
             "home_team_color": home_hex,
             "away_team_color": away_hex,
-            "colors_verified": false
+            "colors_verified": False
         }).eq("id", game_id).execute()
 
         # Mark analysis as ready LAST
@@ -153,10 +162,14 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
     except Exception as e:
         logger.exception("GPU Pipeline Failure")
-        supabase.table("game_analysis").update({
-            "status": "error",
-            "status_message": str(e)
-        }).eq("game_id", game_id).execute()
+        # Ensure error is reported to DB
+        try:
+            supabase.table("game_analysis").update({
+                "status": "error",
+                "status_message": str(e)
+            }).eq("game_id", game_id).execute()
+        except:
+            pass
 
 @app.function(image=image)
 @modal.asgi_app()
