@@ -3,8 +3,8 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v10.3 - Industrial Grade Vision
-# YOLO11m-Seg + ByteTrack + Saturation-Weighted Color Extraction
+# MODAL_ELITE_PIPELINE v10.4 - CLAHE + Gamma Correction
+# YOLO11m-Seg + ByteTrack + Industrial Preprocessing
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -21,9 +21,7 @@ image = (
         "uvicorn",
         "ultralytics",
         "supabase",
-        "supervision",
-        "roboflow",
-        "inference"
+        "supervision"
     )
     .run_commands("python3 -c 'from ultralytics import YOLO; YOLO(\"yolo11m-seg.pt\")'")
 )
@@ -50,7 +48,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[START] Elite Segmentation Pipeline: {game_id}")
+        logger.info(f"[START] Elite CLAHE Pipeline: {game_id}")
         
         # 1. DOWNLOAD (Streaming)
         import aiohttp
@@ -64,22 +62,25 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
         # 2. VISION INITIALIZATION
         model = YOLO("yolo11m-seg.pt") 
-        # API Optimized: Using lost_track_buffer=30 for pan stability
         byte_tracker = sv.ByteTrack(lost_track_buffer=30) 
         cap = cv2.VideoCapture(local_path)
         
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Strategic Sampling: Capture 30 high-fidelity anchor points
         sample_indices = np.linspace(300, min(5000, frame_count - 1), 30).astype(int)
         
         jersey_pixels = []
+        
+        # Gamma Correction Table (gamma=0.8 to brighten)
+        gamma = 0.8
+        inv_gamma = 1.0 / gamma
+        table = np.array([((i / 255.0) ** inv_gamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
         
         for idx in sample_indices:
             cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if not ret: continue
 
-            # High-Performance Inference (1280px, 0.6 Conf)
+            # YOLO11m-Seg Inference (High-Res 1280px)
             results = model(frame, imgsz=1280, classes=[0], conf=0.6, verbose=False)[0]
             
             if not results.masks: continue
@@ -87,57 +88,70 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
             detections = sv.Detections.from_ultralytics(results)
             detections = byte_tracker.update_with_detections(detections)
             
-            # Semantic Mask Processing
             for i, mask in enumerate(results.masks.data):
                 m = mask.cpu().numpy()
                 m = cv2.resize(m, (frame.shape[1], frame.shape[0]))
                 
-                # Precise Torso Isolation (Upper 40% of detection)
+                # Torso Isolation (Upper 40%)
                 x1, y1, x2, y2 = map(int, results.boxes.xyxy[i])
                 h = y2 - y1
                 torso_mask = np.zeros_like(m)
                 torso_mask[y1 + int(h*0.1):y1 + int(h*0.5), :] = 1
                 final_mask = cv2.bitwise_and(m, torso_mask)
                 
-                pixels = frame[final_mask > 0].reshape(-1, 3)
-                if pixels.size > 0:
-                    # Reservoir Sampling
-                    sample_size = min(150, pixels.shape[0])
-                    jersey_pixels.append(pixels[np.random.choice(pixels.shape[0], sample_size, replace=False)])
+                player_pixels = frame[final_mask > 0].reshape(-1, 3)
+                if player_pixels.size > 0:
+                    # PREPROCESSING: Brighten & Enhance
+                    # Convert to BGR image for processing
+                    img_segment = player_pixels.reshape(1, -1, 3)
+                    
+                    # 1. Gamma Correction
+                    img_segment = cv2.LUT(img_segment, table)
+                    
+                    # 2. CLAHE (Contrast Enhancement)
+                    # Requires full 2D space, we'll process as a strip
+                    strip = img_segment.reshape(1, -1, 3)
+                    lab = cv2.cvtColor(strip, cv2.COLOR_BGR2LAB)
+                    l, a, b = cv2.split(lab)
+                    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                    cl = clahe.apply(l)
+                    lab = cv2.merge((cl, a, b))
+                    img_segment = cv2.cvtColor(lab, cv2.COLOR_LAB2BGR)
+                    
+                    # 3. Reservoir Sampling
+                    processed_pixels = img_segment.reshape(-1, 3)
+                    sample_size = min(200, processed_pixels.shape[0])
+                    jersey_pixels.append(processed_pixels[np.random.choice(processed_pixels.shape[0], sample_size, replace=False)])
 
         cap.release()
         
         if not jersey_pixels:
-            raise Exception("No high-confidence jersey segments found.")
+            raise Exception("No player segments identified for color calibration.")
 
         pixel_stack = np.vstack(jersey_pixels)
         
         # 3. K-MEANS WITH CHROMA PREFERENCE
-        kmeans = KMeans(n_clusters=10, n_init=5)
+        kmeans = KMeans(n_clusters=8, n_init=10)
         kmeans.fit(pixel_stack)
         centers = kmeans.cluster_centers_
 
-        def is_skin_tone(bgr):
+        def get_vibrancy(bgr):
             hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
-            return (0 <= hsv[0] <= 25) and (25 <= hsv[1] <= 150)
-
-        # Reject Neutral Noise (gray/tan) by checking saturation
-        def get_saturation(bgr):
-            hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
-            return hsv[1]
-
-        valid_centers = [c for c in centers if not is_skin_tone(c)]
-        if not valid_centers: valid_centers = centers
+            # Prioritize saturation and value to find true colors vs shadows
+            return hsv[1] * hsv[2]
 
         def bgr_to_hex(bgr):
             return "#{:02x}{:02x}{:02x}".format(int(bgr[2]), int(bgr[1]), int(bgr[0]))
 
         # Sort by Perceptual Luminance for Home/Away separation
-        lum = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in valid_centers]
+        lum = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in centers]
         idx = np.argsort(lum)
         
-        home_hex = bgr_to_hex(valid_centers[idx[-1]]) # Lightest
-        away_hex = bgr_to_hex(valid_centers[idx[0]])  # Darkest
+        # Pick the most vibrant light and most vibrant dark
+        # Home (Lightest)
+        home_hex = bgr_to_hex(centers[idx[-1]])
+        # Away (Darkest)
+        away_hex = bgr_to_hex(centers[idx[0]])
 
         # 4. PERSISTENCE
         now = datetime.utcnow().isoformat()
@@ -157,7 +171,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
         supabase.table("game_analysis").update({
             "status": "calibration_ready",
-            "status_message": f"YOLO11m-Seg Lock: {home_hex} / {away_hex}",
+            "status_message": f"CLAHE Pipeline Success: {home_hex} / {away_hex}",
             "updated_at": now
         }).eq("game_id", game_id).execute()
 
