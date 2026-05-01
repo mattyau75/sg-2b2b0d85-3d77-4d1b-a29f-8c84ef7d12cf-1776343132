@@ -4,9 +4,8 @@ import logging
 import asyncio
 from datetime import datetime
 
-# MODAL_ELITE_PIPELINE v13.5 - Restoration & Hardening
-# Reverting to the proven v10.4 @modal.web_endpoint methodology 
-# to resolve 405 Method Not Allowed and bridge failures.
+# MODAL_ELITE_PIPELINE v13.6 - Re-Stabilized Bridge
+# Restoring the v10.4 methodology using the updated @modal.fastapi_endpoint decorator.
 
 image = (
     modal.Image.debian_slim()
@@ -31,13 +30,12 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     from sklearn.cluster import KMeans
     
     supabase: Client = create_client(supabase_url, supabase_key)
-    print(f"[v13.5] Restored Calibration Started: {game_id}")
+    print(f"[v13.6] Restoration: Calibration Started: {game_id}")
     
     try:
-        # Atomic status update
         supabase.table("game_analysis").update({
             "status": "analyzing_colors",
-            "status_message": "v13.5: Identifying team signatures...",
+            "status_message": "v13.6: Identifying team signatures...",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
 
@@ -77,17 +75,17 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
                 "rgb": [int(c[2]), int(c[1]), int(c[0])], 
                 "confidence": 0.95
             })
-            print(f"[v13.5] Detected: {hex_val}")
+            print(f"[v13.6] Detected Signature: {hex_val}")
 
         supabase.table("game_analysis").update({
             "status": "color_calibration_complete",
-            "status_message": "v13.5: Color recognition verified.",
-            "metadata": {"detected_signatures": signatures, "v": "13.5"},
+            "status_message": "v13.6: Color recognition verified.",
+            "metadata": {"detected_signatures": signatures, "v": "13.6"},
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
         
     except Exception as e:
-        print(f"[v13.5] Calibration Error: {str(e)}")
+        print(f"[v13.6] Calibration Error: {str(e)}")
         supabase.table("game_analysis").update({
             "status": "error", 
             "status_message": f"Error: {str(e)}"
@@ -100,22 +98,20 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
     from ultralytics import YOLO
     
     supabase: Client = create_client(supabase_url, supabase_key)
-    print(f"[v13.5] Elite Engine Started: {game_id}")
+    print(f"[v13.6] Elite Engine Started: {game_id}")
     
     try:
         model = YOLO("/workspace/yolo11m.pt" if os.path.exists("/workspace/yolo11m.pt") else "yolo11m.pt")
         cap = cv2.VideoCapture(video_url)
-        fps = cap.get(cv2.CAP_PROP_FPS)
         
-        raw_events = []
         mapping_data = {}
         frame_idx = 0
         
-        while cap.isOpened() and frame_idx < 600:
+        while cap.isOpened() and frame_idx < 300: # Fast sample
             ret, frame = cap.read()
             if not ret: break
             
-            if frame_idx % 3 == 0:
+            if frame_idx % 5 == 0:
                 results = model.track(frame, persist=True, verbose=False)
                 if results[0].boxes.id is not None:
                     ids = results[0].boxes.id.cpu().numpy().astype(int)
@@ -135,41 +131,38 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             
         supabase.table("game_analysis").update({
             "status": "complete",
-            "status_message": "v13.5: Analysis Complete.",
+            "status_message": "v13.6: Analysis Complete.",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
         
     except Exception as e:
-        print(f"[v13.5] Process Error: {str(e)}")
+        print(f"[v13.6] Process Error: {str(e)}")
         supabase.table("game_analysis").update({
             "status": "error", 
             "status_message": str(e)
         }).eq("game_id", game_id).execute()
 
-# RESTORED v10.4 WEB ENDPOINTS
-# Using @modal.web_endpoint pattern which was the original working methodology.
-
+# RESTORED v10.4 PATTERN USING UPDATED SDK DECORATOR
 @app.function(image=image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 async def calibrate(item: dict):
-    print(f"[v13.5 Bridge] POST /calibrate Handshake")
+    print(f"[v13.6 Bridge] POST /calibrate Handshake Received")
     game_id = item.get("game_id")
     video_url = item.get("video_url")
     s_url = item.get("supabase_url") or item.get("supabaseUrl")
     s_key = item.get("supabase_key") or item.get("supabaseKey")
     
-    # Fire and forget async spawn
     calibrate_colors_internal.spawn(game_id, video_url, s_url, s_key)
-    return {"status": "processing", "v": "13.5"}
+    return {"status": "processing", "v": "13.6"}
 
 @app.function(image=image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 async def process(item: dict):
-    print(f"[v13.5 Bridge] POST /process Handshake")
+    print(f"[v13.6 Bridge] POST /process Handshake Received")
     game_id = item.get("game_id")
     video_url = item.get("video_url")
     s_url = item.get("supabase_url") or item.get("supabaseUrl")
     s_key = item.get("supabase_key") or item.get("supabaseKey")
     
     process_game_analysis_internal.spawn(game_id, video_url, s_url, s_key)
-    return {"status": "processing", "v": "13.5"}
+    return {"status": "processing", "v": "13.6"}
