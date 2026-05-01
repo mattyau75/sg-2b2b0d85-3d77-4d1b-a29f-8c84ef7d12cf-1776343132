@@ -4,8 +4,9 @@ import logging
 import asyncio
 from datetime import datetime
 
-# MODAL_ELITE_PIPELINE v13.6 - Re-Stabilized Bridge
+# MODAL_ELITE_PIPELINE v13.7 - Dependency Hardening
 # Restoring the v10.4 methodology using the updated @modal.fastapi_endpoint decorator.
+# Added explicit fastapi[standard] installation to satisfy latest Modal SDK requirements.
 
 image = (
     modal.Image.debian_slim()
@@ -15,7 +16,8 @@ image = (
         "numpy",
         "scikit-learn",
         "ultralytics",
-        "httpx"
+        "httpx",
+        "fastapi[standard]"
     )
 )
 
@@ -30,12 +32,12 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     from sklearn.cluster import KMeans
     
     supabase: Client = create_client(supabase_url, supabase_key)
-    print(f"[v13.6] Restoration: Calibration Started: {game_id}")
+    print(f"[v13.7] Restoration: Calibration Started: {game_id}")
     
     try:
         supabase.table("game_analysis").update({
             "status": "analyzing_colors",
-            "status_message": "v13.6: Identifying team signatures...",
+            "status_message": "v13.7: Identifying team signatures...",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
 
@@ -75,17 +77,17 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
                 "rgb": [int(c[2]), int(c[1]), int(c[0])], 
                 "confidence": 0.95
             })
-            print(f"[v13.6] Detected Signature: {hex_val}")
+            print(f"[v13.7] Detected Signature: {hex_val}")
 
         supabase.table("game_analysis").update({
             "status": "color_calibration_complete",
-            "status_message": "v13.6: Color recognition verified.",
-            "metadata": {"detected_signatures": signatures, "v": "13.6"},
+            "status_message": "v13.7: Color recognition verified.",
+            "metadata": {"detected_signatures": signatures, "v": "13.7"},
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
         
     except Exception as e:
-        print(f"[v13.6] Calibration Error: {str(e)}")
+        print(f"[v13.7] Calibration Error: {str(e)}")
         supabase.table("game_analysis").update({
             "status": "error", 
             "status_message": f"Error: {str(e)}"
@@ -98,7 +100,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
     from ultralytics import YOLO
     
     supabase: Client = create_client(supabase_url, supabase_key)
-    print(f"[v13.6] Elite Engine Started: {game_id}")
+    print(f"[v13.7] Elite Engine Started: {game_id}")
     
     try:
         model = YOLO("/workspace/yolo11m.pt" if os.path.exists("/workspace/yolo11m.pt") else "yolo11m.pt")
@@ -131,12 +133,12 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             
         supabase.table("game_analysis").update({
             "status": "complete",
-            "status_message": "v13.6: Analysis Complete.",
+            "status_message": "v13.7: Analysis Complete.",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
         
     except Exception as e:
-        print(f"[v13.6] Process Error: {str(e)}")
+        print(f"[v13.7] Process Error: {str(e)}")
         supabase.table("game_analysis").update({
             "status": "error", 
             "status_message": str(e)
@@ -146,23 +148,23 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
 @app.function(image=image)
 @modal.fastapi_endpoint(method="POST")
 async def calibrate(item: dict):
-    print(f"[v13.6 Bridge] POST /calibrate Handshake Received")
+    print(f"[v13.7 Bridge] POST /calibrate Handshake Received")
     game_id = item.get("game_id")
     video_url = item.get("video_url")
     s_url = item.get("supabase_url") or item.get("supabaseUrl")
     s_key = item.get("supabase_key") or item.get("supabaseKey")
     
     calibrate_colors_internal.spawn(game_id, video_url, s_url, s_key)
-    return {"status": "processing", "v": "13.6"}
+    return {"status": "processing", "v": "13.7"}
 
 @app.function(image=image)
 @modal.fastapi_endpoint(method="POST")
 async def process(item: dict):
-    print(f"[v13.6 Bridge] POST /process Handshake Received")
+    print(f"[v13.7 Bridge] POST /process Handshake Received")
     game_id = item.get("game_id")
     video_url = item.get("video_url")
     s_url = item.get("supabase_url") or item.get("supabaseUrl")
     s_key = item.get("supabase_key") or item.get("supabaseKey")
     
     process_game_analysis_internal.spawn(game_id, video_url, s_url, s_key)
-    return {"status": "processing", "v": "13.6"}
+    return {"status": "processing", "v": "13.7"}
