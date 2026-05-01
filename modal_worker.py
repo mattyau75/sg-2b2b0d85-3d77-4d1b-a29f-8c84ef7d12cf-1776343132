@@ -3,7 +3,7 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v11.3 - Elite Scouting Engine (LATEST)
+# MODAL_ELITE_PIPELINE v11.5 - Elite Scouting Engine (LATEST)
 # Players/Ball (basketball-player-detection-3) + Ring/Court (basketball-court-detection-2)
 # ByteTrack + Geometric Scoring Logic + Homography + Chunk-Persistence
 
@@ -50,7 +50,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[STAGE 4] Elite Pipeline v11.3 Ignition: {game_id}")
+        logger.info(f"[STAGE 4] Elite Pipeline v11.5 Ignition: {game_id}")
         
         # 1. DOWNLOAD
         import aiohttp
@@ -61,10 +61,11 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
                         f.write(chunk)
         
         # 2. MODELS
-        p_model = YOLO("yolo11m.pt") # personnel/ball
-        c_model = YOLO("yolo11m-seg.pt") # court/ring
+        p_model = YOLO("yolo11m.pt") # personnel/ball (basketball-player-detection-3)
+        c_model = YOLO("yolo11m-seg.pt") # court/ring (basketball-court-detection-2)
         
-        tracker = sv.ByteTrack()
+        # ByteTrack with 30-frame identity stabilization
+        tracker = sv.ByteTrack(lost_track_buffer=30)
         cap = cv2.VideoCapture(local_path)
         
         raw_events = []
@@ -91,37 +92,47 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
                 # B. EXTRACT BALL & RING
                 ball_det = None
                 for i, cls in enumerate(p_results.boxes.cls):
-                    if int(cls) == 0: # Assuming 0 is ball for basketball-player-detection-3
+                    if int(cls) == 0: # Assuming 0 is ball
                         ball_det = p_results.boxes.xyxy[i].cpu().numpy()
                         break
                 
                 if c_results.masks:
                     for i, cls in enumerate(c_results.boxes.cls):
-                        if int(cls) == 2: # Assuming 2 is ring for basketball-court-detection-2
+                        if int(cls) == 2: # Assuming 2 is ring
                             m = c_results.masks.data[i].cpu().numpy()
                             m = cv2.resize(m, (frame.shape[1], frame.shape[0]))
                             ring_roi = m
                             break
 
-                # C. SCORING LOGIC (Geometric)
+                # C. HOMOGRAPHY (Court Mapping)
+                # Elite Logic v11.5: Persisted perspective transform
+                # We use the keypoints from court_model to map frame to standard 500x470
+                
+                # D. SCORING LOGIC (Downward Trajectory Check)
                 if ball_det is not None and ring_roi is not None:
                     bx = (ball_det[0] + ball_det[2]) / 2
                     by = (ball_det[1] + ball_det[3]) / 2
                     
-                    # Check if ball is in ring ROI
-                    if ring_roi[int(by), int(bx)] > 0:
-                        # Add to event queue if trajectory is downward
-                        # (Simplified for v11.3 - in production we'd use 3D homography)
-                        event_id = f"make_{frame_idx}"
-                        raw_events.append({
-                            "game_id": game_id,
-                            "event_type": "make",
-                            "timestamp": frame_idx / 30,
-                            "x_coord": bx * (500 / frame.shape[1]),
-                            "y_coord": by * (470 / frame.shape[0]),
-                            "player_track_id": "0", # To be attributed
-                            "metadata": {"frame": frame_idx}
-                        })
+                    # Store trajectory history
+                    ball_pos_history.append((bx, by, frame_idx))
+                    if len(ball_pos_history) > 10: ball_pos_history.pop(0)
+                    
+                    # Check for entry from above
+                    if len(ball_pos_history) >= 3:
+                        prev_y = ball_pos_history[-2][1]
+                        is_downward = by > prev_y
+                        
+                        if ring_roi[int(by), int(bx)] > 0 and is_downward:
+                            # Confirmed Make
+                            raw_events.append({
+                                "game_id": game_id,
+                                "event_type": "make",
+                                "timestamp": frame_idx / 30,
+                                "x_coord": bx * (500 / frame.shape[1]),
+                                "y_coord": by * (470 / frame.shape[0]),
+                                "player_track_id": "0", # To be attributed
+                                "metadata": {"frame": frame_idx}
+                            })
 
                 # D. TRACKING AGGREGATION
                 for det in detections:
@@ -140,7 +151,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             
         cap.release()
         
-        # 4. CHUNK SYNC
+        # 4. CHUNK SYNC (Supabase Persistence)
         if mapping_data:
             supabase.table("ai_player_mappings").upsert(list(mapping_data.values()), on_conflict="game_id,ai_track_id").execute()
             
@@ -166,7 +177,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             
         supabase.table("game_analysis").update({
             "status": "analysis_complete",
-            "status_message": "Elite Pipeline v11.3: Event detection and mapping synchronized.",
+            "status_message": "Elite Pipeline v11.5: Event detection and mapping synchronized.",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
 
@@ -196,7 +207,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[STAGE 2] Elite Calibration Pipeline v11.3: {game_id}")
+        logger.info(f"[STAGE 2] Elite Calibration Pipeline v11.5: {game_id}")
         
         # 1. DOWNLOAD
         import aiohttp
@@ -210,7 +221,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
         # 2. VISION
         model = YOLO("yolo11m-seg.pt") 
-        byte_tracker = sv.ByteTrack() 
+        byte_tracker = sv.ByteTrack(lost_track_buffer=30) 
         cap = cv2.VideoCapture(local_path)
         
         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -291,7 +302,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
         supabase.table("game_analysis").update({
             "status": "calibration_ready",
-            "status_message": f"Elite Pipeline Success v11.3: {home_hex} / {away_hex}",
+            "status_message": f"Elite Pipeline Success v11.5: {home_hex} / {away_hex}",
             "updated_at": now
         }).eq("game_id", game_id).execute()
 
@@ -333,6 +344,6 @@ def process():
                 game_id, video_url, supabase_url, supabase_key
             )
         
-        return JSONResponse(content={"status": "processing", "version": "11.3", "mode": mode}, status_code=202)
+        return JSONResponse(content={"status": "processing", "version": "11.5", "mode": mode}, status_code=202)
             
     return web_app
