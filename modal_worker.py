@@ -3,8 +3,8 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v9.10 - YOLO11m Object-Gated Vision
-# High-precision player isolation for elite jersey signature extraction
+# MODAL_ELITE_PIPELINE v9.11 - Torso-Gated Vision
+# High-precision jersey isolation focusing on the torso ROI
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -39,122 +39,95 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     from ultralytics import YOLO
     from sklearn.cluster import KMeans
     from supabase import create_client, Client
-    import aiohttp
     from datetime import datetime
     
     local_path = f"/workspace/{game_id}.mp4"
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[START] YOLO11m Object-Gated Scan: {game_id}")
+        logger.info(f"[START] Torso-Gated Scan: {game_id}")
         
-        # 1. STREAMING DOWNLOAD
+        # 1. DOWNLOAD (Streaming to avoid OOM)
+        import aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.get(video_url, timeout=aiohttp.ClientTimeout(total=600)) as resp:
-                if resp.status not in [200, 206]:
-                    raise Exception(f"Video host returned {resp.status}")
+            async with session.get(video_url) as resp:
                 with open(local_path, 'wb') as f:
                     async for chunk in resp.content.iter_chunked(1024 * 1024):
                         f.write(chunk)
         
         await volume.commit.aio()
 
-        # 2. LOAD YOLO11m
-        # Using yolo11m (medium) for optimal accuracy/speed balance on 1080p
+        # 2. YOLO DETECTION (v11m)
         model = YOLO("yolo11m.pt") 
-        
         cap = cv2.VideoCapture(local_path)
-        if not cap.isOpened(): raise Exception("FFmpeg/Codec Error")
-
-        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        # Sample 20 frames from the first 3 minutes where lineups are clear
-        sample_indices = np.linspace(300, min(5400, frame_count - 1), 20).astype(int)
         
         player_crops_pixels = []
-        
+        frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        sample_indices = np.linspace(300, min(3000, frame_count - 1), 15).astype(int)
+
         for idx in sample_indices:
-            cap.set(cv2.CAP_PROP_POS_FRAMES, int(idx))
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if not ret: continue
-            
-            # 3. YOLO DETECTION
-            # Only detect 'person' (class 0)
-            results = model(frame, classes=[0], conf=0.45, verbose=False)
-            
+
+            results = model(frame, classes=[0], conf=0.5, verbose=False)
             for result in results:
-                boxes = result.boxes
-                for box in boxes:
-                    # Get bounding box coordinates
-                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                for box in result.boxes.xyxy:
+                    x1, y1, x2, y2 = map(int, box)
                     
-                    # Extract the player crop
-                    # Focus on the 'jersey zone' (upper 60% of the player box)
-                    player_h = y2 - y1
-                    jersey_y2 = y1 + int(player_h * 0.6)
-                    crop = frame[y1:jersey_y2, x1:x2]
+                    # TORSO-GATING: Focus on the upper-middle of the player box
+                    # This excludes hair (top 10%) and legs/shoes (bottom 40%)
+                    h = y2 - y1
+                    w = x2 - x1
+                    crop = frame[y1 + int(h*0.1):y1 + int(h*0.6), x1 + int(w*0.2):x1 + int(w*0.8)]
                     
-                    if crop.size == 0: continue
-                    
-                    # 4. LIGHTING NORMALIZATION (CIE Lab)
-                    lab = cv2.cvtColor(crop, cv2.COLOR_BGR2LAB)
-                    l, a, b = cv2.split(lab)
-                    clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
-                    cl = clahe.apply(l)
-                    limg = cv2.merge((cl,a,b))
-                    crop_norm = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-                    
-                    # Resize to a small patch for K-Means efficiency
-                    small_crop = cv2.resize(crop_norm, (40, 40))
-                    pixels = small_crop.reshape(-1, 3)
-                    player_crops_pixels.append(pixels)
+                    if crop.size > 0:
+                        # LIGHTING NORMALIZATION: Apply CLAHE to handle shadows
+                        lab = cv2.cvtColor(crop, cv2.COLOR_BGR2LAB)
+                        l, a, b = cv2.split(lab)
+                        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8,8))
+                        cl = clahe.apply(l)
+                        limg = cv2.merge((cl,a,b))
+                        normalized = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
+                        
+                        # Resize for cluster efficiency
+                        small = cv2.resize(normalized, (30, 30))
+                        player_crops_pixels.append(small.reshape(-1, 3))
 
         cap.release()
         
-        if not player_crops_pixels: 
-            raise Exception("Vision: YOLO found 0 players. Check video quality or URL.")
+        if not player_crops_pixels:
+            raise Exception("No players detected for color signature.")
 
-        pixel_stack = np.vstack(player_crops_pixels)
+        pixels = np.vstack(player_crops_pixels)
         
-        # 5. K-MEANS CLUSTERING (12 clusters for finer separation)
-        kmeans = KMeans(n_clusters=12, n_init=10)
-        kmeans.fit(pixel_stack)
+        # 3. K-MEANS WITH SKIN REJECTION
+        kmeans = KMeans(n_clusters=8, n_init=5)
+        kmeans.fit(pixels)
         centers = kmeans.cluster_centers_
-        
-        def is_skin_tone(bgr):
-            # Convert to HSV for better skin detection
-            hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
-            h, s, v = hsv
-            # Standard skin tone range in HSV
-            return (0 <= h <= 25) and (20 <= s <= 150)
 
-        # Filter out skin tones before picking light/dark
-        non_skin_centers = [c for c in centers if not is_skin_tone(c)]
-        
-        # Fallback if all look like skin (shouldn't happen with jerseys)
-        target_centers = non_skin_centers if non_skin_centers else centers
+        def is_skin_tone(bgr):
+            hsv = cv2.cvtColor(np.uint8([[bgr]]), cv2.COLOR_BGR2HSV)[0][0]
+            return (0 <= hsv[0] <= 25) and (20 <= hsv[1] <= 150)
+
+        # Filter out skin and court-floor browns
+        valid_centers = [c for c in centers if not is_skin_tone(c)]
+        if not valid_centers: valid_centers = centers
 
         def bgr_to_hex(bgr):
             return "#{:02x}{:02x}{:02x}".format(int(bgr[2]), int(bgr[1]), int(bgr[0]))
 
-        # Sort by Perceptual Luminosity
-        luminosities = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in target_centers]
-        sorted_idx = np.argsort(luminosities)
+        # Sort by luminosity
+        lum = [0.299*c[2] + 0.587*c[1] + 0.114*c[0] for c in valid_centers]
+        idx = np.argsort(lum)
         
-        # Pick the most distinct light and dark non-skin colors
-        home_hex = bgr_to_hex(target_centers[sorted_idx[-1]]) # Lightest
-        away_hex = bgr_to_hex(target_centers[sorted_idx[0]])  # Darkest
-        
-        # 6. PERSIST RESULTS
+        home_hex = bgr_to_hex(valid_centers[idx[-1]]) # Lightest (White)
+        away_hex = bgr_to_hex(valid_centers[idx[0]])  # Darkest (Navy)
+
+        # 4. ATOMIC PERSISTENCE (Syncing tables)
         now = datetime.utcnow().isoformat()
         
-        # Update Games Table (Main Detail Page)
-        supabase.table("games").update({
-            "home_team_color": home_hex,
-            "away_team_color": away_hex,
-            "colors_verified": False
-        }).eq("id", game_id).execute()
-
-        # Update Config Table (Polling Source)
+        # Update config FIRST
         supabase.table("game_config").upsert({
             "game_id": game_id,
             "home_color_hex": home_hex,
@@ -162,23 +135,27 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
             "updated_at": now
         }, on_conflict="game_id").execute()
 
-        # Update Analysis Status
+        # Update main games table
+        supabase.table("games").update({
+            "home_team_color": home_hex,
+            "away_team_color": away_hex,
+            "colors_verified": false
+        }).eq("id", game_id).execute()
+
+        # Mark analysis as ready LAST
         supabase.table("game_analysis").update({
             "status": "calibration_ready",
-            "metadata": {"colors": {"home": home_hex, "away": away_hex}, "scan_version": "11m-9.10"}
+            "status_message": "Jersey signatures locked.",
+            "updated_at": now
         }).eq("game_id", game_id).execute()
 
-        logger.info(f"[SUCCESS] YOLO11m Signatures Locked: {home_hex} / {away_hex}")
-        
-        if os.path.exists(local_path):
-            os.remove(local_path)
-            await volume.commit.aio()
+        logger.info(f"[SUCCESS] {home_hex} / {away_hex}")
 
     except Exception as e:
-        logger.exception("[FATAL] YOLO Pipeline Failure")
+        logger.exception("GPU Pipeline Failure")
         supabase.table("game_analysis").update({
             "status": "error",
-            "status_message": f"Vision Error: {str(e)}"
+            "status_message": str(e)
         }).eq("game_id", game_id).execute()
 
 @app.function(image=image)
@@ -192,23 +169,17 @@ def process():
     @web_app.post("/")
     @web_app.post("/calibrate")
     async def calibrate(request: Request, background_tasks: BackgroundTasks):
-        try:
-            body = await request.json()
-            game_id = body.get("game_id")
-            video_url = body.get("video_url")
-            supabase_url = body.get("supabase_url")
-            supabase_key = body.get("supabase_key")
-            
-            if not all([game_id, video_url, supabase_url, supabase_key]):
-                return JSONResponse(content={"status": "error", "message": "Missing credentials"}, status_code=400)
-
-            background_tasks.add_task(
-                calibrate_colors_internal.remote.aio, 
-                game_id, video_url, supabase_url, supabase_key
-            )
-            
-            return JSONResponse(content={"status": "processing", "message": "YOLO11m Ignition successful."}, status_code=202)
-        except Exception as e:
-            return JSONResponse(content={"status": "error", "message": str(e)}, status_code=500)
+        body = await request.json()
+        game_id = body.get("game_id")
+        video_url = body.get("video_url")
+        supabase_url = body.get("supabase_url")
+        supabase_key = body.get("supabase_key")
+        
+        background_tasks.add_task(
+            calibrate_colors_internal.remote.aio, 
+            game_id, video_url, supabase_url, supabase_key
+        )
+        
+        return JSONResponse({"status": "processing"}, 202)
             
     return web_app
