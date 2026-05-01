@@ -3,7 +3,7 @@ import os
 import logging
 import asyncio
 
-# MODAL_ELITE_PIPELINE v11.5 - Elite Scouting Engine (LATEST)
+# MODAL_ELITE_PIPELINE v11.6 - Elite Scouting Engine (LATEST)
 # Players/Ball (basketball-player-detection-3) + Ring/Court (basketball-court-detection-2)
 # ByteTrack + Geometric Scoring Logic + Homography + Chunk-Persistence
 
@@ -50,7 +50,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[STAGE 4] Elite Pipeline v11.5 Ignition: {game_id}")
+        logger.info(f"[STAGE 4] Elite Pipeline v11.6 Ignition: {game_id}")
         
         # 1. DOWNLOAD
         import aiohttp
@@ -61,8 +61,8 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
                         f.write(chunk)
         
         # 2. MODELS
-        p_model = YOLO("yolo11m.pt") # personnel/ball (basketball-player-detection-3)
-        c_model = YOLO("yolo11m-seg.pt") # court/ring (basketball-court-detection-2)
+        p_model = YOLO("yolo11m.pt") # personnel/ball
+        c_model = YOLO("yolo11m-seg.pt") # court/ring
         
         # ByteTrack with 30-frame identity stabilization
         tracker = sv.ByteTrack(lost_track_buffer=30)
@@ -104,25 +104,17 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
                             ring_roi = m
                             break
 
-                # C. HOMOGRAPHY (Court Mapping)
-                # Elite Logic v11.5: Persisted perspective transform
-                # We use the keypoints from court_model to map frame to standard 500x470
-                
-                # D. SCORING LOGIC (Downward Trajectory Check)
+                # C. SCORING LOGIC (Downward Trajectory Check)
                 if ball_det is not None and ring_roi is not None:
                     bx = (ball_det[0] + ball_det[2]) / 2
                     by = (ball_det[1] + ball_det[3]) / 2
                     
-                    # Store trajectory history
                     ball_pos_history.append((bx, by, frame_idx))
                     if len(ball_pos_history) > 10: ball_pos_history.pop(0)
                     
-                    # Check for entry from above
                     if len(ball_pos_history) >= 3:
                         prev_y = ball_pos_history[-2][1]
-                        is_downward = by > prev_y
-                        
-                        if ring_roi[int(by), int(bx)] > 0 and is_downward:
+                        if by > prev_y and ring_roi[int(by), int(bx)] > 0:
                             # Confirmed Make
                             raw_events.append({
                                 "game_id": game_id,
@@ -151,7 +143,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             
         cap.release()
         
-        # 4. CHUNK SYNC (Supabase Persistence)
+        # 4. CHUNK SYNC (Supabase)
         if mapping_data:
             supabase.table("ai_player_mappings").upsert(list(mapping_data.values()), on_conflict="game_id,ai_track_id").execute()
             
@@ -160,7 +152,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             for i in range(0, len(raw_events), chunk_size):
                 supabase.table("game_events").insert(raw_events[i:i + chunk_size]).execute()
             
-        # Update Box Scores (Aggregated)
+        # Update Box Scores
         box_score_rows = []
         for t_id, stats in stats_aggregator.items():
             box_score_rows.append({
@@ -177,7 +169,7 @@ async def process_game_analysis_internal(game_id: str, video_url: str, supabase_
             
         supabase.table("game_analysis").update({
             "status": "analysis_complete",
-            "status_message": "Elite Pipeline v11.5: Event detection and mapping synchronized.",
+            "status_message": "Elite Pipeline v11.6: Event detection and mapping synchronized.",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
 
@@ -207,7 +199,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
     supabase: Client = create_client(supabase_url, supabase_key)
     
     try:
-        logger.info(f"[STAGE 2] Elite Calibration Pipeline v11.5: {game_id}")
+        logger.info(f"[STAGE 2] Elite Calibration Pipeline v11.6: {game_id}")
         
         # 1. DOWNLOAD
         import aiohttp
@@ -219,7 +211,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
         
         await volume.commit.aio()
 
-        # 2. VISION
+        # 2. VISION (CLAHE + Gamma v11.6)
         model = YOLO("yolo11m-seg.pt") 
         byte_tracker = sv.ByteTrack(lost_track_buffer=30) 
         cap = cv2.VideoCapture(local_path)
@@ -302,7 +294,7 @@ async def calibrate_colors_internal(game_id: str, video_url: str, supabase_url: 
 
         supabase.table("game_analysis").update({
             "status": "calibration_ready",
-            "status_message": f"Elite Pipeline Success v11.5: {home_hex} / {away_hex}",
+            "status_message": f"Elite Pipeline Success v11.6: {home_hex} / {away_hex}",
             "updated_at": now
         }).eq("game_id", game_id).execute()
 
@@ -344,6 +336,6 @@ def process():
                 game_id, video_url, supabase_url, supabase_key
             )
         
-        return JSONResponse(content={"status": "processing", "version": "11.5", "mode": mode}, status_code=202)
+        return JSONResponse(content={"status": "processing", "version": "11.6", "mode": mode}, status_code=202)
             
     return web_app
