@@ -4,9 +4,6 @@ import logging
 import asyncio
 from datetime import datetime
 from typing import Dict, List
-import cv2
-import numpy as np
-from roboflow import Roboflow
 
 # MODAL ELITE PIPELINE v15.0 - PRODUCTION SCOUTING
 image = (
@@ -31,6 +28,10 @@ volume = modal.Volume.from_name("scout-cache", create_if_missing=True)
 # --------------------------------------------------------------------------
 @app.function(image=image, gpu="T4", volumes={"/workspace": volume}, timeout=1800, secrets=[modal.Secret.from_name("roboflow-api")])
 async def process_game_internal(game_id: str, video_url: str, supabase_url: str, supabase_key: str, metadata: dict = None):
+    # Remote-only imports moved inside the function to prevent local deployment errors
+    import cv2
+    import numpy as np
+    from roboflow import Roboflow
     from supabase import create_client, Client
     from ultralytics import YOLO
     
@@ -51,7 +52,6 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
     # [A] Primary Player Detection (Roboflow v3)
     # [B] Jersey OCR (basketball-jersey-numbers-ocr)
     # [C] Court Keypoints (basketball-court-detection-2)
-    # Note: These are dynamically loaded via the Roboflow API or direct YOLO paths
     model = YOLO("yolo11m.pt") # Base engine with ByteTrack
     
     # 3. Process Video Stream with Panning Optimization
