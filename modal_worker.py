@@ -5,9 +5,9 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v15.4 - PRODUCTION SCOUTING
-# Incremented version to 15.4 (0.1 increment from previous 15.3)
-VERSION = "15.4"
+# MODAL ELITE PIPELINE v15.5 - PRODUCTION SCOUTING
+# Incremented version to 15.5 (Dependency and Async fixes)
+VERSION = "15.5"
 
 app = modal.App("basketball-scout-ai-elite")
 
@@ -17,6 +17,7 @@ volume = modal.Volume.from_name("scout-data", create_if_missing=True)
 # Optimized container image for AI inference
 image = (
     modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libgl1-mesa-glx", "libglib2.0-0")
     .pip_install(
         "fastapi[standard]",
         "ultralytics",
@@ -143,8 +144,8 @@ def web_app():
                 print(f"[v{VERSION}] Handshake Failed: Missing critical parameters")
                 return JSONResponse(status_code=400, content={"error": "Missing parameters"})
 
-            # Spawn background task
-            process_game_internal.spawn(
+            # Spawn background task asynchronously to avoid AsyncUsageWarning
+            await process_game_internal.spawn.aio(
                 game_id, 
                 video_url, 
                 data.get("supabase_url"), 
