@@ -4,7 +4,6 @@ import logging
 import asyncio
 from datetime import datetime
 from typing import Dict, List, Any
-import httpx
 
 # MODAL ELITE PIPELINE v16.1 - PRODUCTION STABILITY
 # Corrected column mapping for ai_player_mappings and raw_events
@@ -43,6 +42,7 @@ async def process_game_internal(
     from supabase import create_client
     import cv2
     from ultralytics import YOLO
+    import httpx
     
     supabase = create_client(supabase_url, supabase_key)
     
