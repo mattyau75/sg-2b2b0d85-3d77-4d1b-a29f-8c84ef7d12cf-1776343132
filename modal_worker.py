@@ -5,8 +5,10 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v15.3 - PRODUCTION SCOUTING
-# Incremented version to 15.3 per user request.
+# MODAL ELITE PIPELINE v15.4 - PRODUCTION SCOUTING
+# Incremented version to 15.4 (0.1 increment from previous 15.3)
+VERSION = "15.4"
+
 app = modal.App("basketball-scout-ai-elite")
 
 # Persistent storage for model weights and processed data
@@ -37,15 +39,28 @@ image = (
 async def process_game_internal(game_id: str, video_url: str, supabase_url: str, supabase_key: str, metadata: dict = None):
     # Heavy imports moved inside to allow local parsing/deployment without dependencies
     from supabase import create_client, Client
-    from ultralytics import YOLO
-    from roboflow import Roboflow
+    import httpx
     import cv2
-    import numpy as np
+    from ultralytics import YOLO
     
-    print(f"[v15.2] Elite Scouting Engine Ignited: {game_id}")
+    async def send_heartbeat(message, severity="info", progress=None):
+        try:
+            async with httpx.AsyncClient() as client:
+                # Constructing absolute URL if relative
+                app_url = metadata.get("app_url") or "https://build-a-basketball-boxscore-stats-player-play-by.vercel.app"
+                await client.post(f"{app_url}/api/gpu-heartbeat", json={
+                    "gameId": game_id,
+                    "message": message,
+                    "severity": severity,
+                    "progress": progress
+                })
+        except Exception as e:
+            print(f"[Heartbeat Error] {e}")
+
+    print(f"[v{VERSION}] Elite Scouting Engine Ignited: {game_id}")
+    await send_heartbeat(f"v{VERSION}: GPU Handshake Success. Initializing 4-Model Ensemble.", progress=5)
     
-    # 1. Access Credentials from the consolidated Secret
-    # We prefer the passed parameters but fallback to secrets if available
+    # 1. Access Credentials
     s_url = supabase_url or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     s_key = supabase_key or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
     rf_key = os.environ.get("ROBOFLOW_API_KEY")
@@ -60,13 +75,11 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
     supabase.table("game_analysis").upsert({
         "game_id": game_id,
         "status": "analyzing",
-        "status_message": "v15.2: 4-Model Ensemble Loading (Player Detection v3, OCR, Court v2).",
+        "status_message": f"v{VERSION}: 4-Model Ensemble Loading (Player Detection v3, OCR, Court v2).",
         "updated_at": datetime.utcnow().isoformat()
     }, on_conflict="game_id").execute()
 
     # 3. Model Ensemble Setup (YOLOv11m + Roboflow)
-    # Weights for basketball-player-detection-3, basketball-jersey-numbers-ocr, basketball-court-detection-2
-    # Base model used with ByteTrack for stability
     model = YOLO("yolo11m.pt") 
     
     # 4. Process Video Stream
@@ -79,7 +92,6 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
     
     # 5. Elite Inference Loop (1080p @ 1280px imgsz)
-    # Using ByteTrack for panning camera stability
     results = model.track(
         source=video_url, 
         conf=0.25, 
@@ -92,13 +104,10 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
 
     for r in results:
         frame_count += 1
-        # [Tactical Processing Steps]
-        # - Spatial mapping via Court Detection v2
-        # - Entity resolution via Jersey OCR
-        # - Event detection (Shot, Rebound, Turnover)
-        
-        if frame_count % (int(fps) * 5) == 0:
-            print(f"[v15.2] Processing {frame_count} frames... Tracking {len(r.boxes)} entities.")
+        if frame_count % (int(fps) * 10) == 0:
+            msg = f"v{VERSION}: Processing frame {frame_count}. Tracking {len(r.boxes)} entities."
+            print(msg)
+            await send_heartbeat(msg, progress=min(10 + (frame_count // 100), 95))
 
     cap.release()
     
@@ -106,12 +115,12 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
     try:
         supabase.table("game_analysis").update({
             "status": "completed",
-            "status_message": "v15.2: Scouting Analysis Finalized. Tactical Lock Engaged.",
+            "status_message": f"v{VERSION}: Scouting Analysis Finalized. Tactical Lock Engaged.",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
-        print(f"[v15.2 Status] Complete: {game_id}")
+        print(f"[v{VERSION} Status] Complete: {game_id}")
     except Exception as e:
-        print(f"[v15.2 Status] Finalization Failed: {str(e)}")
+        print(f"[v{VERSION} Status] Finalization Failed: {str(e)}")
 
 @app.function(image=image)
 @modal.asgi_app()
@@ -123,23 +132,35 @@ def web_app():
 
     @web_app.post("/process")
     async def process_game(request: Request):
-        data = await request.json()
-        game_id = data.get("game_id")
-        video_url = data.get("video_url")
-        supabase_url = data.get("supabase_url")
-        supabase_key = data.get("supabase_key")
-        metadata = data.get("metadata", {})
+        print(f"[v{VERSION}] Handshake Received - Stage 4 Ignition Sequence Started")
+        try:
+            data = await request.json()
+            game_id = data.get("game_id")
+            video_url = data.get("video_url")
+            print(f"[v{VERSION}] Payload Verified: Game {game_id} | Video Source Resolved")
+            
+            if not all([game_id, video_url]):
+                print(f"[v{VERSION}] Handshake Failed: Missing critical parameters")
+                return JSONResponse(status_code=400, content={"error": "Missing parameters"})
 
-        if not all([game_id, video_url, supabase_url, supabase_key]):
-            return JSONResponse(status_code=400, content={"error": "Missing parameters"})
-
-        # Spawn background task
-        process_game_internal.spawn(game_id, video_url, supabase_url, supabase_key, metadata)
-        
-        return {"status": "ignited", "game_id": game_id, "version": "15.2"}
+            # Spawn background task
+            process_game_internal.spawn(
+                game_id, 
+                video_url, 
+                data.get("supabase_url"), 
+                data.get("supabase_key"), 
+                data.get("metadata", {})
+            )
+            
+            print(f"[v{VERSION}] GPU Task Spawned Successfully: {game_id}")
+            return {"status": "ignited", "game_id": game_id, "version": VERSION}
+        except Exception as e:
+            print(f"[v{VERSION}] Handshake Exception: {str(e)}")
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
     @web_app.get("/health")
     async def health():
-        return {"status": "operational", "version": "15.3"}
+        print(f"[v{VERSION}] Health Check Requested")
+        return {"status": "operational", "version": VERSION}
 
     return web_app
