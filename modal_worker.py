@@ -5,9 +5,9 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v15.6 - PRODUCTION SCOUTING
+# MODAL ELITE PIPELINE v15.7 - PRODUCTION SCOUTING
 # Fixed 403 Forbidden on R2, added local download step, and pre-installed dependencies
-VERSION = "15.6"
+VERSION = "15.7"
 
 app = modal.App("basketball-scout-ai-elite")
 
@@ -63,7 +63,7 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
             print(f"[Heartbeat Error] {e}")
 
     print(f"[v{VERSION}] Elite Scouting Engine Ignited: {game_id}")
-    await send_heartbeat(f"v{VERSION}: GPU Handshake Success. Resolving Video Signal.", progress=5)
+    await send_heartbeat(f"v{VERSION}: GPU Handshake Success. Signal Resolved.", progress=5)
     
     # 1. Credentials
     s_url = supabase_url or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
