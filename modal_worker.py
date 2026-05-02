@@ -5,22 +5,23 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v15.5 - PRODUCTION SCOUTING
-# Incremented version to 15.5 (Dependency and Async fixes)
-VERSION = "15.5"
+# MODAL ELITE PIPELINE v15.6 - PRODUCTION SCOUTING
+# Fixed 403 Forbidden on R2, added local download step, and pre-installed dependencies
+VERSION = "15.6"
 
 app = modal.App("basketball-scout-ai-elite")
 
-# Persistent storage for model weights and processed data
+# Persistent storage for model weights
 volume = modal.Volume.from_name("scout-data", create_if_missing=True)
 
 # Optimized container image for AI inference
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("libgl1-mesa-glx", "libglib2.0-0")
+    .apt_install("libgl1-mesa-glx", "libglib2.0-0", "wget")
     .pip_install(
         "fastapi[standard]",
         "ultralytics",
+        "lap", # Pre-install to avoid AutoUpdate
         "supabase",
         "numpy",
         "opencv-python-headless",
@@ -28,6 +29,10 @@ image = (
         "httpx",
         "roboflow"
     )
+    .env({
+        "YOLO_CONFIG_DIR": "/tmp/Ultralytics",
+        "PYTHONUNBUFFERED": "1"
+    })
 )
 
 @app.function(
@@ -38,16 +43,15 @@ image = (
     secrets=[modal.Secret.from_name("basketball-scout-secrets")]
 )
 async def process_game_internal(game_id: str, video_url: str, supabase_url: str, supabase_key: str, metadata: dict = None):
-    # Heavy imports moved inside to allow local parsing/deployment without dependencies
     from supabase import create_client, Client
     import httpx
     import cv2
+    import os
     from ultralytics import YOLO
     
     async def send_heartbeat(message, severity="info", progress=None):
         try:
             async with httpx.AsyncClient() as client:
-                # Constructing absolute URL if relative
                 app_url = metadata.get("app_url") or "https://build-a-basketball-boxscore-stats-player-play-by.vercel.app"
                 await client.post(f"{app_url}/api/gpu-heartbeat", json={
                     "gameId": game_id,
@@ -59,42 +63,59 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
             print(f"[Heartbeat Error] {e}")
 
     print(f"[v{VERSION}] Elite Scouting Engine Ignited: {game_id}")
-    await send_heartbeat(f"v{VERSION}: GPU Handshake Success. Initializing 4-Model Ensemble.", progress=5)
+    await send_heartbeat(f"v{VERSION}: GPU Handshake Success. Resolving Video Signal.", progress=5)
     
-    # 1. Access Credentials
+    # 1. Credentials
     s_url = supabase_url or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     s_key = supabase_key or os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY")
-    rf_key = os.environ.get("ROBOFLOW_API_KEY")
 
-    if not all([s_url, s_key, rf_key]):
-        print(f"[Error] Missing critical credentials. URL: {bool(s_url)}, Key: {bool(s_key)}, RF: {bool(rf_key)}")
+    if not all([s_url, s_key]):
+        print(f"[Error] Missing critical credentials.")
         return
 
     supabase: Client = create_client(s_url, s_key)
     
-    # 2. Update Status to Analyzing
-    supabase.table("game_analysis").upsert({
-        "game_id": game_id,
-        "status": "analyzing",
-        "status_message": f"v{VERSION}: 4-Model Ensemble Loading (Player Detection v3, OCR, Court v2).",
-        "updated_at": datetime.utcnow().isoformat()
-    }, on_conflict="game_id").execute()
+    # 2. Local Download Step (Bypasses Ultralytics 403 issues)
+    local_video_path = f"/tmp/{game_id}.mp4"
+    await send_heartbeat(f"v{VERSION}: Downloading Tactical Feed to Local Buffer...", progress=10)
+    
+    try:
+        async with httpx.AsyncClient(timeout=600.0) as client:
+            async with client.stream("GET", video_url) as response:
+                if response.status_code != 200:
+                    raise Exception(f"Video Download Failed: HTTP {response.status_code}")
+                
+                with open(local_video_path, "wb") as f:
+                    async for chunk in response.aiter_bytes():
+                        f.write(chunk)
+        print(f"[v{VERSION}] Download Complete: {local_video_path}")
+    except Exception as e:
+        error_msg = f"R2 Access Denied: {str(e)}"
+        print(f"[Error] {error_msg}")
+        await send_heartbeat(error_msg, severity="error")
+        supabase.table("game_analysis").upsert({
+            "game_id": game_id,
+            "status": "error",
+            "status_message": f"v{VERSION}: {error_msg}",
+            "updated_at": datetime.utcnow().isoformat()
+        }, on_conflict="game_id").execute()
+        return
 
-    # 3. Model Ensemble Setup (YOLOv11m + Roboflow)
+    # 3. Model Setup
+    await send_heartbeat(f"v{VERSION}: Initializing Inference Engines...", progress=20)
     model = YOLO("yolo11m.pt") 
     
-    # 4. Process Video Stream
-    cap = cv2.VideoCapture(video_url)
+    # 4. Processing
+    cap = cv2.VideoCapture(local_video_path)
     if not cap.isOpened():
-        print(f"[Error] Failed to open video: {video_url}")
+        print(f"[Error] Failed to open buffered video")
         return
 
     frame_count = 0
     fps = cap.get(cv2.CAP_PROP_FPS) or 30
     
-    # 5. Elite Inference Loop (1080p @ 1280px imgsz)
     results = model.track(
-        source=video_url, 
+        source=local_video_path, 
         conf=0.25, 
         iou=0.45, 
         imgsz=1280, 
@@ -105,23 +126,24 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
 
     for r in results:
         frame_count += 1
-        if frame_count % (int(fps) * 10) == 0:
-            msg = f"v{VERSION}: Processing frame {frame_count}. Tracking {len(r.boxes)} entities."
+        if frame_count % (int(fps) * 5) == 0:
+            msg = f"v{VERSION}: Analyzing Frame {frame_count}. Tracking {len(r.boxes)} Personnel Units."
             print(msg)
-            await send_heartbeat(msg, progress=min(10 + (frame_count // 100), 95))
+            await send_heartbeat(msg, progress=min(25 + (frame_count // 100), 98))
 
     cap.release()
+    os.remove(local_video_path) # Cleanup
     
-    # 6. Finalize Analytics
+    # 5. Finalize
     try:
         supabase.table("game_analysis").update({
             "status": "completed",
-            "status_message": f"v{VERSION}: Scouting Analysis Finalized. Tactical Lock Engaged.",
+            "status_message": f"v{VERSION}: Tactical Analysis Finalized.",
             "updated_at": datetime.utcnow().isoformat()
         }).eq("game_id", game_id).execute()
-        print(f"[v{VERSION} Status] Complete: {game_id}")
+        print(f"[v{VERSION}] Complete: {game_id}")
     except Exception as e:
-        print(f"[v{VERSION} Status] Finalization Failed: {str(e)}")
+        print(f"[Error] Finalization failed: {str(e)}")
 
 @app.function(image=image)
 @modal.asgi_app()
@@ -133,18 +155,14 @@ def web_app():
 
     @web_app.post("/process")
     async def process_game(request: Request):
-        print(f"[v{VERSION}] Handshake Received - Stage 4 Ignition Sequence Started")
         try:
             data = await request.json()
             game_id = data.get("game_id")
             video_url = data.get("video_url")
-            print(f"[v{VERSION}] Payload Verified: Game {game_id} | Video Source Resolved")
             
             if not all([game_id, video_url]):
-                print(f"[v{VERSION}] Handshake Failed: Missing critical parameters")
                 return JSONResponse(status_code=400, content={"error": "Missing parameters"})
 
-            # Spawn background task asynchronously to avoid AsyncUsageWarning
             await process_game_internal.spawn.aio(
                 game_id, 
                 video_url, 
@@ -153,15 +171,12 @@ def web_app():
                 data.get("metadata", {})
             )
             
-            print(f"[v{VERSION}] GPU Task Spawned Successfully: {game_id}")
             return {"status": "ignited", "game_id": game_id, "version": VERSION}
         except Exception as e:
-            print(f"[v{VERSION}] Handshake Exception: {str(e)}")
             return JSONResponse(status_code=500, content={"error": str(e)})
 
     @web_app.get("/health")
     async def health():
-        print(f"[v{VERSION}] Health Check Requested")
         return {"status": "operational", "version": VERSION}
 
     return web_app
