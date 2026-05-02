@@ -5,9 +5,9 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List, Any
 
-# MODAL ELITE PIPELINE v15.8 - PRODUCTION PERSISTENCE
+# MODAL ELITE PIPELINE v15.9 - PRODUCTION PERSISTENCE
 # Added database insertion for real results and improved heartbeat tracking
-VERSION = "15.8"
+VERSION = "15.9"
 
 app = modal.App("basketball-scout-ai-elite")
 
