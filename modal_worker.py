@@ -5,8 +5,8 @@ import asyncio
 from datetime import datetime
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v15.2 - PRODUCTION SCOUTING
-# Incremented version to 15.2 per user request.
+# MODAL ELITE PIPELINE v15.3 - PRODUCTION SCOUTING
+# Incremented version to 15.3 per user request.
 app = modal.App("basketball-scout-ai-elite")
 
 # Persistent storage for model weights and processed data
@@ -113,7 +113,8 @@ async def process_game_internal(game_id: str, video_url: str, supabase_url: str,
     except Exception as e:
         print(f"[v15.2 Status] Finalization Failed: {str(e)}")
 
-@app.asgi_app()
+@app.function(image=image)
+@modal.asgi_app()
 def web_app():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
@@ -139,6 +140,6 @@ def web_app():
 
     @web_app.get("/health")
     async def health():
-        return {"status": "operational", "version": "15.2"}
+        return {"status": "operational", "version": "15.3"}
 
     return web_app
