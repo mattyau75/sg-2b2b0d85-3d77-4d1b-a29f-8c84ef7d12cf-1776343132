@@ -10,20 +10,20 @@ from typing import Dict, List, Any
 VERSION = "16.1"
 
 image = (
-    modal.Image.debian_slim(python_version="3.11")
-    .apt_install("libgl1-mesa-glx", "libglib2.0-0", "wget")
+    modal.Image.debian_slim()
     .pip_install(
         "ultralytics",
+        "opencv-python-headless",
         "supabase",
         "httpx",
+        "fastapi[standard]",
         "pandas",
-        "opencv-python",
-        "lap"
+        "numpy"
     )
     .env({"YOLO_CONFIG_DIR": "/tmp/Ultralytics"})
 )
 
-app = modal.App("basketball-scout-ai-elite")
+app = modal.App("basketball-scout-ai-elite", image=image)
 
 @app.function(
     image=image,
