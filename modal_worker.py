@@ -55,12 +55,12 @@ async def process_game_internal(
             "metadata": metadata
         }
         try:
-            # Fallback to local preview URL if production one isn't set
-            app_url = metadata.get('app_url') or 'http://localhost:3000'
+            # Resolved: Correctly use site URL from metadata for cloud-to-app bridge
+            app_url = metadata.get('app_url', 'http://localhost:3000').rstrip('/')
             async with httpx.AsyncClient() as client:
-                await client.post(f"{app_url}/api/gpu-heartbeat", json=payload, timeout=10.0)
+                await client.post(f"{app_url}/api/gpu-heartbeat", json=payload, timeout=15.0)
         except Exception as e:
-            print(f"Heartbeat failed: {e}")
+            print(f"Heartbeat to {app_url} failed: {e}")
 
     print(f"[v{VERSION}] Elite Scouting Engine Ignited: {game_id}")
     await send_heartbeat(f"v{VERSION}: GPU Handshake Success. Signal Resolved.", progress=5)
@@ -158,12 +158,12 @@ async def process_game_internal(
         raise e
 
 @app.function(image=image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 async def process(payload: Dict):
-    game_id = payload.get("gameId")
-    video_url = payload.get("videoUrl")
-    supabase_url = payload.get("supabaseUrl")
-    supabase_key = payload.get("supabaseKey")
+    game_id = payload.get("game_id")
+    video_url = payload.get("video_url")
+    supabase_url = payload.get("supabase_url")
+    supabase_key = payload.get("supabase_key")
     metadata = payload.get("metadata", {})
 
     # Use spawn for fire-and-forget
@@ -172,6 +172,6 @@ async def process(payload: Dict):
     return {"status": "accepted", "gameId": game_id, "version": VERSION}
 
 @app.function(image=image)
-@modal.web_endpoint(method="GET")
+@modal.fastapi_endpoint(method="GET")
 async def health():
     return {"status": "operational", "version": VERSION}
