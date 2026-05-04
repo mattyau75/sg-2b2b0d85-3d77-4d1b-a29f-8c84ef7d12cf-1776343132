@@ -5,7 +5,6 @@ import asyncio
 from datetime import datetime
 from typing import Dict, Any
 import time
-from pydantic import BaseModel # Added for FastAPI payload parsing
 
 # MODAL ELITE PIPELINE v16.10 - COMPATIBILITY STABLE
 VERSION = "16.10"
@@ -20,20 +19,12 @@ image = (
         "fastapi[standard]",
         "pandas",
         "numpy",
-        "tenacity",
-        "pydantic" # Ensure pydantic is available
+        "tenacity"
     )
     .env({"YOLO_CONFIG_DIR": "/tmp/Ultralytics"})
 )
 
 app = modal.App("basketball-scout-ai-elite", image=image)
-
-# Define the expected JSON payload structure
-class ProcessPayload(BaseModel):
-    gameId: str
-    videoUrl: str
-    supabaseUrl: str
-    supabaseKey: str
 
 @app.function(
     image=image,
@@ -132,16 +123,19 @@ async def process_game_internal(
         send_heartbeat(f"GPU Error: {str(e)}")
         raise e
 
+# Notice `payload: dict` here. FastAPI will automatically convert the incoming JSON POST body into a dictionary.
 @app.function(image=image)
 @modal.fastapi_endpoint(method="POST")
-async def process(payload: ProcessPayload):
-    # Using Pydantic model prevents FastAPI 422 payload errors
-    process_game_internal.spawn(
-        payload.gameId, 
-        payload.videoUrl, 
-        payload.supabaseUrl, 
-        payload.supabaseKey
-    )
+async def process(payload: dict):
+    game_id = payload.get("gameId")
+    video_url = payload.get("videoUrl")
+    supabase_url = payload.get("supabaseUrl")
+    supabase_key = payload.get("supabaseKey")
+    
+    if not all([game_id, video_url, supabase_url, supabase_key]):
+        return {"status": "error", "message": "Missing parameters"}
+        
+    process_game_internal.spawn(game_id, video_url, supabase_url, supabase_key)
     return {"status": "accepted", "version": VERSION}
 
 @app.function(image=image)
