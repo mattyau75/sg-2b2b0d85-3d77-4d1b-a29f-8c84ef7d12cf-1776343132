@@ -6,8 +6,8 @@ from datetime import datetime
 from typing import Dict, Any
 import time
 
-# MODAL ELITE PIPELINE v16.9 - ROBUST DEPLOYMENT STABLE
-VERSION = "16.9"
+# MODAL ELITE PIPELINE v16.10 - COMPATIBILITY STABLE
+VERSION = "16.10"
 
 image = (
     modal.Image.debian_slim()
@@ -115,7 +115,7 @@ async def process_game_internal(
         download_video(video_url, video_path)
         if not send_heartbeat("Footage Synced.", progress=5): return {"status": "cancelled"}
 
-        # Simulate analysis for v16.9 Handshake
+        # Simulate analysis for v16.10 Handshake
         for i in range(10, 101, 10):
             await asyncio.sleep(2)
             if not send_heartbeat(f"Analyzing personnel patterns...", progress=i):
@@ -129,9 +129,9 @@ async def process_game_internal(
         raise e
 
 @app.function(image=image)
-@modal.web_endpoint(method="POST")
+@modal.fastapi_endpoint(method="POST")
 async def process(payload: Dict):
-    # Native web_endpoint avoids local FastAPI import dependency
+    # Native fastapi_endpoint avoids local FastAPI import dependency
     game_id = payload.get("gameId")
     video_url = payload.get("videoUrl")
     supabase_url = payload.get("supabaseUrl")
@@ -144,6 +144,6 @@ async def process(payload: Dict):
     return {"status": "accepted", "version": VERSION}
 
 @app.function(image=image)
-@modal.web_endpoint(method="GET")
+@modal.fastapi_endpoint(method="GET")
 async def health():
     return {"status": "operational", "version": VERSION}
