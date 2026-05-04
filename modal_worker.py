@@ -128,10 +128,10 @@ async def process_game_internal(
         send_heartbeat(f"GPU Error: {str(e)}")
         raise e
 
+# FIX: Replaced `fastapi_endpoint` with Modal's native `web_endpoint`
 @app.function(image=image)
-@modal.fastapi_endpoint(method="POST")
+@modal.web_endpoint(method="POST")
 async def process(payload: Dict):
-    # Native fastapi_endpoint avoids local FastAPI import dependency
     game_id = payload.get("gameId")
     video_url = payload.get("videoUrl")
     supabase_url = payload.get("supabaseUrl")
@@ -143,7 +143,8 @@ async def process(payload: Dict):
     process_game_internal.spawn(game_id, video_url, supabase_url, supabase_key)
     return {"status": "accepted", "version": VERSION}
 
+# FIX: Replaced `fastapi_endpoint` with Modal's native `web_endpoint`
 @app.function(image=image)
-@modal.fastapi_endpoint(method="GET")
+@modal.web_endpoint(method="GET")
 async def health():
     return {"status": "operational", "version": VERSION}
