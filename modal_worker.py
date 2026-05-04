@@ -4,12 +4,10 @@ import logging
 import asyncio
 from datetime import datetime
 from typing import Dict, Any
-from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import JSONResponse
 import time
 
-# MODAL ELITE PIPELINE v16.8 - ASGI ROUTING STABLE
-VERSION = "16.8"
+# MODAL ELITE PIPELINE v16.9 - ROBUST DEPLOYMENT STABLE
+VERSION = "16.9"
 
 image = (
     modal.Image.debian_slim()
@@ -27,7 +25,6 @@ image = (
 )
 
 app = modal.App("basketball-scout-ai-elite", image=image)
-web_app = FastAPI()
 
 @app.function(
     image=image,
@@ -45,7 +42,6 @@ async def process_game_internal(
 ):
     from supabase import create_client
     import cv2
-    from ultralytics import YOLO
     import httpx
     from tenacity import retry, stop_after_attempt, wait_exponential
 
@@ -119,7 +115,7 @@ async def process_game_internal(
         download_video(video_url, video_path)
         if not send_heartbeat("Footage Synced.", progress=5): return {"status": "cancelled"}
 
-        # Simulate analysis for v16.8 Handshake
+        # Simulate analysis for v16.9 Handshake
         for i in range(10, 101, 10):
             await asyncio.sleep(2)
             if not send_heartbeat(f"Analyzing personnel patterns...", progress=i):
@@ -132,24 +128,22 @@ async def process_game_internal(
         send_heartbeat(f"GPU Error: {str(e)}")
         raise e
 
-@web_app.post("/process")
+@app.function(image=image)
+@modal.web_endpoint(method="POST")
 async def process(payload: Dict):
+    # Native web_endpoint avoids local FastAPI import dependency
     game_id = payload.get("gameId")
     video_url = payload.get("videoUrl")
     supabase_url = payload.get("supabaseUrl")
     supabase_key = payload.get("supabaseKey")
     
     if not all([game_id, video_url, supabase_url, supabase_key]):
-        raise HTTPException(status_code=400, detail="Missing parameters")
+        return {"status": "error", "message": "Missing parameters"}
         
     process_game_internal.spawn(game_id, video_url, supabase_url, supabase_key)
     return {"status": "accepted", "version": VERSION}
 
-@web_app.get("/health")
+@app.function(image=image)
+@modal.web_endpoint(method="GET")
 async def health():
     return {"status": "operational", "version": VERSION}
-
-@app.function(image=image)
-@modal.asgi_app()
-def fastapi_app():
-    return web_app
