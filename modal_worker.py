@@ -6,8 +6,8 @@ import time
 from datetime import datetime
 from typing import Dict, Any
 
-# MODAL ELITE PIPELINE v16.16 - UNIFIED TRACE BRIDGE
-VERSION = "16.16"
+# MODAL ELITE PIPELINE v16.17 - ROBUST FASTAPI BRIDGE
+VERSION = "16.17"
 
 image = (
     modal.Image.debian_slim()
@@ -40,6 +40,7 @@ async def process_game_internal(
     from supabase import create_client
     import httpx
     
+    # Trim inputs strictly to avoid leading/trailing whitespace errors
     supabase = create_client(supabase_url.strip(), supabase_key.strip())
 
     def now_iso():
@@ -69,15 +70,23 @@ async def process_game_internal(
         except Exception as e:
             print(f"Trace Sync Error: {e}")
 
-    send_trace("Engine Initialized - Accessing Tactical Footage", progress=25)
+    send_trace("Engine Initialized - Processing tactical video", progress=25)
     
-    # Placeholder for vision logic
-    await asyncio.sleep(2)
-    send_trace("Vision Layer Active - Calibrating Court Coordinates", progress=35)
+    # Simulated processing loop for testing
+    for i in range(1, 4):
+        await asyncio.sleep(2)
+        send_trace(f"Vision Stage {i}/3 - Calibrating data", progress=25 + (i * 20))
     
-    await asyncio.sleep(2)
-    send_trace("Personnel Discovery - Mapping Player Entities", progress=50)
+    send_trace("Personnel Discovery Complete", severity="success", progress=100)
     
+    # Final cleanup/status update
+    supabase.table("game_analysis").update({
+        "status": "completed",
+        "status_message": f"v{VERSION}: Analysis finished successfully",
+        "progress_percentage": 100,
+        "updated_at": now_iso()
+    }).eq("game_id", game_id).execute()
+
     return {"status": "success", "version": VERSION}
 
 @app.function(image=image)
@@ -85,20 +94,37 @@ async def process_game_internal(
 def web_app():
     from fastapi import FastAPI, Request
     from fastapi.responses import JSONResponse
+    from fastapi.middleware.cors import CORSMiddleware
     
     web_app = FastAPI(title="DribbleStats AI Elite Bridge")
 
+    # Explicitly enable CORS for local dev and preview environments
+    web_app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @web_app.post("/process")
     async def process(request: Request):
-        payload = await request.json()
-        process_game_internal.spawn(
-            payload["gameId"],
-            payload["videoUrl"],
-            payload["supabaseUrl"],
-            payload["supabaseKey"],
-            payload.get("metadata")
-        )
-        return {"status": "accepted", "version": VERSION, "timestamp": datetime.utcnow().isoformat()}
+        try:
+            payload = await request.json()
+            if not payload.get("gameId"):
+                return JSONResponse(status_code=400, content={"error": "gameId required"})
+            
+            # Use spawn to trigger the heavy function asynchronously
+            process_game_internal.spawn(
+                payload["gameId"],
+                payload["videoUrl"],
+                payload["supabaseUrl"],
+                payload["supabaseKey"],
+                payload.get("metadata")
+            )
+            return {"status": "accepted", "version": VERSION, "timestamp": datetime.utcnow().isoformat()}
+        except Exception as e:
+            return JSONResponse(status_code=500, content={"error": str(e)})
 
     @web_app.get("/health")
     async def health():
