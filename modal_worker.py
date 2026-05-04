@@ -6,8 +6,8 @@ import time
 from datetime import datetime
 from typing import Dict, Any
 
-# MODAL ELITE PIPELINE v16.17 - ROBUST FASTAPI BRIDGE
-VERSION = "16.17"
+# MODAL ELITE PIPELINE v16.18 - ROBUST FASTAPI BRIDGE
+VERSION = "16.18"
 
 image = (
     modal.Image.debian_slim()
