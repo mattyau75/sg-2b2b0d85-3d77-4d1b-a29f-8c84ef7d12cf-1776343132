@@ -6,128 +6,117 @@ import time
 from datetime import datetime
 from typing import Dict, Any
 
-# MODAL ELITE PIPELINE v16.18 - ROBUST FASTAPI BRIDGE
-VERSION = "16.18"
+# MODAL ELITE PIPELINE v16.19 - UNIFIED PATH BRIDGE
+VERSION = "16.19"
 
-image = (
-    modal.Image.debian_slim()
-    .pip_install(
-        "ultralytics",
-        "opencv-python-headless",
-        "supabase",
-        "httpx",
-        "fastapi",
-        "pydantic"
-    )
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("scout-ai")
+
+# 1. Define the Container Environment
+image = modal.Image.debian_slim().pip_install(
+    "ultralytics",
+    "supabase",
+    "httpx",
+    "fastapi",
+    "pydantic"
 )
 
-app = modal.App("basketball-scout-ai-elite", image=image)
+app = modal.App("basketball-scout-ai-elite")
 
-@app.function(
-    image=image,
-    gpu="A10",
-    timeout=1800,
-    cpu=2.0,
-    memory=8192
-)
-async def process_game_internal(
-    game_id: str,
-    video_url: str,
-    supabase_url: str,
-    supabase_key: str,
-    metadata: Dict = None
-):
-    from supabase import create_client
-    import httpx
-    
-    # Trim inputs strictly to avoid leading/trailing whitespace errors
-    supabase = create_client(supabase_url.strip(), supabase_key.strip())
-
-    def now_iso():
-        return datetime.utcnow().isoformat() + "Z"
-
-    def send_trace(message: str, severity: str = "info", progress: int = None):
-        try:
-            # Sync Global State
-            supabase.table("game_analysis").upsert({
-                "game_id": game_id,
-                "status": "processing",
-                "status_message": f"v{VERSION}: {message}",
-                "progress_percentage": progress or 0,
-                "last_heartbeat": now_iso(),
-                "updated_at": now_iso()
-            }).execute()
-
-            # Sync GPU Trace Console
-            supabase.table("game_events").insert({
-                "game_id": game_id,
-                "event_type": "gpu_worker_trace",
-                "severity": severity,
-                "payload": {"message": f"v{VERSION}: {message}", "progress": progress},
-                "timestamp_ms": int(time.time() * 1000),
-                "created_at": now_iso()
-            }).execute()
-        except Exception as e:
-            print(f"Trace Sync Error: {e}")
-
-    send_trace("Engine Initialized - Processing tactical video", progress=25)
-    
-    # Simulated processing loop for testing
-    for i in range(1, 4):
-        await asyncio.sleep(2)
-        send_trace(f"Vision Stage {i}/3 - Calibrating data", progress=25 + (i * 20))
-    
-    send_trace("Personnel Discovery Complete", severity="success", progress=100)
-    
-    # Final cleanup/status update
-    supabase.table("game_analysis").update({
-        "status": "completed",
-        "status_message": f"v{VERSION}: Analysis finished successfully",
-        "progress_percentage": 100,
-        "updated_at": now_iso()
-    }).eq("game_id", game_id).execute()
-
-    return {"status": "success", "version": VERSION}
-
-@app.function(image=image)
+@app.function(image=image, gpu="A10G", timeout=3600)
 @modal.asgi_app()
 def web_app():
     from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse
     from fastapi.middleware.cors import CORSMiddleware
+    from pydantic import BaseModel
     
-    web_app = FastAPI(title="DribbleStats AI Elite Bridge")
-
-    # Explicitly enable CORS for local dev and preview environments
+    web_app = FastAPI(title="DribbleStats AI Elite Bridge", version=VERSION)
+    
     web_app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
-        allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
 
+    class IgnitionPayload(BaseModel):
+        gameId: str
+        videoUrl: str
+        supabaseUrl: str
+        supabaseKey: str
+        metadata: Dict[str, Any] = {}
+
     @web_app.post("/process")
-    async def process(request: Request):
-        try:
-            payload = await request.json()
-            if not payload.get("gameId"):
-                return JSONResponse(status_code=400, content={"error": "gameId required"})
-            
-            # Use spawn to trigger the heavy function asynchronously
-            process_game_internal.spawn(
-                payload["gameId"],
-                payload["videoUrl"],
-                payload["supabaseUrl"],
-                payload["supabaseKey"],
-                payload.get("metadata")
-            )
-            return {"status": "accepted", "version": VERSION, "timestamp": datetime.utcnow().isoformat()}
-        except Exception as e:
-            return JSONResponse(status_code=500, content={"error": str(e)})
+    async def process_endpoint(payload: IgnitionPayload):
+        logger.info(f"v16.19 Ignition Received for Game: {payload.gameId}")
+        
+        # Background the heavy processing
+        asyncio.create_task(run_analysis(payload.dict()))
+        
+        return {
+            "status": "accepted",
+            "message": "Elite Scouting Engine Ignited",
+            "version": VERSION,
+            "game_id": payload.gameId
+        }
 
     @web_app.get("/health")
     async def health():
-        return {"status": "operational", "version": VERSION}
+        return {"status": "operational", "version": VERSION, "timestamp": time.time()}
 
     return web_app
+
+async def run_analysis(payload: Dict):
+    """Background task for heavy OCR and Mapping"""
+    from supabase import create_client
+    
+    game_id = payload.get("gameId")
+    supabase_url = payload.get("supabaseUrl")
+    supabase_key = payload.get("supabaseKey")
+    
+    supabase = create_client(supabase_url, supabase_key)
+    
+    def log_event(msg: str, severity="info", progress=0):
+        try:
+            supabase.table("game_events").insert({
+                "game_id": game_id,
+                "event_type": "gpu_scout_trace",
+                "severity": severity,
+                "payload": {"message": f"v16.19: {msg}", "progress": progress},
+                "timestamp_ms": int(time.time() * 1000)
+            }).execute()
+        except Exception as e:
+            logger.error(f"Failed to log event: {e}")
+
+    log_event("GPU Analysis Started", progress=5)
+    
+    try:
+        # Mock processing steps
+        await asyncio.sleep(2)
+        log_event("Stage 1: Neural Roster Mapping Active", progress=25)
+        
+        await asyncio.sleep(2)
+        log_event("Stage 2: OCR Jersey Detection Stream initialized", progress=50)
+        
+        # Complete
+        supabase.table("game_analysis").upsert({
+            "game_id": game_id,
+            "status": "completed",
+            "status_message": "v16.19 Scouting Analysis Complete",
+            "updated_at": datetime.utcnow().isoformat()
+        }).execute()
+        
+        log_event("Scouting Analysis Finalized", "success", 100)
+        
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        log_event(f"Analysis Error: {str(e)}", "error")
+        supabase.table("game_analysis").upsert({
+            "game_id": game_id,
+            "status": "error",
+            "status_message": f"v16.19 Failed: {str(e)}"
+        }).execute()
+
+if __name__ == "__main__":
+    modal.runner.deploy_app(app)
