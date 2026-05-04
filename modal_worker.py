@@ -5,6 +5,7 @@ import asyncio
 from datetime import datetime
 from typing import Dict, Any
 import time
+from pydantic import BaseModel # Added for FastAPI payload parsing
 
 # MODAL ELITE PIPELINE v16.10 - COMPATIBILITY STABLE
 VERSION = "16.10"
@@ -19,12 +20,20 @@ image = (
         "fastapi[standard]",
         "pandas",
         "numpy",
-        "tenacity"
+        "tenacity",
+        "pydantic" # Ensure pydantic is available
     )
     .env({"YOLO_CONFIG_DIR": "/tmp/Ultralytics"})
 )
 
 app = modal.App("basketball-scout-ai-elite", image=image)
+
+# Define the expected JSON payload structure
+class ProcessPayload(BaseModel):
+    gameId: str
+    videoUrl: str
+    supabaseUrl: str
+    supabaseKey: str
 
 @app.function(
     image=image,
@@ -41,11 +50,9 @@ async def process_game_internal(
     metadata: Dict = None
 ):
     from supabase import create_client
-    import cv2
     import httpx
     from tenacity import retry, stop_after_attempt, wait_exponential
 
-    # Trim keys to prevent auth drift
     supabase = create_client(supabase_url.strip(), supabase_key.strip())
 
     def now_iso():
@@ -69,7 +76,6 @@ async def process_game_internal(
 
     def send_heartbeat(message: str, progress: int = None):
         try:
-            # KILL SWITCH CHECK
             res = supabase.table("game_analysis").select("status").eq("game_id", game_id).maybe_single().execute()
             row = getattr(res, "data", None)
             if row and row.get("status") != "processing":
@@ -85,7 +91,6 @@ async def process_game_internal(
             }
             safe_db_update("game_analysis", "game_id", game_id, update_data, upsert=True)
             
-            # Sync to main games table
             safe_db_update("games", "id", game_id, {
                 "status": "processing" if (progress or 0) < 100 else "completed",
                 "status_message": message,
@@ -115,7 +120,6 @@ async def process_game_internal(
         download_video(video_url, video_path)
         if not send_heartbeat("Footage Synced.", progress=5): return {"status": "cancelled"}
 
-        # Simulate analysis for v16.10 Handshake
         for i in range(10, 101, 10):
             await asyncio.sleep(2)
             if not send_heartbeat(f"Analyzing personnel patterns...", progress=i):
@@ -128,23 +132,19 @@ async def process_game_internal(
         send_heartbeat(f"GPU Error: {str(e)}")
         raise e
 
-# FIX: Replaced `fastapi_endpoint` with Modal's native `web_endpoint`
 @app.function(image=image)
-@modal.web_endpoint(method="POST")
-async def process(payload: Dict):
-    game_id = payload.get("gameId")
-    video_url = payload.get("videoUrl")
-    supabase_url = payload.get("supabaseUrl")
-    supabase_key = payload.get("supabaseKey")
-    
-    if not all([game_id, video_url, supabase_url, supabase_key]):
-        return {"status": "error", "message": "Missing parameters"}
-        
-    process_game_internal.spawn(game_id, video_url, supabase_url, supabase_key)
+@modal.fastapi_endpoint(method="POST")
+async def process(payload: ProcessPayload):
+    # Using Pydantic model prevents FastAPI 422 payload errors
+    process_game_internal.spawn(
+        payload.gameId, 
+        payload.videoUrl, 
+        payload.supabaseUrl, 
+        payload.supabaseKey
+    )
     return {"status": "accepted", "version": VERSION}
 
-# FIX: Replaced `fastapi_endpoint` with Modal's native `web_endpoint`
 @app.function(image=image)
-@modal.web_endpoint(method="GET")
+@modal.fastapi_endpoint(method="GET")
 async def health():
     return {"status": "operational", "version": VERSION}
