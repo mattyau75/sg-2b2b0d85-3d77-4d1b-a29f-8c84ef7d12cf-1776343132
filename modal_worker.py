@@ -3,7 +3,6 @@ import os
 import time
 import asyncio
 from typing import Dict, List
-import httpx
 
 # MODAL ELITE PIPELINE v17.08 - CHUNKED LOCAL CACHE PROTOCOL
 VERSION = "17.08"
@@ -49,6 +48,7 @@ async def start_pipeline(payload: Dict):
     }
 
 async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_key: str, stage: str):
+    import httpx # Import inside the function to avoid local dependency issues during deploy
     from supabase import create_client
     supabase = create_client(supabase_url, supabase_key)
     
@@ -96,7 +96,6 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
                 raise Exception("Local cache missing. Please re-run Stage 1.")
             
             update_log("detect", 30, f"v{VERSION} Stage 2: YOLOv8 discovery initiated on LOCAL source...")
-            # Simulation of detection logic using local_path
             await asyncio.sleep(5)
             update_log("detect", 45, "Stage 2: Detections Fused. Review Person Bounding Boxes.", needs_review=True)
             
@@ -120,7 +119,6 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
             update_log("finalize", 90, f"v{VERSION} Stage 5: Fusing tactical coordinates into Box Score...")
             await asyncio.sleep(3)
             
-            # Clean up local cache after finalization
             if os.path.exists(local_path):
                 os.remove(local_path)
             
