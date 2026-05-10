@@ -4,8 +4,9 @@ import time
 import asyncio
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v17.0 - INTERVENTIONAL ARCHITECTURE
-VERSION = "17.0"
+# MODAL ELITE PIPELINE v17.01 - INTERVENTIONAL ARCHITECTURE
+# Logic: Increment by 0.01 for GitHub/Modal updates
+VERSION = "17.01"
 
 scout_image = (
     modal.Image.debian_slim()
@@ -110,7 +111,7 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
                 "progress_percentage": 100
             }).eq("id", game_id).execute()
             
-            update_log("complete", 100, "v17.0 Modular Analysis Finalized.")
+            update_log("complete", 100, "v17.01 Modular Analysis Finalized.")
 
     except Exception as e:
         update_log(stage, 0, f"Stage Error: {str(e)}", "error")
