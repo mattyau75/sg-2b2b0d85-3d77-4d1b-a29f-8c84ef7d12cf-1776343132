@@ -5,8 +5,8 @@ import datetime
 import threading
 from typing import Dict
 
-# MODAL ELITE PIPELINE v17.21 - HYPER-ROBUST INGEST
-VERSION = "17.21"
+# MODAL ELITE PIPELINE v17.23 - HYPER-ROBUST INGEST
+VERSION = "17.23"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -17,6 +17,7 @@ scout_image = (
         "supabase", 
         "ultralytics>=8.3.0", 
         "httpx", 
+        "requests",
         "fastapi", 
         "pydantic",
         "numpy",
