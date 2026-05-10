@@ -24,7 +24,7 @@ scout_image = (
 app = modal.App("basketball-scout-ai-v17", image=scout_image)
 
 @app.function()
-@modal.fastapi_endpoint(method="POST", label="process")
+@modal.fastapi_endpoint(method="POST", label="v17-process")
 async def start_pipeline(payload: Dict):
     """
     v17.0 Entry Point: Triggers the modular orchestration.
@@ -125,6 +125,6 @@ async def orchestrate_scouting(game_id: str, video_url: str, supabase_url: str, 
         }).eq("id", game_id).execute()
 
 @app.function()
-@modal.fastapi_endpoint(method="GET", label="health")
+@modal.fastapi_endpoint(method="GET", label="v17-health")
 async def health():
     return {"status": "operational", "version": VERSION, "pipeline": "modular_v1"}
