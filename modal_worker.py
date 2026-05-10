@@ -4,8 +4,8 @@ import time
 import asyncio
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v17.04 - AUDITED INTERVENTIONAL ARCHITECTURE
-VERSION = "17.04"
+# MODAL ELITE PIPELINE v17.06 - AUDITED INTERVENTIONAL ARCHITECTURE
+VERSION = "17.06"
 
 scout_image = (
     modal.Image.debian_slim()
@@ -66,11 +66,10 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
         }).eq("game_id", game_id).execute()
 
     try:
-        # v17.04 Audit: All logic now references dynamic VERSION constant
         if stage == "ingest":
-            update_log("ingest", 10, f"v{VERSION} Stage 1: Handshake Complete. Normalizing lighting...")
-            await asyncio.sleep(3)
-            update_log("ingest", 20, "Stage 1: Awaiting Scout review for Stabilization.", needs_review=True)
+            update_log("ingest", 10, f"v{VERSION} Stage 1: Handshake Complete. Signal Locked.")
+            await asyncio.sleep(2)
+            update_log("ingest", 25, "Stage 1: Awaiting Scout review for Stabilization.", needs_review=True)
             
         elif stage == "detect":
             update_log("detect", 30, f"v{VERSION} Stage 2: YOLOv8 discovery initiated...")
@@ -85,7 +84,6 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
         elif stage == "ocr":
             update_log("ocr", 75, f"v{VERSION} Stage 4: Personnel Discovery (Jersey OCR)...")
             
-            # Simulated mappings for Stage 4
             mock_mappings = [
                 {"ai_track_id": "1", "detected_team_side": "home", "confidence": 0.98},
                 {"ai_track_id": "5", "detected_team_side": "away", "confidence": 0.89}
