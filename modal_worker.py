@@ -5,8 +5,8 @@ import datetime
 import threading
 from typing import Dict
 
-# MODAL ELITE PIPELINE v17.18 - HYPER-INGEST & TACTICAL FUSION
-VERSION = "17.18"
+# MODAL ELITE PIPELINE v17.21 - HYPER-ROBUST INGEST
+VERSION = "17.21"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -34,8 +34,10 @@ def get_supabase(url: str, key: str):
 
 def update_log(supabase, game_id: str, current_stage: str, progress: int, message: str, severity: str = "info", needs_review: bool = False):
     now_iso = datetime.datetime.utcnow().isoformat()
+    # v17.21: Stdout fallback for debugging in Modal Dashboard
+    print(f"[{severity.upper()}] {current_stage}: {message} ({progress}%)")
+    
     try:
-        # v17.18: Dual Persistence for real-time trace + state tracking
         supabase.table("game_events").insert({
             "game_id": game_id,
             "event_type": "pipeline_status",
@@ -54,59 +56,64 @@ def update_log(supabase, game_id: str, current_stage: str, progress: int, messag
             "updated_at": now_iso
         }, on_conflict="game_id").execute()
     except Exception as log_err:
-        print(f"Logging error: {log_err}")
+        print(f"Supabase logging failed: {log_err}")
 
 def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
-    """v17.18: Dedicated background process to ensure 7GB+ transfers survive HTTP closure"""
-    import httpx
+    """v17.21: Hyper-Robust Ingest with requests.Session & 8MB Buffering"""
+    import requests
     import yaml
     
     supabase = get_supabase(supabase_url, supabase_key)
     local_path = f"/cache/{game_id}_video.mp4"
     config_path = "/cache/bytetrack_elite.yaml"
 
-    update_log(supabase, game_id, "ingest", 5, f"v{VERSION} Hyper-Ingest: Handshake Locked. Pulling Tactical Video...")
+    update_log(supabase, game_id, "ingest", 2, f"v{VERSION} Handshake: Signal Locked.")
     
     try:
-        # 1. Chunked Stream from R2 with large buffer
-        with httpx.Client(timeout=None) as client:
-            with client.stream("GET", video_url, follow_redirects=True) as response:
-                if response.status_code != 200:
-                    raise Exception(f"R2 Fetch Failed: Status {response.status_code}")
-                
-                total_size = int(response.headers.get("content-length", 0))
-                downloaded = 0
-                last_log_time = time.time()
-                
-                with open(local_path, "wb") as f:
-                    for chunk in response.iter_bytes(chunk_size=2*1024*1024): # 2MB chunks for speed
+        # Ensure cache directory exists
+        os.makedirs("/cache", exist_ok=True)
+        
+        # v17.21: Robust requests session with retries
+        session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(max_retries=3)
+        session.mount("https://", adapter)
+        
+        update_log(supabase, game_id, "ingest", 5, "Verifying R2 Access...")
+        
+        with session.get(video_url, stream=True, timeout=30) as r:
+            r.raise_for_status()
+            total_size = int(r.headers.get('content-length', 0))
+            downloaded = 0
+            last_log_time = time.time()
+            
+            update_log(supabase, game_id, "ingest", 10, f"Starting Stream: {total_size // (1024*1024)}MB total.")
+            
+            with open(local_path, "wb") as f:
+                # 8MB chunk size for high-performance 7GB+ transfers
+                for chunk in r.iter_content(chunk_size=8*1024*1024):
+                    if chunk:
                         f.write(chunk)
                         downloaded += len(chunk)
                         
-                        # Log every 5 seconds for user feedback
-                        if time.time() - last_log_time > 5 and total_size > 0:
-                            progress = int((downloaded / total_size) * 100)
+                        # Throttled logging to prevent DB spam
+                        if time.time() - last_log_time > 5:
+                            progress = int((downloaded / total_size) * 100) if total_size > 0 else 0
                             mb_val = downloaded // 1024 // 1024
                             total_mb = total_size // 1024 // 1024
-                            update_log(supabase, game_id, "ingest", progress, f"v{VERSION} Cache: {progress}% ({mb_val}MB / {total_mb}MB)")
+                            update_log(supabase, game_id, "ingest", progress, f"Cache: {progress}% ({mb_val}MB / {total_mb}MB)")
                             last_log_time = time.time()
-        
-        # 2. Persist Tracker Config for Stage 2
-        bt_config = {
-            "tracker_type": "bytetrack",
-            "track_high_thresh": 0.6,
-            "track_low_thresh": 0.1,
-            "track_buffer": 45, 
-            "match_thresh": 0.12
-        }
+
+        # Save config & commit volume
+        bt_config = {"tracker_type": "bytetrack", "track_high_thresh": 0.6, "track_low_thresh": 0.1, "track_buffer": 45, "match_thresh": 0.12}
         with open(config_path, "w") as f:
             yaml.dump(bt_config, f)
         
+        cache_volume.commit()
         update_log(supabase, game_id, "ingest", 100, f"v{VERSION} Stage 1 Complete: Local Cache Verified (NVMe).", needs_review=True)
     except Exception as e:
         update_log(supabase, game_id, "ingest", 0, f"v{VERSION} Ingest Fatal: {str(e)}", "error")
 
-@app.function(volumes={"/cache": cache_volume}, timeout=1800)
+@app.function(volumes={"/cache": cache_volume}, timeout=7200)
 def process_ingest(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
     run_ingest_background(game_id, video_url, supabase_url, supabase_key)
 
