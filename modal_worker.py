@@ -4,9 +4,8 @@ import time
 import asyncio
 from typing import Dict, List
 
-# MODAL ELITE PIPELINE v17.01 - INTERVENTIONAL ARCHITECTURE
-# Logic: Increment by 0.01 for GitHub/Modal updates
-VERSION = "17.01"
+# MODAL ELITE PIPELINE v17.04 - AUDITED INTERVENTIONAL ARCHITECTURE
+VERSION = "17.04"
 
 scout_image = (
     modal.Image.debian_slim()
@@ -30,7 +29,7 @@ async def start_pipeline(payload: Dict):
     supabase_url = payload.get("supabaseUrl")
     supabase_key = payload.get("supabaseKey")
     video_url = payload.get("videoUrl")
-    target_stage = payload.get("targetStage", "ingest") # Default to first stage
+    target_stage = payload.get("targetStage", "ingest") 
     
     if not all([game_id, supabase_url, supabase_key, video_url]):
         return {"status": "error", "message": "Missing credentials or video source"}
@@ -41,7 +40,7 @@ async def start_pipeline(payload: Dict):
     return {
         "status": "accepted",
         "stage": target_stage,
-        "message": f"v{VERSION} Stage '{target_stage}' Ignited. Handshake successful."
+        "message": f"v{VERSION} Handshake: Stage '{target_stage}' Ignited."
     }
 
 async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_key: str, stage: str):
@@ -67,23 +66,24 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
         }).eq("game_id", game_id).execute()
 
     try:
+        # v17.04 Audit: All logic now references dynamic VERSION constant
         if stage == "ingest":
-            update_log("ingest", 10, "Stage 1: Normalizing lighting and court lines...")
+            update_log("ingest", 10, f"v{VERSION} Stage 1: Handshake Complete. Normalizing lighting...")
             await asyncio.sleep(3)
-            update_log("ingest", 20, "Stage 1 Complete. Awaiting Scout review for Stabilization.", needs_review=True)
+            update_log("ingest", 20, "Stage 1: Awaiting Scout review for Stabilization.", needs_review=True)
             
         elif stage == "detect":
-            update_log("detect", 30, "Stage 2: YOLOv8 Person Discovery batching...")
+            update_log("detect", 30, f"v{VERSION} Stage 2: YOLOv8 discovery initiated...")
             await asyncio.sleep(3)
-            update_log("detect", 45, "Stage 2 Complete. Review Person Bounding Boxes.", needs_review=True)
+            update_log("detect", 45, "Stage 2: Review Person Bounding Boxes.", needs_review=True)
             
         elif stage == "track":
-            update_log("track", 55, "Stage 3: ByteTrack stability filtering...")
+            update_log("track", 55, f"v{VERSION} Stage 3: ByteTrack stability filtering...")
             await asyncio.sleep(3)
-            update_log("track", 65, "Stage 3 Complete. Verify Tracklet continuity.", needs_review=True)
+            update_log("track", 65, "Stage 3: Verify Tracklet continuity.", needs_review=True)
             
         elif stage == "ocr":
-            update_log("ocr", 75, "Stage 4: Personnel Discovery (Crop-first OCR)...")
+            update_log("ocr", 75, f"v{VERSION} Stage 4: Personnel Discovery (Jersey OCR)...")
             
             # Simulated mappings for Stage 4
             mock_mappings = [
@@ -100,10 +100,10 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
                     "updated_at": "now()"
                 }, on_conflict="game_id,ai_track_id").execute()
 
-            update_log("ocr", 85, "Stage 4 Complete. Finalize Personnel Mappings.", needs_review=True)
+            update_log("ocr", 85, "Stage 4: Finalize Personnel Mappings.", needs_review=True)
 
         elif stage == "finalize":
-            update_log("event", 90, "Stage 5: Fusing coordinates and finalizing Box Score...")
+            update_log("event", 90, f"v{VERSION} Stage 5: Fusing coordinates...")
             await asyncio.sleep(2)
             
             supabase.table("games").update({
@@ -111,12 +111,12 @@ async def run_stage(game_id: str, video_url: str, supabase_url: str, supabase_ke
                 "progress_percentage": 100
             }).eq("id", game_id).execute()
             
-            update_log("complete", 100, "v17.01 Modular Analysis Finalized.")
+            update_log("complete", 100, f"v{VERSION} Modular Analysis Finalized.")
 
     except Exception as e:
-        update_log(stage, 0, f"Stage Error: {str(e)}", "error")
+        update_log(stage, 0, f"v{VERSION} Fatal Error: {str(e)}", "error")
 
 @app.function()
 @modal.fastapi_endpoint(method="GET", label="v17-health")
 async def health():
-    return {"status": "operational", "version": VERSION}
+    return {"status": "operational", "version": VERSION, "audited": True}
