@@ -6,8 +6,8 @@ import threading
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
-# MODAL ELITE PIPELINE v17.34 - FINAL AUDIT SYNCHRONIZATION
-VERSION = "17.34"
+# MODAL ELITE PIPELINE v17.40 - FINAL SECRET AUDIT
+VERSION = "17.40"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -30,13 +30,11 @@ scout_image = (
 
 app = modal.App("basketball-scout-ai-v17", image=scout_image)
 
-# v17.33: Defensive secret mounting to handle plural/singular variations
-MODAL_SECRETS = []
-for name in ["supabase-key", "supabase-keys", "basketball-scout-secrets", "basketball-scouts-secrets"]:
-    try:
-        MODAL_SECRETS.append(modal.Secret.from_name(name))
-    except:
-        pass
+# v17.40: Final verified secret names (singular)
+MODAL_SECRETS = [
+    modal.Secret.from_name("supabase-key"),
+    modal.Secret.from_name("basketball-scout-secrets")
+]
 
 def get_supabase(url: str, key: str):
     from supabase import create_client
@@ -68,7 +66,7 @@ def update_log(supabase, game_id: str, current_stage: str, progress: int, messag
         print(f"Supabase logging failed: {log_err}")
 
 def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
-    """v17.32: Ultra-Robust Parallel Multi-Part Ingest with Retry Logic"""
+    """v17.36: Ultra-Robust Parallel Multi-Part Ingest with Retry Logic"""
     import requests
     import yaml
     
@@ -151,7 +149,7 @@ def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supab
     secrets=MODAL_SECRETS
 )
 def process_ingest(game_id: str, video_url: str, supabase_url: str = None, supabase_key: str = None):
-    # Fallback to secrets (supabase-key and basketball-scouts-secrets)
+    # Fallback to secrets (supabase-key and basketball-scout-secrets)
     s_url = supabase_url or os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     s_key = supabase_key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
