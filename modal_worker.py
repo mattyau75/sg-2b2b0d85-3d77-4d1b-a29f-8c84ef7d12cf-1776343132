@@ -6,8 +6,8 @@ import threading
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
-# MODAL ELITE PIPELINE v17.52 - ELITE PLATFORM AUDIT
-VERSION = "17.52"
+# MODAL ELITE PIPELINE v17.53 - SENIOR EXECUTIVE AUDIT
+VERSION = "17.53"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -30,7 +30,7 @@ scout_image = (
 
 app = modal.App("basketball-scout-ai-v17", image=scout_image)
 
-# v17.52: Hardened secret mounting with verified plural name 'supabase-keys'
+# v17.53: Hardened secret mounting with verified plural name 'supabase-keys'
 MODAL_SECRETS = [
     modal.Secret.from_name("supabase-keys"),
     modal.Secret.from_name("basketball-scout-secrets")
@@ -66,7 +66,7 @@ def update_log(supabase, game_id: str, current_stage: str, progress: int, messag
         print(f"Supabase logging failed: {log_err}")
 
 def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
-    """v17.52: Parallel Multi-Part Ingest with Retry Logic"""
+    """v17.53: Parallel Multi-Part Ingest with Retry Logic"""
     import requests
     import yaml
     
