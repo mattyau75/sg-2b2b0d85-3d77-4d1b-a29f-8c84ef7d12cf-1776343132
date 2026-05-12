@@ -6,8 +6,8 @@ import threading
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
-# MODAL ELITE PIPELINE v17.44 - SYNCHRONOUS HANDOVER
-VERSION = "17.44"
+# MODAL ELITE PIPELINE v17.51 - ELITE PLATFORM AUDIT
+VERSION = "17.51"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -30,7 +30,7 @@ scout_image = (
 
 app = modal.App("basketball-scout-ai-v17", image=scout_image)
 
-# v17.44: Hardened secret mounting with verified names
+# v17.51: Verified plural 'supabase-keys' and singular 'basketball-scout-secrets'
 MODAL_SECRETS = [
     modal.Secret.from_name("supabase-keys"),
     modal.Secret.from_name("basketball-scout-secrets")
@@ -66,7 +66,7 @@ def update_log(supabase, game_id: str, current_stage: str, progress: int, messag
         print(f"Supabase logging failed: {log_err}")
 
 def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
-    """v17.36: Ultra-Robust Parallel Multi-Part Ingest with Retry Logic"""
+    """v17.51: Parallel Multi-Part Ingest with Retry Logic"""
     import requests
     import yaml
     
@@ -74,7 +74,7 @@ def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supab
     local_path = f"/cache/{game_id}_video.mp4"
     config_path = "/cache/bytetrack_elite.yaml"
 
-    update_log(supabase, game_id, "ingest", 2, f"v{VERSION} Handshake: Signal Verified.")
+    update_log(supabase, game_id, "ingest", 2, f"v{VERSION} Signal Locked: Turbo-Ingest Active.")
     
     try:
         os.makedirs("/cache", exist_ok=True)
@@ -149,7 +149,6 @@ def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supab
     secrets=MODAL_SECRETS
 )
 def process_ingest(game_id: str, video_url: str, supabase_url: str = None, supabase_key: str = None):
-    # Fallback to secrets (supabase-key and basketball-scout-secrets)
     s_url = supabase_url or os.environ.get("SUPABASE_URL") or os.environ.get("NEXT_PUBLIC_SUPABASE_URL")
     s_key = supabase_key or os.environ.get("SUPABASE_SERVICE_ROLE_KEY")
     
