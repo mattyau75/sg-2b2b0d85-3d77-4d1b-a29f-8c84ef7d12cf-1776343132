@@ -6,8 +6,8 @@ import threading
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
-# MODAL ELITE PIPELINE v17.41 - SYNCHRONOUS HANDOVER
-VERSION = "17.41"
+# MODAL ELITE PIPELINE v17.44 - SYNCHRONOUS HANDOVER
+VERSION = "17.44"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -30,9 +30,9 @@ scout_image = (
 
 app = modal.App("basketball-scout-ai-v17", image=scout_image)
 
-# v17.40: Final verified secret names (singular)
+# v17.44: Hardened secret mounting with verified names
 MODAL_SECRETS = [
-    modal.Secret.from_name("supabase-key"),
+    modal.Secret.from_name("supabase-keys"),
     modal.Secret.from_name("basketball-scout-secrets")
 ]
 
