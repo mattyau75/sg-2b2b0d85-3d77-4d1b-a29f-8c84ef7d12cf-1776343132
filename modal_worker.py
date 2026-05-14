@@ -6,8 +6,8 @@ import threading
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
-# MODAL ELITE PIPELINE v17.91 - EXECUTIVE AUDIT
-VERSION = "17.91"
+# MODAL ELITE PIPELINE v18.04 - EXECUTIVE AUDIT
+VERSION = "18.04"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
