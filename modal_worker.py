@@ -6,8 +6,8 @@ import threading
 from typing import Dict
 from concurrent.futures import ThreadPoolExecutor
 
-# MODAL ELITE PIPELINE v17.70 - EXECUTIVE AUDIT
-VERSION = "17.70"
+# MODAL ELITE PIPELINE v17.85 - EXECUTIVE AUDIT
+VERSION = "17.85"
 
 # Provision High-Performance Volume for 3-hour temporary tactical storage
 cache_volume = modal.Volume.from_name("scout-cache-v17", create_if_missing=True)
@@ -30,7 +30,7 @@ scout_image = (
 
 app = modal.App("basketball-scout-ai-v17", image=scout_image)
 
-# v17.70: Hardened secret mounting with verified plural name 'supabase-keys'
+# v17.85: Hardened secret mounting with verified names
 MODAL_SECRETS = [
     modal.Secret.from_name("supabase-keys"),
     modal.Secret.from_name("basketball-scout-secrets")
@@ -66,7 +66,7 @@ def update_log(supabase, game_id: str, current_stage: str, progress: int, messag
         print(f"Supabase logging failed: {log_err}")
 
 def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supabase_key: str):
-    """v17.65: Parallel Multi-Part Ingest with Retry Logic"""
+    """v17.85: Parallel Multi-Part Ingest with Retry Logic"""
     import requests
     import yaml
     
@@ -139,7 +139,7 @@ def run_ingest_background(game_id: str, video_url: str, supabase_url: str, supab
             yaml.dump(bt_config, f)
         
         cache_volume.commit()
-        update_log(supabase, game_id, "ingest", 100, f"v{VERSION} Stage 1 Complete: 7GB NVMe Cache Locked.", needs_review=True)
+        update_log(supabase, game_id, "ingest", 100, f"v{VERSION} Stage 1 Complete: NVMe Cache Locked.", needs_review=True)
     except Exception as e:
         update_log(supabase, game_id, "ingest", 0, f"v{VERSION} Parallel Ingest Fatal: {str(e)}", "error")
 
